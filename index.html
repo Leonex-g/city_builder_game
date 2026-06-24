@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>City Builder</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #6AAFE6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    #c {
+      display: block;
+      width: 100vw; height: 100vh;
+      touch-action: none;
+    }
+
+    /* ── HUD ────────────────────────────────────────── */
+    #title {
+      position: fixed; top: 18px; left: 18px;
+      pointer-events: none;
+    }
+    #title h1 {
+      font-size: 20px; font-weight: 800;
+      color: #fff;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.35);
+      letter-spacing: 0.4px;
+      line-height: 1;
+    }
+    #title p {
+      font-size: 11px; font-weight: 400;
+      color: rgba(255,255,255,0.75);
+      margin-top: 3px;
+      letter-spacing: 0.3px;
+    }
+
+    /* compass */
+    #compass {
+      position: fixed; top: 16px; right: 16px;
+      width: 54px; height: 54px;
+      pointer-events: none;
+    }
+
+    /* hint pill */
+    #hint {
+      position: fixed; bottom: 26px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.38);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: rgba(255,255,255,0.92);
+      font-size: 12px; font-weight: 500;
+      letter-spacing: 0.5px;
+      padding: 7px 18px;
+      border-radius: 20px;
+      white-space: nowrap;
+      pointer-events: none;
+      transition: opacity 0.5s;
+    }
+    #hint.fade { opacity: 0; }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- Title -->
+<div id="title">
+  <h1>🏙 City Builder</h1>
+  <p>Your land awaits</p>
+</div>
+
+<!-- Compass -->
+<svg id="compass" viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="27" cy="27" r="25" fill="rgba(0,0,0,0.32)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+  <!-- Cardinal labels -->
+  <text x="27" y="11"  text-anchor="middle" font-size="8.5" fill="white"              font-family="sans-serif" font-weight="700">N</text>
+  <text x="27" y="49"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">S</text>
+  <text x="8"  y="31"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">W</text>
+  <text x="46" y="31"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">E</text>
+  <!-- Needle (rotated by JS) -->
+  <g id="needle">
+    <polygon points="27,9 29.5,27 27,23 24.5,27" fill="#FF3B30"/>
+    <polygon points="27,45 29.5,27 27,31 24.5,27" fill="rgba(255,255,255,0.85)"/>
+  </g>
+  <circle cx="27" cy="27" r="3.2" fill="rgba(20,20,20,0.6)" stroke="white" stroke-width="1.2"/>
+</svg>
+
+<!-- Drag hint -->
+<div id="hint">← Drag to rotate your land →</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─────────────────────────────────────────────────
+//  SCENE
+// ─────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x6AAFE6);
+scene.fog = new THREE.FogExp2(0x8EC8EE, 0.0038);
+
+// ─────────────────────────────────────────────────
+//  RENDERER
+// ─────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+// ─────────────────────────────────────────────────
+//  CAMERA  (fixed ~50 m away, slight elevation)
+// ─────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
+camera.position.set(0, 30, 55);
+camera.lookAt(0, 0, 0);
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ─────────────────────────────────────────────────
+//  LIGHTS
+// ─────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xC8E4FF, 0.55));
+
+const sun = new THREE.DirectionalLight(0xFFF5DD, 1.15);
+sun.position.set(55, 100, 60);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near   =  1;
+sun.shadow.camera.far    = 300;
+sun.shadow.camera.left   = -90;
+sun.shadow.camera.right  =  90;
+sun.shadow.camera.top    =  90;
+sun.shadow.camera.bottom = -90;
+sun.shadow.bias = -0.0008;
+scene.add(sun);
+
+scene.add(new THREE.HemisphereLight(0xA0D0FF, 0x3D8C28, 0.5));
+
+// ─────────────────────────────────────────────────
+//  WORLD GROUP  (only this rotates)
+// ─────────────────────────────────────────────────
+const world = new THREE.Group();
+scene.add(world);
+
+// ─────────────────────────────────────────────────
+//  LAND CONFIG
+// ─────────────────────────────────────────────────
+const LAND   = 72;    // land side length
+const CELL   = 6;     // one building plot = 6×6 units
+const NCELLS = LAND / CELL;   // 12 × 12 = 144 plots
+const WALL_H = 3;     // depth of the earth slab
+
+// ── GROUND BASE ──────────────────────────────────
+const baseGeo = new THREE.PlaneGeometry(LAND, LAND);
+const baseMat = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
+const base    = new THREE.Mesh(baseGeo, baseMat);
+base.rotation.x = -Math.PI / 2;
+base.receiveShadow = true;
+world.add(base);
+
+// ── GRASS CELL PATCHES (color variation) ─────────
+const GREENS = [
+  0x56B144, 0x4EAA3D, 0x5FC04E, 0x54AE43,
+  0x62C452, 0x4AA53A, 0x58BA47, 0x64C856,
+  0x4CA03C, 0x60C04F, 0x52AC41, 0x5ABC4A,
+];
+const patchMats = GREENS.map(c => new THREE.MeshLambertMaterial({ color: c }));
+const patchGeo  = new THREE.PlaneGeometry(CELL - 0.1, CELL - 0.1);
+
+for (let r = 0; r < NCELLS; r++) {
+  for (let c = 0; c < NCELLS; c++) {
+    const mat  = patchMats[(r * 7 + c * 3) % patchMats.length];
+    const mesh = new THREE.Mesh(patchGeo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(
+      -LAND/2 + CELL/2 + c * CELL,
+      0.015,
+      -LAND/2 + CELL/2 + r * CELL
+    );
+    mesh.receiveShadow = true;
+    world.add(mesh);
+  }
+}
+
+// ── GRID LINES ───────────────────────────────────
+const grid = new THREE.GridHelper(LAND, NCELLS, 0x1E6B0D, 0x1E6B0D);
+grid.position.y = 0.04;
+const gridMats = Array.isArray(grid.material) ? grid.material : [grid.material];
+gridMats.forEach(m => { m.opacity = 0.22; m.transparent = true; });
+world.add(grid);
+
+// ── EARTH SLAB SIDES ─────────────────────────────
+const dirtColor  = 0x7B5130;
+const dirtMat    = new THREE.MeshLambertMaterial({ color: dirtColor });
+const grassEdge  = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
+
+const sideAngles = [0, Math.PI, -Math.PI/2, Math.PI/2];
+const sideAxisZ  = [LAND/2, -LAND/2, 0, 0];
+const sideAxisX  = [0, 0, LAND/2, -LAND/2];
+
+for (let i = 0; i < 4; i++) {
+  // dirt face
+  const dg = new THREE.BoxGeometry(LAND + 0.6, WALL_H, 0.65);
+  const dm = new THREE.Mesh(dg, dirtMat);
+  dm.position.set(sideAxisX[i], -WALL_H/2, sideAxisZ[i]);
+  dm.rotation.y = sideAngles[i];
+  dm.castShadow = true;
+  dm.receiveShadow = true;
+  world.add(dm);
+
+  // thin grass cap on top edge
+  const cg = new THREE.BoxGeometry(LAND + 0.65, 0.18, 0.7);
+  const cm = new THREE.Mesh(cg, grassEdge);
+  cm.position.set(sideAxisX[i], 0.09, sideAxisZ[i]);
+  cm.rotation.y = sideAngles[i];
+  world.add(cm);
+}
+
+// bottom cap
+const botGeo = new THREE.PlaneGeometry(LAND, LAND);
+const bot    = new THREE.Mesh(botGeo, dirtMat);
+bot.rotation.x = Math.PI / 2;
+bot.position.y = -WALL_H;
+world.add(bot);
+
+// corner pillars (fill the seams)
+const corners = [
+  [ LAND/2,  LAND/2], [-LAND/2,  LAND/2],
+  [ LAND/2, -LAND/2], [-LAND/2, -LAND/2],
+];
+corners.forEach(([x, z]) => {
+  const cg = new THREE.BoxGeometry(0.65, WALL_H, 0.65);
+  const cm = new THREE.Mesh(cg, dirtMat);
+  cm.position.set(x, -WALL_H/2, z);
+  world.add(cm);
+});
+
+// ── SCATTERED GRASS TUFTS ────────────────────────
+// Simple thin quads to break uniformity
+const tuftMat = new THREE.MeshLambertMaterial({ color: 0x3E7A2A, side: THREE.DoubleSide });
+function addTuft(x, z) {
+  const h = 0.25 + Math.random() * 0.2;
+  const g = new THREE.PlaneGeometry(0.35, h);
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(g, tuftMat);
+    m.position.set(x + (Math.random()-0.5)*0.3, h/2, z + (Math.random()-0.5)*0.3);
+    m.rotation.y = Math.random() * Math.PI;
+    world.add(m);
+  }
+}
+// Place ~60 random tufts away from center
+for (let i = 0; i < 60; i++) {
+  const x = (Math.random() - 0.5) * (LAND - 4);
+  const z = (Math.random() - 0.5) * (LAND - 4);
+  if (Math.abs(x) > 6 || Math.abs(z) > 6) addTuft(x, z);
+}
+
+// ─────────────────────────────────────────────────
+//  CLOUDS  (scene-level, don't rotate with land)
+// ─────────────────────────────────────────────────
+const cloudMat = new THREE.MeshLambertMaterial({
+  color: 0xFFFFFF, transparent: true, opacity: 0.88
+});
+
+function makeCloud(x, y, z, scale) {
+  const g = new THREE.Group();
+  const blobs = [
+    [0, 0, 0, 4.2, 2.4, 3.8],
+    [-4, -0.5, 0.4, 3.2, 2.0, 2.9],
+    [ 4, -0.6, -0.2, 3.4, 1.9, 3.1],
+    [0,  1.5, 0.2, 2.6, 1.6, 2.2],
+    [-1.5, -0.8, -2.0, 2.4, 1.4, 2.0],
+  ];
+  blobs.forEach(([dx,dy,dz, sx,sy,sz]) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), cloudMat);
+    m.scale.set(sx, sy, sz);
+    m.position.set(dx, dy, dz);
+    g.add(m);
+  });
+  g.scale.setScalar(scale);
+  g.position.set(x, y, z);
+  return g;
+}
+
+const CLOUD_DEFS = [
+  [-40, 38, -70, 1.1],  [ 30, 44, -80, 0.9],
+  [ 70, 36, -55, 1.2],  [-75, 42,  20, 1.0],
+  [ 15, 48,  50, 0.85], [ 65, 40,  40, 1.05],
+  [-20, 35, -30, 0.75], [ 50, 50, -20, 0.95],
+];
+const clouds = CLOUD_DEFS.map(([x,y,z,s]) => {
+  const c = makeCloud(x, y, z, s);
+  scene.add(c);
+  return { mesh: c, speed: 0.008 + Math.random() * 0.006, dir: Math.random() > 0.5 ? 1 : -1 };
+});
+
+// ─────────────────────────────────────────────────
+//  SUBTLE SKY HAZE PLANE (far background)
+// ─────────────────────────────────────────────────
+const hazeGeo = new THREE.PlaneGeometry(800, 200);
+const hazeMat = new THREE.MeshBasicMaterial({
+  color: 0xC0DCF5, transparent: true, opacity: 0.35, side: THREE.DoubleSide
+});
+const haze = new THREE.Mesh(hazeGeo, hazeMat);
+haze.position.set(0, 28, -200);
+scene.add(haze);
+
+// ─────────────────────────────────────────────────
+//  INPUT — horizontal drag only (Y-axis rotation)
+// ─────────────────────────────────────────────────
+let dragging  = false;
+let lastX     = 0;
+let rotY      = 0;       // smoothed rotation
+let targetY   = 0;       // target rotation
+let vel       = 0;       // inertia
+
+function startDrag(x) {
+  dragging = true;
+  lastX    = x;
+  vel      = 0;
+  // Fade hint on first touch
+  if (hintEl && !hintFaded) {
+    setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200);
+  }
+}
+function moveDrag(x) {
+  if (!dragging) return;
+  const dx = (x - lastX) * 0.011;
+  vel      = dx;
+  targetY += dx;
+  lastX    = x;
+}
+function endDrag() { dragging = false; }
+
+// Mouse
+canvas.addEventListener('mousedown',  e => startDrag(e.clientX));
+canvas.addEventListener('mousemove',  e => moveDrag(e.clientX));
+canvas.addEventListener('mouseup',    endDrag);
+canvas.addEventListener('mouseleave', endDrag);
+
+// Touch
+canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e.touches[0].clientX); }, { passive: false });
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); moveDrag(e.touches[0].clientX);  }, { passive: false });
+canvas.addEventListener('touchend',   e => { e.preventDefault(); endDrag(); },                       { passive: false });
+
+// ─────────────────────────────────────────────────
+//  COMPASS
+// ─────────────────────────────────────────────────
+const needle = document.getElementById('needle');
+function updateCompass(angle) {
+  const deg = -(angle * 180 / Math.PI) % 360;
+  needle.setAttribute('transform', `rotate(${deg.toFixed(2)}, 27, 27)`);
+}
+
+// ─────────────────────────────────────────────────
+//  HINT AUTO-FADE
+// ─────────────────────────────────────────────────
+const hintEl  = document.getElementById('hint');
+let hintFaded = false;
+setTimeout(() => { if (!hintFaded) { hintEl.classList.add('fade'); hintFaded = true; } }, 5000);
+
+// ─────────────────────────────────────────────────
+//  ANIMATION LOOP
+// ─────────────────────────────────────────────────
+let t = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  t += 0.004;
+
+  // ── Inertia & smoothing ──
+  if (!dragging) {
+    vel     *= 0.91;
+    targetY += vel;
+  }
+  rotY     += (targetY - rotY) * 0.13;
+  world.rotation.y = rotY;
+
+  // ── Cloud drift (world-space, not tied to land) ──
+  clouds.forEach((c, i) => {
+    c.mesh.position.x += c.speed * c.dir;
+    if (c.mesh.position.x >  160) { c.mesh.position.x = -160; }
+    if (c.mesh.position.x < -160) { c.mesh.position.x =  160; }
+    // gentle bob
+    c.mesh.position.y += Math.sin(t * 0.8 + i) * 0.002;
+  });
+
+  // ── Compass ──
+  updateCompass(rotY);
+
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
+</html>
