@@ -66,6 +66,66 @@
       transition: opacity 0.5s;
     }
     #hint.fade { opacity: 0; }
+
+    /* ── ZOOM CONTROLS ──────────────────────────── */
+    #zoom-wrap {
+      position: fixed;
+      bottom: 28px;
+      right: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+    }
+    .zbtn {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.36);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255,255,255,0.28);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 300;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, transform 0.1s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .zbtn:active {
+      background: rgba(255,255,255,0.18);
+      transform: scale(0.92);
+    }
+    #zoom-label {
+      font-size: 11px; font-weight: 700;
+      color: rgba(255,255,255,0.88);
+      letter-spacing: 0.6px;
+      background: rgba(0,0,0,0.32);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 4px 9px;
+      border-radius: 10px;
+      min-width: 44px;
+      text-align: center;
+    }
+    /* zoom progress bar behind label */
+    #zoom-bar-wrap {
+      width: 4px; height: 60px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #zoom-bar-fill {
+      width: 100%;
+      background: rgba(255,255,255,0.75);
+      border-radius: 4px;
+      transition: height 0.2s;
+      position: relative;
+      bottom: 0;
+      /* grows from bottom — set via JS */
+    }
   </style>
 </head>
 <body>
@@ -97,6 +157,16 @@
 <!-- Drag hint -->
 <div id="hint">← Drag to rotate your land →</div>
 
+<!-- Zoom controls -->
+<div id="zoom-wrap">
+  <button class="zbtn" id="btn-in"  aria-label="Zoom in" title="Zoom in">+</button>
+  <div id="zoom-bar-wrap">
+    <div id="zoom-bar-fill"></div>
+  </div>
+  <div id="zoom-label">60m</div>
+  <button class="zbtn" id="btn-out" aria-label="Zoom out" title="Zoom out">−</button>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ─────────────────────────────────────────────────
@@ -116,11 +186,24 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 // ─────────────────────────────────────────────────
-//  CAMERA  (fixed ~50 m away, slight elevation)
+//  CAMERA  (fixed angle, variable distance 20–100 m)
 // ─────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
-camera.position.set(0, 30, 55);
-camera.lookAt(0, 0, 0);
+
+const ZOOM_MIN = 20;
+const ZOOM_MAX = 100;
+const ZOOM_DEF = 60;
+
+// Fixed look-angle from original position (0, 30, 55) → normalised
+const CAM_DIR   = new THREE.Vector3(0, 30, 55).normalize();
+let   zoomDist  = ZOOM_DEF;
+let   targetZoom= ZOOM_DEF;
+
+function updateCamera() {
+  camera.position.copy(CAM_DIR).multiplyScalar(zoomDist);
+  camera.lookAt(0, 0, 0);
+}
+updateCamera();
 
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -353,10 +436,86 @@ canvas.addEventListener('mousemove',  e => moveDrag(e.clientX));
 canvas.addEventListener('mouseup',    endDrag);
 canvas.addEventListener('mouseleave', endDrag);
 
-// Touch
-canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e.touches[0].clientX); }, { passive: false });
-canvas.addEventListener('touchmove',  e => { e.preventDefault(); moveDrag(e.touches[0].clientX);  }, { passive: false });
-canvas.addEventListener('touchend',   e => { e.preventDefault(); endDrag(); },                       { passive: false });
+// Mouse-wheel zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + e.deltaY * 0.06));
+}, { passive: false });
+
+// ── Touch (1-finger drag  |  2-finger pinch-zoom) ─
+let pinching      = false;
+let lastPinchDist = 0;
+
+function getPinchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    pinching = true;
+    dragging = false;
+    lastPinchDist = getPinchDist(e.touches);
+  } else {
+    pinching = false;
+    startDrag(e.touches[0].clientX);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    pinching = true;
+    dragging = false;
+    const d = getPinchDist(e.touches);
+    // pinch-in  → positive delta → zoom out (further)
+    // pinch-out → negative delta → zoom in  (closer)
+    const delta = (lastPinchDist - d) * 0.14;
+    targetZoom    = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + delta));
+    lastPinchDist = d;
+  } else if (!pinching) {
+    moveDrag(e.touches[0].clientX);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (e.touches.length < 2) pinching = false;
+  if (e.touches.length === 0) endDrag();
+}, { passive: false });
+
+// ── Zoom buttons ──────────────────────────────────
+const zoomLabel   = document.getElementById('zoom-label');
+const zoomBarFill = document.getElementById('zoom-bar-fill');
+const STEP = 10;
+
+document.getElementById('btn-in').addEventListener('click', () => {
+  targetZoom = Math.max(ZOOM_MIN, targetZoom - STEP);
+});
+document.getElementById('btn-out').addEventListener('click', () => {
+  targetZoom = Math.min(ZOOM_MAX, targetZoom + STEP);
+});
+
+// Hold-to-zoom (press and hold the buttons)
+function holdZoom(dir) {
+  let raf;
+  function step() {
+    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + dir * 0.8));
+    raf = requestAnimationFrame(step);
+  }
+  step();
+  return () => cancelAnimationFrame(raf);
+}
+['btn-in','btn-out'].forEach((id, i) => {
+  const dir = i === 0 ? -1 : 1;
+  const el  = document.getElementById(id);
+  let   stop;
+  el.addEventListener('pointerdown', () => { stop = holdZoom(dir); });
+  el.addEventListener('pointerup',   () => stop && stop());
+  el.addEventListener('pointerleave',() => stop && stop());
+});
 
 // ─────────────────────────────────────────────────
 //  COMPASS
@@ -389,6 +548,18 @@ function animate() {
   }
   rotY     += (targetY - rotY) * 0.13;
   world.rotation.y = rotY;
+
+  // ── Zoom smooth follow ──
+  zoomDist += (targetZoom - zoomDist) * 0.10;
+  updateCamera();
+  // Update zoom HUD
+  const zm = Math.round(zoomDist);
+  zoomLabel.textContent = zm + 'm';
+  // Bar fill: 100% = ZOOM_MIN (close), 0% = ZOOM_MAX (far)
+  const pct = 1 - (zoomDist - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
+  const barH = Math.round(pct * 60);
+  zoomBarFill.style.height  = barH + 'px';
+  zoomBarFill.style.marginTop = (60 - barH) + 'px';
 
   // ── Cloud drift (world-space, not tied to land) ──
   clouds.forEach((c, i) => {
