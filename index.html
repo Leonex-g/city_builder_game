@@ -11,120 +11,151 @@
       -webkit-touch-callout: none;
       user-select: none;
     }
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #6AAFE6;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    #c {
-      display: block;
-      width: 100vw; height: 100vh;
-      touch-action: none;
-    }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #6AAFE6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    #c { display: block; width: 100vw; height: 100vh; touch-action: none; }
 
-    /* ── HUD ────────────────────────────────────────── */
-    #title {
-      position: fixed; top: 18px; left: 18px;
-      pointer-events: none;
-    }
-    #title h1 {
-      font-size: 20px; font-weight: 800;
-      color: #fff;
-      text-shadow: 0 1px 8px rgba(0,0,0,0.35);
-      letter-spacing: 0.4px;
-      line-height: 1;
-    }
-    #title p {
-      font-size: 11px; font-weight: 400;
-      color: rgba(255,255,255,0.75);
-      margin-top: 3px;
-      letter-spacing: 0.3px;
-    }
+    /* ── Title ────────────────────────────────────── */
+    #title { position: fixed; top: 18px; left: 18px; pointer-events: none; }
+    #title h1 { font-size: 20px; font-weight: 800; color: #fff;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.35); letter-spacing: 0.4px; line-height: 1; }
+    #title p  { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.75);
+      margin-top: 3px; letter-spacing: 0.3px; }
 
-    /* compass */
-    #compass {
-      position: fixed; top: 16px; right: 16px;
-      width: 54px; height: 54px;
-      pointer-events: none;
-    }
+    /* ── Compass ──────────────────────────────────── */
+    #compass { position: fixed; top: 16px; right: 16px; width: 54px; height: 54px; pointer-events: none; }
 
-    /* hint pill */
+    /* ── Hint ─────────────────────────────────────── */
     #hint {
-      position: fixed; bottom: 26px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.38);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      color: rgba(255,255,255,0.92);
-      font-size: 12px; font-weight: 500;
-      letter-spacing: 0.5px;
-      padding: 7px 18px;
-      border-radius: 20px;
-      white-space: nowrap;
-      pointer-events: none;
-      transition: opacity 0.5s;
+      position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.38); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      color: rgba(255,255,255,0.92); font-size: 12px; font-weight: 500; letter-spacing: 0.5px;
+      padding: 7px 18px; border-radius: 20px; white-space: nowrap;
+      pointer-events: none; transition: opacity 0.5s;
     }
     #hint.fade { opacity: 0; }
 
-    /* ── ZOOM CONTROLS ──────────────────────────── */
-    #zoom-wrap {
-      position: fixed;
-      bottom: 28px;
-      right: 18px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 7px;
-    }
+    /* ── Zoom controls ────────────────────────────── */
+    #zoom-wrap { position: fixed; bottom: 28px; right: 18px;
+      display: flex; flex-direction: column; align-items: center; gap: 7px; }
     .zbtn {
-      width: 46px; height: 46px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.36);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(255,255,255,0.28);
-      color: #fff;
-      font-size: 24px;
-      font-weight: 300;
-      line-height: 1;
-      cursor: pointer;
+      width: 46px; height: 46px; border-radius: 50%;
+      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 24px; font-weight: 300;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
+    }
+    .zbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
+    #zoom-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.88);
+      letter-spacing: 0.6px; background: rgba(0,0,0,0.32); backdrop-filter: blur(8px);
+      padding: 4px 9px; border-radius: 10px; min-width: 44px; text-align: center; }
+    #zoom-bar-wrap { width: 4px; height: 60px; background: rgba(255,255,255,0.15);
+      border-radius: 4px; overflow: hidden; }
+    #zoom-bar-fill { width: 100%; background: rgba(255,255,255,0.75); border-radius: 4px; transition: height 0.2s; }
+
+    /* ── BUILD BUTTON ─────────────────────────────── */
+    #build-btn {
+      position: fixed; bottom: 28px; left: 18px;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(145deg, #2d6a4f, #40916c);
+      border: 2px solid rgba(255,255,255,0.28);
+      color: #fff; font-size: 26px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s, transform 0.1s;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.32);
+      transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), background 0.2s;
+      touch-action: manipulation; z-index: 20;
     }
-    .zbtn:active {
-      background: rgba(255,255,255,0.18);
-      transform: scale(0.92);
+    #build-btn.open {
+      background: linear-gradient(145deg, #c1121f, #e63946);
+      font-size: 21px;
+      letter-spacing: 0;
     }
-    #zoom-label {
-      font-size: 11px; font-weight: 700;
-      color: rgba(255,255,255,0.88);
-      letter-spacing: 0.6px;
-      background: rgba(0,0,0,0.32);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      padding: 4px 9px;
-      border-radius: 10px;
-      min-width: 44px;
-      text-align: center;
+    #build-btn:active { transform: scale(0.9); }
+    #build-btn.open:active { transform: scale(0.9); }
+
+    /* ── BUILD MENU ───────────────────────────────── */
+    #build-menu {
+      position: fixed; bottom: 96px; left: 18px;
+      display: flex; flex-direction: column; gap: 9px;
+      opacity: 0; transform: translateY(16px) scale(0.97);
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
+      z-index: 20;
     }
-    /* zoom progress bar behind label */
-    #zoom-bar-wrap {
-      width: 4px; height: 60px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 4px;
+    #build-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+    .bitem {
+      display: flex; align-items: center; gap: 11px;
+      background: rgba(15,15,15,0.48); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255,255,255,0.18); border-radius: 16px;
+      padding: 10px 16px 10px 12px; cursor: pointer;
+      color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
+      transition: background 0.14s, transform 0.1s, border-color 0.14s;
+      touch-action: manipulation; white-space: nowrap; min-width: 130px;
+    }
+    .bitem .bi  { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .bitem .blabel { display: flex; flex-direction: column; }
+    .bitem .bname  { font-size: 13px; font-weight: 700; line-height: 1; }
+    .bitem .bdesc  { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .bitem:active  { transform: scale(0.95); }
+    .bitem.selected {
+      background: rgba(45,106,79,0.65);
+      border-color: rgba(100,255,160,0.45);
+      color: #fff;
+    }
+    .bitem.selected .bname { color: #88ffbb; }
+
+    /* ── ACTIVE TOOL BADGE ────────────────────────── */
+    #tool-badge {
+      position: fixed; top: 68px; left: 18px;
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(15,15,15,0.45); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18); border-radius: 12px;
+      padding: 6px 13px 6px 10px;
+      color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+      pointer-events: none; opacity: 0; transition: opacity 0.25s;
+    }
+    #tool-badge.show { opacity: 1; }
+    #tool-badge .ti { font-size: 17px; }
+    #tool-badge .tn { font-size: 11px; color: #88ffbb; }
+
+    /* ── HOUSE PANEL (Sketchfab 3D embed) ────────── */
+    .house-panel {
+      position: fixed;
+      transform: translate(-50%, calc(-100% - 12px));
+      z-index: 25;
+      background: rgba(8, 12, 20, 0.90);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border: 1.5px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
       overflow: hidden;
+      box-shadow: 0 8px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+      pointer-events: auto;
+      animation: panelPop 0.28s cubic-bezier(.34,1.56,.64,1) both;
     }
-    #zoom-bar-fill {
-      width: 100%;
-      background: rgba(255,255,255,0.75);
-      border-radius: 4px;
-      transition: height 0.2s;
-      position: relative;
-      bottom: 0;
-      /* grows from bottom — set via JS */
+    @keyframes panelPop {
+      from { opacity: 0; transform: translate(-50%, calc(-100% - 20px)) scale(0.88); }
+      to   { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1); }
+    }
+    .house-panel .hp-header {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 12px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.88);
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+    .house-panel .hp-header span { font-size: 14px; }
+    .house-panel iframe { display: block; border: none; background: #08080f; }
+    /* connector dot pointing down to the block */
+    .house-panel::after {
+      content: '';
+      position: absolute; bottom: -7px; left: 50%;
+      transform: translateX(-50%);
+      width: 10px; height: 10px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.28);
     }
   </style>
 </head>
@@ -141,12 +172,10 @@
 <!-- Compass -->
 <svg id="compass" viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
   <circle cx="27" cy="27" r="25" fill="rgba(0,0,0,0.32)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-  <!-- Cardinal labels -->
-  <text x="27" y="11"  text-anchor="middle" font-size="8.5" fill="white"              font-family="sans-serif" font-weight="700">N</text>
+  <text x="27" y="11"  text-anchor="middle" font-size="8.5" fill="white"               font-family="sans-serif" font-weight="700">N</text>
   <text x="27" y="49"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">S</text>
   <text x="8"  y="31"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">W</text>
   <text x="46" y="31"  text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.5)" font-family="sans-serif">E</text>
-  <!-- Needle (rotated by JS) -->
   <g id="needle">
     <polygon points="27,9 29.5,27 27,23 24.5,27" fill="#FF3B30"/>
     <polygon points="27,45 29.5,27 27,31 24.5,27" fill="rgba(255,255,255,0.85)"/>
@@ -154,17 +183,44 @@
   <circle cx="27" cy="27" r="3.2" fill="rgba(20,20,20,0.6)" stroke="white" stroke-width="1.2"/>
 </svg>
 
-<!-- Drag hint -->
-<div id="hint">← Drag to rotate your land →</div>
+<!-- Hint -->
+<div id="hint">← Drag to rotate · Tap to build →</div>
 
 <!-- Zoom controls -->
 <div id="zoom-wrap">
-  <button class="zbtn" id="btn-in"  aria-label="Zoom in" title="Zoom in">+</button>
-  <div id="zoom-bar-wrap">
-    <div id="zoom-bar-fill"></div>
-  </div>
+  <button class="zbtn" id="btn-in"  aria-label="Zoom in">+</button>
+  <div id="zoom-bar-wrap"><div id="zoom-bar-fill"></div></div>
   <div id="zoom-label">60m</div>
-  <button class="zbtn" id="btn-out" aria-label="Zoom out" title="Zoom out">−</button>
+  <button class="zbtn" id="btn-out" aria-label="Zoom out">−</button>
+</div>
+
+<!-- Build button -->
+<button id="build-btn" aria-label="Toggle build menu">🏗️</button>
+
+<!-- Build menu -->
+<div id="build-menu">
+  <div class="bitem" data-tool="road">
+    <span class="bi">🛣️</span>
+    <span class="blabel"><span class="bname">Road</span><span class="bdesc">Connect your city</span></span>
+  </div>
+  <div class="bitem" data-tool="house">
+    <span class="bi">🏠</span>
+    <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
+  </div>
+  <div class="bitem" data-tool="park">
+    <span class="bi">🌲</span>
+    <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
+  </div>
+  <div class="bitem" data-tool="erase">
+    <span class="bi">🗑️</span>
+    <span class="blabel"><span class="bname">Erase</span><span class="bdesc">Clear a plot</span></span>
+  </div>
+</div>
+
+<!-- Active tool badge -->
+<div id="tool-badge">
+  <span class="ti" id="badge-icon"></span>
+  <span class="tn" id="badge-name"></span>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -186,19 +242,12 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 // ─────────────────────────────────────────────────
-//  CAMERA  (fixed angle, variable distance 20–100 m)
+//  CAMERA  (fixed direction, 20–100 m range)
 // ─────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
-
-const ZOOM_MIN = 20;
-const ZOOM_MAX = 100;
-const ZOOM_DEF = 60;
-
-// Fixed look-angle from original position (0, 30, 55) → normalised
-const CAM_DIR   = new THREE.Vector3(0, 30, 55).normalize();
-let   zoomDist  = ZOOM_DEF;
-let   targetZoom= ZOOM_DEF;
-
+const ZOOM_MIN = 20, ZOOM_MAX = 100, ZOOM_DEF = 60;
+const CAM_DIR  = new THREE.Vector3(0, 30, 55).normalize();
+let   zoomDist = ZOOM_DEF, targetZoom = ZOOM_DEF;
 function updateCamera() {
   camera.position.copy(CAM_DIR).multiplyScalar(zoomDist);
   camera.lookAt(0, 0, 0);
@@ -218,303 +267,577 @@ onResize();
 //  LIGHTS
 // ─────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xC8E4FF, 0.55));
-
 const sun = new THREE.DirectionalLight(0xFFF5DD, 1.15);
 sun.position.set(55, 100, 60);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.near   =  1;
-sun.shadow.camera.far    = 300;
-sun.shadow.camera.left   = -90;
-sun.shadow.camera.right  =  90;
-sun.shadow.camera.top    =  90;
-sun.shadow.camera.bottom = -90;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 300;
+sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
+sun.shadow.camera.top  =  90; sun.shadow.camera.bottom = -90;
 sun.shadow.bias = -0.0008;
 scene.add(sun);
-
 scene.add(new THREE.HemisphereLight(0xA0D0FF, 0x3D8C28, 0.5));
 
 // ─────────────────────────────────────────────────
-//  WORLD GROUP  (only this rotates)
+//  WORLD GROUP  (rotates on Y)
 // ─────────────────────────────────────────────────
 const world = new THREE.Group();
 scene.add(world);
 
 // ─────────────────────────────────────────────────
-//  LAND CONFIG
+//  LAND
 // ─────────────────────────────────────────────────
-const LAND   = 72;    // land side length
-const CELL   = 6;     // one building plot = 6×6 units
-const NCELLS = LAND / CELL;   // 12 × 12 = 144 plots
-const WALL_H = 3;     // depth of the earth slab
+const LAND = 72, CELL = 6, NCELLS = LAND / CELL, WALL_H = 3;
 
-// ── GROUND BASE ──────────────────────────────────
-const baseGeo = new THREE.PlaneGeometry(LAND, LAND);
-const baseMat = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
-const base    = new THREE.Mesh(baseGeo, baseMat);
+// Base
+const base = new THREE.Mesh(
+  new THREE.PlaneGeometry(LAND, LAND),
+  new THREE.MeshLambertMaterial({ color: 0x3E8A2C })
+);
 base.rotation.x = -Math.PI / 2;
 base.receiveShadow = true;
 world.add(base);
 
-// ── GRASS CELL PATCHES (color variation) ─────────
-const GREENS = [
-  0x56B144, 0x4EAA3D, 0x5FC04E, 0x54AE43,
-  0x62C452, 0x4AA53A, 0x58BA47, 0x64C856,
-  0x4CA03C, 0x60C04F, 0x52AC41, 0x5ABC4A,
-];
+// Grass cell patches
+const GREENS = [0x56B144,0x4EAA3D,0x5FC04E,0x54AE43,0x62C452,0x4AA53A,0x58BA47,0x64C856,0x4CA03C,0x60C04F,0x52AC41,0x5ABC4A];
 const patchMats = GREENS.map(c => new THREE.MeshLambertMaterial({ color: c }));
 const patchGeo  = new THREE.PlaneGeometry(CELL - 0.1, CELL - 0.1);
-
 for (let r = 0; r < NCELLS; r++) {
   for (let c = 0; c < NCELLS; c++) {
-    const mat  = patchMats[(r * 7 + c * 3) % patchMats.length];
-    const mesh = new THREE.Mesh(patchGeo, mat);
+    const mesh = new THREE.Mesh(patchGeo, patchMats[(r*7+c*3) % patchMats.length]);
     mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(
-      -LAND/2 + CELL/2 + c * CELL,
-      0.015,
-      -LAND/2 + CELL/2 + r * CELL
-    );
+    mesh.position.set(-LAND/2 + CELL/2 + c*CELL, 0.015, -LAND/2 + CELL/2 + r*CELL);
     mesh.receiveShadow = true;
     world.add(mesh);
   }
 }
 
-// ── GRID LINES ───────────────────────────────────
+// Grid
 const grid = new THREE.GridHelper(LAND, NCELLS, 0x1E6B0D, 0x1E6B0D);
 grid.position.y = 0.04;
-const gridMats = Array.isArray(grid.material) ? grid.material : [grid.material];
-gridMats.forEach(m => { m.opacity = 0.22; m.transparent = true; });
+(Array.isArray(grid.material) ? grid.material : [grid.material])
+  .forEach(m => { m.opacity = 0.22; m.transparent = true; });
 world.add(grid);
 
-// ── EARTH SLAB SIDES ─────────────────────────────
-const dirtColor  = 0x7B5130;
-const dirtMat    = new THREE.MeshLambertMaterial({ color: dirtColor });
-const grassEdge  = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
-
-const sideAngles = [0, Math.PI, -Math.PI/2, Math.PI/2];
-const sideAxisZ  = [LAND/2, -LAND/2, 0, 0];
-const sideAxisX  = [0, 0, LAND/2, -LAND/2];
-
-for (let i = 0; i < 4; i++) {
-  // dirt face
-  const dg = new THREE.BoxGeometry(LAND + 0.6, WALL_H, 0.65);
-  const dm = new THREE.Mesh(dg, dirtMat);
-  dm.position.set(sideAxisX[i], -WALL_H/2, sideAxisZ[i]);
-  dm.rotation.y = sideAngles[i];
-  dm.castShadow = true;
-  dm.receiveShadow = true;
-  world.add(dm);
-
-  // thin grass cap on top edge
-  const cg = new THREE.BoxGeometry(LAND + 0.65, 0.18, 0.7);
-  const cm = new THREE.Mesh(cg, grassEdge);
-  cm.position.set(sideAxisX[i], 0.09, sideAxisZ[i]);
-  cm.rotation.y = sideAngles[i];
-  world.add(cm);
-}
-
-// bottom cap
-const botGeo = new THREE.PlaneGeometry(LAND, LAND);
-const bot    = new THREE.Mesh(botGeo, dirtMat);
-bot.rotation.x = Math.PI / 2;
-bot.position.y = -WALL_H;
-world.add(bot);
-
-// corner pillars (fill the seams)
-const corners = [
-  [ LAND/2,  LAND/2], [-LAND/2,  LAND/2],
-  [ LAND/2, -LAND/2], [-LAND/2, -LAND/2],
-];
-corners.forEach(([x, z]) => {
-  const cg = new THREE.BoxGeometry(0.65, WALL_H, 0.65);
-  const cm = new THREE.Mesh(cg, dirtMat);
-  cm.position.set(x, -WALL_H/2, z);
-  world.add(cm);
+// Earth walls
+const dirtMat   = new THREE.MeshLambertMaterial({ color: 0x7B5130 });
+const grassEdge = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
+[0, Math.PI, -Math.PI/2, Math.PI/2].forEach((angle, i) => {
+  const ax = [0,0,LAND/2,-LAND/2][i], az = [LAND/2,-LAND/2,0,0][i];
+  const d = new THREE.Mesh(new THREE.BoxGeometry(LAND+0.6, WALL_H, 0.65), dirtMat);
+  d.position.set(ax,-WALL_H/2,az); d.rotation.y = angle;
+  d.castShadow = true; d.receiveShadow = true; world.add(d);
+  const e = new THREE.Mesh(new THREE.BoxGeometry(LAND+0.65, 0.18, 0.7), grassEdge);
+  e.position.set(ax, 0.09, az); e.rotation.y = angle; world.add(e);
+});
+const bot = new THREE.Mesh(new THREE.PlaneGeometry(LAND,LAND), dirtMat);
+bot.rotation.x = Math.PI/2; bot.position.y = -WALL_H; world.add(bot);
+[[LAND/2,LAND/2],[-LAND/2,LAND/2],[LAND/2,-LAND/2],[-LAND/2,-LAND/2]].forEach(([x,z]) => {
+  const c = new THREE.Mesh(new THREE.BoxGeometry(0.65,WALL_H,0.65), dirtMat);
+  c.position.set(x,-WALL_H/2,z); world.add(c);
 });
 
-// ── SCATTERED GRASS TUFTS ────────────────────────
-// Simple thin quads to break uniformity
+// Grass tufts
 const tuftMat = new THREE.MeshLambertMaterial({ color: 0x3E7A2A, side: THREE.DoubleSide });
 function addTuft(x, z) {
-  const h = 0.25 + Math.random() * 0.2;
+  const h = 0.25 + Math.random()*0.2;
   const g = new THREE.PlaneGeometry(0.35, h);
   for (let i = 0; i < 3; i++) {
     const m = new THREE.Mesh(g, tuftMat);
-    m.position.set(x + (Math.random()-0.5)*0.3, h/2, z + (Math.random()-0.5)*0.3);
-    m.rotation.y = Math.random() * Math.PI;
-    world.add(m);
+    m.position.set(x+(Math.random()-.5)*.3, h/2, z+(Math.random()-.5)*.3);
+    m.rotation.y = Math.random()*Math.PI; world.add(m);
   }
 }
-// Place ~60 random tufts away from center
 for (let i = 0; i < 60; i++) {
-  const x = (Math.random() - 0.5) * (LAND - 4);
-  const z = (Math.random() - 0.5) * (LAND - 4);
+  const x = (Math.random()-.5)*(LAND-4), z = (Math.random()-.5)*(LAND-4);
   if (Math.abs(x) > 6 || Math.abs(z) > 6) addTuft(x, z);
 }
 
 // ─────────────────────────────────────────────────
-//  CLOUDS  (scene-level, don't rotate with land)
+//  RAYCASTING HIT PLANE  (child of world → rotates)
 // ─────────────────────────────────────────────────
-const cloudMat = new THREE.MeshLambertMaterial({
-  color: 0xFFFFFF, transparent: true, opacity: 0.88
-});
+const hitPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(LAND, LAND),
+  new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+);
+hitPlane.rotation.x = -Math.PI / 2;
+hitPlane.position.y = 0.02;
+world.add(hitPlane);
 
-function makeCloud(x, y, z, scale) {
-  const g = new THREE.Group();
-  const blobs = [
-    [0, 0, 0, 4.2, 2.4, 3.8],
-    [-4, -0.5, 0.4, 3.2, 2.0, 2.9],
-    [ 4, -0.6, -0.2, 3.4, 1.9, 3.1],
-    [0,  1.5, 0.2, 2.6, 1.6, 2.2],
-    [-1.5, -0.8, -2.0, 2.4, 1.4, 2.0],
-  ];
-  blobs.forEach(([dx,dy,dz, sx,sy,sz]) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), cloudMat);
-    m.scale.set(sx, sy, sz);
-    m.position.set(dx, dy, dz);
-    g.add(m);
+// ─────────────────────────────────────────────────
+//  HOVER HIGHLIGHT MESH
+// ─────────────────────────────────────────────────
+const hoverMat  = new THREE.MeshBasicMaterial({ color: 0x88FF88, transparent: true, opacity: 0.42 });
+const hoverMesh = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.15, 0.09, CELL-0.15), hoverMat);
+hoverMesh.visible = false;
+world.add(hoverMesh);
+
+const hoverBorder = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(CELL-0.1, 0.1, CELL-0.1)),
+  new THREE.LineBasicMaterial({ color: 0x44FF88, transparent: true, opacity: 0.75 })
+);
+hoverBorder.visible = false;
+world.add(hoverBorder);
+
+const raycaster = new THREE.Raycaster();
+
+// ─────────────────────────────────────────────────
+//  BUILD STATE
+// ─────────────────────────────────────────────────
+let selectedTool  = null;
+let buildMenuOpen = false;
+const placedItems = {};   // key "r,c" → THREE.Group
+const housePanels = {};   // key "r,c" → { div, localX, localZ }
+
+// ── House panel helpers ────────────────────────────
+function createHousePanel(r, c) {
+  const key = `${r},${c}`;
+  removeHousePanel(key); // clean up if replacing
+  const { x, z } = cellCenter(r, c);
+
+  const div = document.createElement('div');
+  div.className = 'house-panel';
+  div.innerHTML = `
+    <div class="hp-header"><span>🏠</span> Village Home</div>
+    <iframe
+      src="https://sketchfab.com/models/90beca02b4dc4709b92fef0217d33825/embed?camera=0&transparent=1&ui_theme=dark&dnt=1&autostart=1"
+      width="260" height="185"
+      frameborder="0"
+      allow="autoplay; fullscreen; xr-spatial-tracking"
+      allowfullscreen>
+    </iframe>`;
+  document.body.appendChild(div);
+  housePanels[key] = { div, localX: x, localZ: z };
+  positionHousePanel(key);
+}
+
+function positionHousePanel(key) {
+  const p = housePanels[key];
+  if (!p) return;
+  // Transform local position through world group (handles rotation)
+  const localPt = new THREE.Vector3(p.localX, 1.8, p.localZ);
+  const worldPt = localPt.clone().applyMatrix4(world.matrixWorld);
+  const projected = worldPt.clone().project(camera);
+  const sx = (projected.x *  0.5 + 0.5) * window.innerWidth;
+  const sy = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+  // Hide if behind camera plane
+  p.div.style.display = (projected.z > 1 || projected.z < -1) ? 'none' : 'block';
+  p.div.style.left = sx + 'px';
+  p.div.style.top  = sy + 'px';
+}
+
+function removeHousePanel(key) {
+  if (housePanels[key]) {
+    housePanels[key].div.remove();
+    delete housePanels[key];
+  }
+}
+
+function cellCenter(r, c) {
+  return { x: -LAND/2 + CELL/2 + c*CELL, z: -LAND/2 + CELL/2 + r*CELL };
+}
+
+function getGridCell(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const ndc  = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width)  * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(hitPlane, false);
+  if (!hits.length) return null;
+  const local = world.worldToLocal(hits[0].point.clone());
+  const c = Math.floor((local.x + LAND/2) / CELL);
+  const r = Math.floor((local.z + LAND/2) / CELL);
+  if (c < 0 || c >= NCELLS || r < 0 || r >= NCELLS) return null;
+  return { r, c };
+}
+
+// ── Road neighbour helpers ─────────────────────────
+function hasRoad(r, c) {
+  if (r < 0 || r >= NCELLS || c < 0 || c >= NCELLS) return false;
+  const item = placedItems[`${r},${c}`];
+  return !!(item && item.userData.type === 'road');
+}
+
+// After placing or erasing a road, rebuild the 4 adjacent road tiles
+// so they gain / lose curbs and dashes that face the changed cell.
+function rebuildNeighborRoads(r, c) {
+  [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc]) => {
+    if (nr < 0 || nr >= NCELLS || nc < 0 || nc >= NCELLS) return;
+    const key = `${nr},${nc}`;
+    if (hasRoad(nr, nc)) {
+      world.remove(placedItems[key]);
+      const mesh = buildRoad(nr, nc);
+      world.add(mesh);
+      placedItems[key] = mesh;
+    }
   });
-  g.scale.setScalar(scale);
-  g.position.set(x, y, z);
+}
+
+// ── Road ──────────────────────────────────────────
+function buildRoad(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group();
+  g.userData.type = 'road';   // needed by hasRoad()
+
+  // Which of the 4 neighbours are also roads?
+  const N = hasRoad(r - 1, c);
+  const S = hasRoad(r + 1, c);
+  const E = hasRoad(r, c + 1);
+  const W = hasRoad(r, c - 1);
+  const anyConn = N || S || E || W;
+
+  // Asphalt slab — always fills the full cell
+  const slab = new THREE.Mesh(
+    new THREE.BoxGeometry(CELL, 0.14, CELL),
+    new THREE.MeshLambertMaterial({ color: 0x2E2E2E })
+  );
+  slab.castShadow = true; slab.receiveShadow = true; g.add(slab);
+
+  // Sidewalk curbs — only on sides that have NO road neighbour.
+  // Removing a curb on a connected side lets the two asphalt slabs
+  // meet flush, making the road look continuous.
+  const edgeMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const cOff = CELL / 2 - 0.3;   // same offset as original
+  if (!E) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.5,  0.16, CELL), edgeMat); e.position.set( cOff, 0, 0);    g.add(e); }
+  if (!W) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.5,  0.16, CELL), edgeMat); e.position.set(-cOff, 0, 0);    g.add(e); }
+  if (!S) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.16, 0.5),  edgeMat); e.position.set(0, 0,  cOff);    g.add(e); }
+  if (!N) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.16, 0.5),  edgeMat); e.position.set(0, 0, -cOff);    g.add(e); }
+
+  // Centre-line dashes — only appear toward connected sides.
+  //   showH  : draw dashes along X-axis  (when E or W road exists, or isolated)
+  //   showV  : draw dashes along Z-axis  (when N or S road exists, or isolated)
+  // For each of the 3 dash positions (-1.9 / 0 / +1.9) we skip the
+  // outer position if there is no road in that direction.
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xFFFFCC });
+  const showH = E || W || !anyConn;
+  const showV = N || S || !anyConn;
+
+  if (showH) {
+    for (let i = -1; i <= 1; i++) {
+      if (i === -1 && !W && anyConn) continue;   // no west road → skip left dash
+      if (i ===  1 && !E && anyConn) continue;   // no east road → skip right dash
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.01, 0.18), dashMat);
+      d.position.set(i * 1.9, 0.075, 0);
+      g.add(d);
+    }
+  }
+  if (showV) {
+    for (let i = -1; i <= 1; i++) {
+      if (i === -1 && !N && anyConn) continue;   // no north road → skip top dash
+      if (i ===  1 && !S && anyConn) continue;   // no south road → skip bottom dash
+      const d = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.01, 1.2), dashMat);
+      d.position.set(0, 0.075, i * 1.9);
+      g.add(d);
+    }
+  }
+
+  g.position.set(x, 0.07, z);
   return g;
 }
 
-const CLOUD_DEFS = [
-  [-40, 38, -70, 1.1],  [ 30, 44, -80, 0.9],
-  [ 70, 36, -55, 1.2],  [-75, 42,  20, 1.0],
-  [ 15, 48,  50, 0.85], [ 65, 40,  40, 1.05],
-  [-20, 35, -30, 0.75], [ 50, 50, -20, 0.95],
-];
-const clouds = CLOUD_DEFS.map(([x,y,z,s]) => {
-  const c = makeCloud(x, y, z, s);
-  scene.add(c);
-  return { mesh: c, speed: 0.008 + Math.random() * 0.006, dir: Math.random() > 0.5 ? 1 : -1 };
-});
+// ── House ─────────────────────────────────────────
+function buildHouse(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group();
+  const w = 3.5, d = 3.5, h = 2.8;
 
-// ─────────────────────────────────────────────────
-//  SUBTLE SKY HAZE PLANE (far background)
-// ─────────────────────────────────────────────────
-const hazeGeo = new THREE.PlaneGeometry(800, 200);
-const hazeMat = new THREE.MeshBasicMaterial({
-  color: 0xC0DCF5, transparent: true, opacity: 0.35, side: THREE.DoubleSide
-});
-const haze = new THREE.Mesh(hazeGeo, hazeMat);
-haze.position.set(0, 28, -200);
-scene.add(haze);
+  // Foundation slab
+  const found = new THREE.Mesh(
+    new THREE.BoxGeometry(CELL-0.1, 0.18, CELL-0.1),
+    new THREE.MeshLambertMaterial({ color: 0xCCBB99 })
+  );
+  found.position.y = 0.09; found.receiveShadow = true; g.add(found);
 
-// ─────────────────────────────────────────────────
-//  INPUT — horizontal drag only (Y-axis rotation)
-// ─────────────────────────────────────────────────
-let dragging  = false;
-let lastX     = 0;
-let rotY      = 0;       // smoothed rotation
-let targetY   = 0;       // target rotation
-let vel       = 0;       // inertia
+  // Walls
+  const walls = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ color: 0xF0DCAA })
+  );
+  walls.position.y = 0.18 + h/2;
+  walls.castShadow = true; walls.receiveShadow = true; g.add(walls);
 
-function startDrag(x) {
-  dragging = true;
-  lastX    = x;
-  vel      = 0;
-  // Fade hint on first touch
-  if (hintEl && !hintFaded) {
-    setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200);
+  // Roof (pyramid)
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(w * 0.79, 1.8, 4),
+    new THREE.MeshLambertMaterial({ color: 0xB44A2D })
+  );
+  roof.position.y = 0.18 + h + 0.88; roof.rotation.y = Math.PI/4;
+  roof.castShadow = true; g.add(roof);
+
+  // Door
+  const door = new THREE.Mesh(
+    new THREE.BoxGeometry(0.65, 1.1, 0.06),
+    new THREE.MeshLambertMaterial({ color: 0x6B3E10 })
+  );
+  door.position.set(0, 0.18 + 0.55, d/2+0.01); g.add(door);
+
+  // Door knob
+  const knob = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 5, 5),
+    new THREE.MeshLambertMaterial({ color: 0xFFD700 })
+  );
+  knob.position.set(0.25, 0.18+0.52, d/2+0.07); g.add(knob);
+
+  // Windows
+  const winMat = new THREE.MeshLambertMaterial({ color: 0x9ECAE1 });
+  const winFrameMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+  [-1.1, 1.1].forEach(wx => {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.06), winMat);
+    win.position.set(wx, 0.18+1.55, d/2+0.01); g.add(win);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.62, 0.04), winFrameMat);
+    frame.position.set(wx, 0.18+1.55, d/2-0.01); g.add(frame);
+  });
+
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// ── Park ──────────────────────────────────────────
+function buildPark(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group();
+
+  // Bright grass base
+  const grass = new THREE.Mesh(
+    new THREE.BoxGeometry(CELL, 0.14, CELL),
+    new THREE.MeshLambertMaterial({ color: 0x2DB82D })
+  );
+  grass.receiveShadow = true; g.add(grass);
+
+  // Path cross
+  const pathMat = new THREE.MeshLambertMaterial({ color: 0xD4B896 });
+  const ph = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.02, 0.7), pathMat);
+  ph.position.y = 0.08; g.add(ph);
+  const pv = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, CELL), pathMat);
+  pv.position.y = 0.08; g.add(pv);
+
+  // Trees
+  const trunkMat  = new THREE.MeshLambertMaterial({ color: 0x6B3E10 });
+  const canopyMat = new THREE.MeshLambertMaterial({ color: 0x1A7D1A });
+  [[-1.6, -1.6],[1.6, -1.6],[-1.6, 1.6],[1.6, 1.6]].forEach(([tx,tz]) => {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.0, 6), trunkMat);
+    trunk.position.set(tx, 0.65, tz); trunk.castShadow = true; g.add(trunk);
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 6), canopyMat);
+    canopy.position.set(tx, 1.55, tz); canopy.castShadow = true; g.add(canopy);
+    // Second canopy layer
+    const canopy2 = new THREE.Mesh(new THREE.SphereGeometry(0.52, 7, 5),
+      new THREE.MeshLambertMaterial({ color: 0x228B22 }));
+    canopy2.position.set(tx, 2.1, tz); canopy2.castShadow = true; g.add(canopy2);
+  });
+
+  // Bench (center)
+  const benchMat = new THREE.MeshLambertMaterial({ color: 0x8B5A2B });
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.4), benchMat);
+  seat.position.set(0, 0.45, 0.3); g.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 0.06), benchMat);
+  back.position.set(0, 0.65, 0.5); g.add(back);
+
+  g.position.set(x, 0.07, z);
+  return g;
+}
+
+// ── Place / Erase ──────────────────────────────────
+function placeItem(r, c) {
+  if (!selectedTool) return;
+  const key = `${r},${c}`;
+
+  if (selectedTool === 'erase') {
+    if (placedItems[key]) { world.remove(placedItems[key]); delete placedItems[key]; }
+    removeHousePanel(key);
+    return;
   }
+
+  // Remove existing (and its panel if it was a house)
+  if (placedItems[key]) { world.remove(placedItems[key]); removeHousePanel(key); }
+
+  let mesh;
+  if      (selectedTool === 'road')  mesh = buildRoad(r, c);
+  else if (selectedTool === 'house') { mesh = buildHouse(r, c); createHousePanel(r, c); }
+  else if (selectedTool === 'park')  mesh = buildPark(r, c);
+  if (mesh) { world.add(mesh); placedItems[key] = mesh; }
+}
+
+// ─────────────────────────────────────────────────
+//  CLOUDS
+// ─────────────────────────────────────────────────
+const cloudMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.88 });
+function makeCloud(x, y, z, scale) {
+  const g = new THREE.Group();
+  [[0,0,0,4.2,2.4,3.8],[-4,-.5,.4,3.2,2,2.9],[4,-.6,-.2,3.4,1.9,3.1],[0,1.5,.2,2.6,1.6,2.2],[-1.5,-.8,-2,2.4,1.4,2]]
+    .forEach(([dx,dy,dz,sx,sy,sz]) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1,8,6), cloudMat);
+      m.scale.set(sx,sy,sz); m.position.set(dx,dy,dz); g.add(m);
+    });
+  g.scale.setScalar(scale); g.position.set(x,y,z); return g;
+}
+const clouds = [[-40,38,-70,1.1],[30,44,-80,.9],[70,36,-55,1.2],[-75,42,20,1],
+                [15,48,50,.85],[65,40,40,1.05],[-20,35,-30,.75],[50,50,-20,.95]]
+  .map(([x,y,z,s]) => {
+    const c = makeCloud(x,y,z,s); scene.add(c);
+    return { mesh: c, speed: .008+Math.random()*.006, dir: Math.random()>.5?1:-1 };
+  });
+
+// Sky haze
+const haze = new THREE.Mesh(
+  new THREE.PlaneGeometry(800,200),
+  new THREE.MeshBasicMaterial({ color:0xC0DCF5, transparent:true, opacity:.35, side:THREE.DoubleSide })
+);
+haze.position.set(0,28,-200); scene.add(haze);
+
+// ─────────────────────────────────────────────────
+//  INPUT — drag to rotate  |  tap to build
+// ─────────────────────────────────────────────────
+let dragging = false, lastX = 0, rotY = 0, targetY = 0, vel = 0;
+let tapStartX = 0, tapStartY = 0, tapMoved = 0;   // tap detection
+let pinching = false, lastPinchDist = 0;
+let lastMouseX = 0, lastMouseY = 0;                // for hover highlight
+
+const TAP_THRESHOLD = 9; // px
+
+function startDrag(x, y) {
+  dragging = true; lastX = x; vel = 0;
+  tapStartX = x; tapStartY = y; tapMoved = 0;
+  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded=true; }, 1200); }
 }
 function moveDrag(x) {
   if (!dragging) return;
+  tapMoved += Math.abs(x - lastX);
   const dx = (x - lastX) * 0.011;
-  vel      = dx;
-  targetY += dx;
-  lastX    = x;
+  vel = dx; targetY += dx; lastX = x;
 }
-function endDrag() { dragging = false; }
+function endDrag(ex, ey) {
+  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool) {
+    const cell = getGridCell(ex, ey);
+    if (cell) placeItem(cell.r, cell.c);
+  }
+  dragging = false;
+}
+
+function getPinchDist(t) {
+  const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+  return Math.sqrt(dx*dx + dy*dy);
+}
 
 // Mouse
-canvas.addEventListener('mousedown',  e => startDrag(e.clientX));
-canvas.addEventListener('mousemove',  e => moveDrag(e.clientX));
-canvas.addEventListener('mouseup',    endDrag);
-canvas.addEventListener('mouseleave', endDrag);
+canvas.addEventListener('mousedown',  e => startDrag(e.clientX, e.clientY));
+canvas.addEventListener('mousemove',  e => { moveDrag(e.clientX); lastMouseX = e.clientX; lastMouseY = e.clientY; });
+canvas.addEventListener('mouseup',    e => endDrag(e.clientX, e.clientY));
+canvas.addEventListener('mouseleave', () => { dragging = false; });
 
-// Mouse-wheel zoom
+// Mouse wheel zoom
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + e.deltaY * 0.06));
 }, { passive: false });
 
-// ── Touch (1-finger drag  |  2-finger pinch-zoom) ─
-let pinching      = false;
-let lastPinchDist = 0;
-
-function getPinchDist(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx*dx + dy*dy);
-}
-
+// Touch
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 2) {
-    pinching = true;
-    dragging = false;
-    lastPinchDist = getPinchDist(e.touches);
-  } else {
-    pinching = false;
-    startDrag(e.touches[0].clientX);
-  }
+  if (e.touches.length === 2) { pinching = true; dragging = false; lastPinchDist = getPinchDist(e.touches); }
+  else { pinching = false; startDrag(e.touches[0].clientX, e.touches[0].clientY); }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   if (e.touches.length === 2) {
-    pinching = true;
-    dragging = false;
+    pinching = true; dragging = false;
     const d = getPinchDist(e.touches);
-    // pinch-in  → positive delta → zoom out (further)
-    // pinch-out → negative delta → zoom in  (closer)
-    const delta = (lastPinchDist - d) * 0.14;
-    targetZoom    = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + delta));
+    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
     lastPinchDist = d;
-  } else if (!pinching) {
-    moveDrag(e.touches[0].clientX);
-  }
+  } else if (!pinching) { moveDrag(e.touches[0].clientX); }
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
   e.preventDefault();
   if (e.touches.length < 2) pinching = false;
-  if (e.touches.length === 0) endDrag();
+  if (e.touches.length === 0) {
+    const t = e.changedTouches[0];
+    endDrag(t.clientX, t.clientY);
+  }
 }, { passive: false });
 
-// ── Zoom buttons ──────────────────────────────────
+// ─────────────────────────────────────────────────
+//  ZOOM BUTTONS
+// ─────────────────────────────────────────────────
 const zoomLabel   = document.getElementById('zoom-label');
 const zoomBarFill = document.getElementById('zoom-bar-fill');
-const STEP = 10;
-
-document.getElementById('btn-in').addEventListener('click', () => {
-  targetZoom = Math.max(ZOOM_MIN, targetZoom - STEP);
+document.getElementById('btn-in').addEventListener('click',  () => { targetZoom = Math.max(ZOOM_MIN, targetZoom-10); });
+document.getElementById('btn-out').addEventListener('click', () => { targetZoom = Math.min(ZOOM_MAX, targetZoom+10); });
+['btn-in','btn-out'].forEach((id,i) => {
+  const el = document.getElementById(id); const dir = i===0?-1:1; let raf;
+  el.addEventListener('pointerdown', () => { function s(){ targetZoom=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,targetZoom+dir*.8)); raf=requestAnimationFrame(s); } s(); });
+  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
+  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
 });
-document.getElementById('btn-out').addEventListener('click', () => {
-  targetZoom = Math.min(ZOOM_MAX, targetZoom + STEP);
-});
 
-// Hold-to-zoom (press and hold the buttons)
-function holdZoom(dir) {
-  let raf;
-  function step() {
-    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + dir * 0.8));
-    raf = requestAnimationFrame(step);
+// ─────────────────────────────────────────────────
+//  BUILD BUTTON & MENU
+// ─────────────────────────────────────────────────
+const buildBtn  = document.getElementById('build-btn');
+const buildMenu = document.getElementById('build-menu');
+const toolBadge = document.getElementById('tool-badge');
+const badgeIcon = document.getElementById('badge-icon');
+const badgeName = document.getElementById('badge-name');
+
+const TOOL_INFO = {
+  road:  { icon: '🛣️', name: 'Road',  color: '#aaa' },
+  house: { icon: '🏠', name: 'House', color: '#F0DCAA' },
+  park:  { icon: '🌲', name: 'Park',  color: '#88ffbb' },
+  erase: { icon: '🗑️', name: 'Erase', color: '#FF8888' },
+};
+
+function setTool(tool) {
+  if (selectedTool === tool) {
+    // Deselect
+    selectedTool = null;
+    document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
+    toolBadge.classList.remove('show');
+    hoverMesh.visible = false; hoverBorder.visible = false;
+  } else {
+    selectedTool = tool;
+    document.querySelectorAll('.bitem').forEach(e =>
+      e.classList.toggle('selected', e.dataset.tool === tool));
+    const info = TOOL_INFO[tool];
+    badgeIcon.textContent = info.icon;
+    badgeName.textContent = info.name + ' — tap land';
+    toolBadge.classList.add('show');
+    // Tint hover
+    if (tool === 'erase') {
+      hoverMat.color.set(0xFF6666);
+    } else {
+      hoverMat.color.set(0x88FF88);
+    }
   }
-  step();
-  return () => cancelAnimationFrame(raf);
 }
-['btn-in','btn-out'].forEach((id, i) => {
-  const dir = i === 0 ? -1 : 1;
-  const el  = document.getElementById(id);
-  let   stop;
-  el.addEventListener('pointerdown', () => { stop = holdZoom(dir); });
-  el.addEventListener('pointerup',   () => stop && stop());
-  el.addEventListener('pointerleave',() => stop && stop());
+
+buildBtn.addEventListener('click', () => {
+  buildMenuOpen = !buildMenuOpen;
+  buildMenu.classList.toggle('open', buildMenuOpen);
+  buildBtn.classList.toggle('open', buildMenuOpen);
+  buildBtn.textContent = buildMenuOpen ? '✕' : '🏗️';
+});
+
+document.querySelectorAll('.bitem').forEach(el => {
+  el.addEventListener('click', () => {
+    setTool(el.dataset.tool);
+    // Close menu after selecting (nice UX on mobile)
+    buildMenuOpen = false;
+    buildMenu.classList.remove('open');
+    buildBtn.classList.remove('open');
+    buildBtn.textContent = '🏗️';
+  });
+});
+
+// Tap outside build menu to close it
+document.addEventListener('click', e => {
+  if (buildMenuOpen && !buildMenu.contains(e.target) && e.target !== buildBtn) {
+    buildMenuOpen = false;
+    buildMenu.classList.remove('open');
+    buildBtn.classList.remove('open');
+    buildBtn.textContent = '🏗️';
+  }
 });
 
 // ─────────────────────────────────────────────────
@@ -522,60 +845,66 @@ function holdZoom(dir) {
 // ─────────────────────────────────────────────────
 const needle = document.getElementById('needle');
 function updateCompass(angle) {
-  const deg = -(angle * 180 / Math.PI) % 360;
-  needle.setAttribute('transform', `rotate(${deg.toFixed(2)}, 27, 27)`);
+  needle.setAttribute('transform', `rotate(${(-(angle*180/Math.PI)%360).toFixed(2)}, 27, 27)`);
 }
 
 // ─────────────────────────────────────────────────
-//  HINT AUTO-FADE
+//  HINT
 // ─────────────────────────────────────────────────
-const hintEl  = document.getElementById('hint');
+const hintEl = document.getElementById('hint');
 let hintFaded = false;
 setTimeout(() => { if (!hintFaded) { hintEl.classList.add('fade'); hintFaded = true; } }, 5000);
 
 // ─────────────────────────────────────────────────
-//  ANIMATION LOOP
+//  ANIMATE
 // ─────────────────────────────────────────────────
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
   t += 0.004;
 
-  // ── Inertia & smoothing ──
-  if (!dragging) {
-    vel     *= 0.91;
-    targetY += vel;
-  }
-  rotY     += (targetY - rotY) * 0.13;
+  // Rotation inertia
+  if (!dragging) { vel *= 0.91; targetY += vel; }
+  rotY += (targetY - rotY) * 0.13;
   world.rotation.y = rotY;
 
-  // ── Zoom smooth follow ──
+  // Zoom
   zoomDist += (targetZoom - zoomDist) * 0.10;
   updateCamera();
-  // Update zoom HUD
-  const zm = Math.round(zoomDist);
-  zoomLabel.textContent = zm + 'm';
-  // Bar fill: 100% = ZOOM_MIN (close), 0% = ZOOM_MAX (far)
+  zoomLabel.textContent = Math.round(zoomDist) + 'm';
   const pct = 1 - (zoomDist - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
   const barH = Math.round(pct * 60);
-  zoomBarFill.style.height  = barH + 'px';
+  zoomBarFill.style.height    = barH + 'px';
   zoomBarFill.style.marginTop = (60 - barH) + 'px';
 
-  // ── Cloud drift (world-space, not tied to land) ──
+  // Hover highlight (desktop mouse only)
+  if (selectedTool && lastMouseX > 0) {
+    const cell = getGridCell(lastMouseX, lastMouseY);
+    if (cell) {
+      const { x, z } = cellCenter(cell.r, cell.c);
+      hoverMesh.position.set(x, 0.08, z);
+      hoverBorder.position.set(x, 0.08, z);
+      hoverMesh.visible = true; hoverBorder.visible = true;
+    } else {
+      hoverMesh.visible = false; hoverBorder.visible = false;
+    }
+  } else if (!selectedTool) {
+    hoverMesh.visible = false; hoverBorder.visible = false;
+  }
+
+  // Clouds
   clouds.forEach((c, i) => {
     c.mesh.position.x += c.speed * c.dir;
-    if (c.mesh.position.x >  160) { c.mesh.position.x = -160; }
-    if (c.mesh.position.x < -160) { c.mesh.position.x =  160; }
-    // gentle bob
+    if (c.mesh.position.x >  160) c.mesh.position.x = -160;
+    if (c.mesh.position.x < -160) c.mesh.position.x =  160;
     c.mesh.position.y += Math.sin(t * 0.8 + i) * 0.002;
   });
 
-  // ── Compass ──
   updateCompass(rotY);
-
+  // Update house panel 2D positions every frame (tracks world rotation)
+  Object.keys(housePanels).forEach(k => positionHousePanel(k));
   renderer.render(scene, camera);
 }
-
 animate();
 </script>
 </body>
