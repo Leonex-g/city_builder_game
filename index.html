@@ -119,44 +119,44 @@
     #tool-badge .ti { font-size: 17px; }
     #tool-badge .tn { font-size: 11px; color: #88ffbb; }
 
-    /* ── HOUSE PANEL (Sketchfab 3D embed) ────────── */
-    .house-panel {
-      position: fixed;
-      transform: translate(-50%, calc(-100% - 12px));
-      z-index: 25;
-      background: rgba(8, 12, 20, 0.90);
-      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-      border: 1.5px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 8px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
-      pointer-events: auto;
-      animation: panelPop 0.28s cubic-bezier(.34,1.56,.64,1) both;
+    /* ── HOUSE TYPE PICKER ───────────────────────── */
+    #house-picker {
+      position: fixed; bottom: 96px; left: 168px;
+      background: rgba(8,12,20,0.92);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid rgba(255,255,255,0.16); border-radius: 18px;
+      overflow: hidden; z-index: 30; min-width: 190px;
+      opacity: 0; transform: translateX(-10px) scale(0.97);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
-    @keyframes panelPop {
-      from { opacity: 0; transform: translate(-50%, calc(-100% - 20px)) scale(0.88); }
-      to   { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1); }
+    #house-picker.open {
+      opacity: 1; transform: translateX(0) scale(1); pointer-events: auto;
     }
-    .house-panel .hp-header {
-      display: flex; align-items: center; gap: 7px;
-      padding: 7px 12px;
-      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
-      color: rgba(255,255,255,0.88);
-      background: rgba(255,255,255,0.06);
-      border-bottom: 1px solid rgba(255,255,255,0.10);
+    .hpicker-title {
+      padding: 9px 14px 7px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.9px;
+      color: rgba(255,255,255,0.4); text-transform: uppercase;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-    .house-panel .hp-header span { font-size: 14px; }
-    .house-panel iframe { display: block; border: none; background: #08080f; }
-    /* connector dot pointing down to the block */
-    .house-panel::after {
-      content: '';
-      position: absolute; bottom: -7px; left: 50%;
-      transform: translateX(-50%);
-      width: 10px; height: 10px;
-      background: rgba(255,255,255,0.18);
-      border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,0.28);
+    .htype {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 14px 9px 12px; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.12s, transform 0.08s;
+      touch-action: manipulation;
     }
+    .htype:last-child { border-bottom: none; }
+    .htype:active { transform: scale(0.97); background: rgba(255,255,255,0.07); }
+    .htype.active {
+      background: rgba(45,106,79,0.55);
+      border-color: rgba(100,255,160,0.15);
+    }
+    .htype-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .htype-name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1; }
+    .htype-desc { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 2px; }
+    .htype.active .htype-name { color: #88ffbb; }
   </style>
 </head>
 <body>
