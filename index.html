@@ -1076,24 +1076,236 @@ function buildPark(r, c) {
   return g;
 }
 
+// ─────────────────────────────────────────────────
+//  CAR SYSTEM
+//  Cars appear once a connected road cluster of
+//  4+ tiles exists.  Max 2 cars at a time.
+// ─────────────────────────────────────────────────
+const CAR_COLORS = [0xE63946, 0x1D6DB5];   // red, blue
+const MAX_CARS   = 2;
+const carList    = [];
+
+function buildCar(color) {
+  const g        = new THREE.Group();
+  const bodyMat  = new THREE.MeshLambertMaterial({ color });
+  const darkMat  = new THREE.MeshLambertMaterial({ color: 0x151515 });
+  const chromeMat= new THREE.MeshLambertMaterial({ color: 0xC8C8C8 });
+  const glassMat = new THREE.MeshPhongMaterial({
+    color:0xAADDFF, specular:0xFFFFFF, shininess:180, transparent:true, opacity:0.52
+  });
+  const headMat  = new THREE.MeshPhongMaterial({
+    color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9
+  });
+  const tailMat  = new THREE.MeshPhongMaterial({
+    color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85
+  });
+
+  // Car forward direction = local +Z  (headlights face +Z, taillights face -Z)
+
+  // Lower chassis
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat);
+  chassis.position.y = 0.56; chassis.castShadow=true; g.add(chassis);
+
+  // Upper cabin (offset slightly forward)
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
+  cabin.position.set(0,0.84,0.10); cabin.castShadow=true; g.add(cabin);
+
+  // Windshields / side windows
+  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
+  wf.position.set(0,0.85,0.57); g.add(wf);
+  const wr = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
+  wr.position.set(0,0.85,-0.37); g.add(wr);
+  [-0.41,0.41].forEach(sx => {
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat);
+    sw.position.set(sx,0.85,0.10); g.add(sw);
+  });
+
+  // Headlights (front = +Z)
+  [-0.27,0.27].forEach(hx => {
+    const h = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), headMat);
+    h.position.set(hx,0.57,0.89); g.add(h);
+  });
+  // Taillights (rear = -Z)
+  [-0.27,0.27].forEach(hx => {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat);
+    t.position.set(hx,0.57,-0.89); g.add(t);
+  });
+
+  // Bumpers
+  const bf = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
+  bf.position.set(0,0.45,0.90); g.add(bf);
+  const br = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
+  br.position.set(0,0.45,-0.90); g.add(br);
+
+  // 4 wheels: cylinder axis along X (rotation.z = π/2)
+  // Wheel center y=0.18 → wheel bottom at y=0 → sits exactly on road surface
+  [[0.47,0.60],[-0.47,0.60],[0.47,-0.60],[-0.47,-0.60]].forEach(([wx,wz]) => {
+    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat);
+    tyre.rotation.z = Math.PI/2; tyre.position.set(wx,0.18,wz); tyre.castShadow=true; g.add(tyre);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat);
+    rim.rotation.z = Math.PI/2; rim.position.set(wx,0.18,wz); g.add(rim);
+  });
+
+  return g;
+}
+
+// BFS → returns key-array of the largest contiguous road cluster
+function getLargestRoadComponent() {
+  const keys = Object.keys(placedItems).filter(k => placedItems[k].userData.type==='road');
+  if (!keys.length) return [];
+  const visited = new Set();
+  let largest = [];
+  for (const key of keys) {
+    if (visited.has(key)) continue;
+    const comp=[], q=[key], seen=new Set([key]);
+    while (q.length) {
+      const k=q.shift(); comp.push(k); visited.add(k);
+      const [r,c]=k.split(',').map(Number);
+      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc]) => {
+        const nk=`${nr},${nc}`;
+        if (!seen.has(nk) && hasRoad(nr,nc)) { seen.add(nk); q.push(nk); }
+      });
+    }
+    if (comp.length > largest.length) largest = comp;
+  }
+  return largest;
+}
+
+// Pick next adjacent road tile; avoid U-turns where possible
+function nextRoadCell(r, c, pr, pc) {
+  const ns = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
+  const fw = ns.filter(([nr,nc]) => !(nr===pr&&nc===pc));
+  const pool = fw.length ? fw : ns;
+  return pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
+}
+
+function spawnCar(roadKeys) {
+  if (carList.length >= MAX_CARS) return;
+  // Try not to start on a cell already occupied by another car
+  const occupied = new Set(carList.map(c=>`${c.cur.r},${c.cur.c}`));
+  const free = roadKeys.filter(k => !occupied.has(k));
+  const pool = free.length ? free : roadKeys;
+  const key  = pool[Math.floor(Math.random()*pool.length)];
+  const [r,c] = key.split(',').map(Number);
+  const nxt = nextRoadCell(r,c,r,c);
+  if (!nxt) return;
+
+  const grp = buildCar(CAR_COLORS[carList.length % CAR_COLORS.length]);
+  const { x, z } = cellCenter(r,c);
+  grp.position.set(x, 0.14, z);   // 0.14 = top surface of road slab
+  world.add(grp);
+  carList.push({
+    group: grp,
+    cur: {r,c},
+    tgt: {r:nxt[0],c:nxt[1]},
+    prv: {r,c},
+    t:   0,
+    spd: 0.018 + Math.random()*0.008   // slight speed variation per car
+  });
+}
+
+function removeAllCars() {
+  carList.forEach(c => world.remove(c.group));
+  carList.length = 0;
+}
+
+// Called after every road build / erase
+function updateCarSystem() {
+  const comp = getLargestRoadComponent();
+  if (comp.length < 4) { removeAllCars(); return; }
+
+  // Remove any car whose current or target tile was just erased
+  for (let i=carList.length-1; i>=0; i--) {
+    const car=carList[i];
+    if (!hasRoad(car.cur.r,car.cur.c) || !hasRoad(car.tgt.r,car.tgt.c)) {
+      world.remove(car.group); carList.splice(i,1);
+    }
+  }
+  // Bring car count up to MAX_CARS
+  while (carList.length < MAX_CARS) spawnCar(comp);
+}
+
+// Called every animation frame — moves cars along the road
+function tickCars() {
+  if (!carList.length) return;
+  const dead = [];
+
+  carList.forEach((car,idx) => {
+    car.t += car.spd;
+
+    // Reached next tile
+    if (car.t >= 1) {
+      car.t -= 1;                           // keep sub-frame remainder
+      car.prv = {...car.cur};
+      car.cur = {...car.tgt};
+
+      // Bail if road tile was erased while car was en-route
+      if (!hasRoad(car.cur.r,car.cur.c)) { dead.push(idx); return; }
+
+      const nxt = nextRoadCell(car.cur.r,car.cur.c,car.prv.r,car.prv.c);
+      if (!nxt) { dead.push(idx); return; }
+      car.tgt = { r:nxt[0], c:nxt[1] };
+    }
+
+    // Also bail if target tile was erased between frames
+    if (!hasRoad(car.tgt.r,car.tgt.c)) { dead.push(idx); return; }
+
+    // Interpolate world position (world-local space, same as cellCenter)
+    const from = cellCenter(car.cur.r,car.cur.c);
+    const to   = cellCenter(car.tgt.r,car.tgt.c);
+    car.group.position.set(
+      from.x + (to.x-from.x)*car.t,
+      0.14,
+      from.z + (to.z-from.z)*car.t
+    );
+
+    // Smoothly rotate to face direction of travel
+    // car local +Z is forward → rotation.y = atan2(-dx, dz)
+    const dx=to.x-from.x, dz=to.z-from.z;
+    if (dx!==0 || dz!==0) {
+      const ang = Math.atan2(-dx, dz);
+      let diff  = ang - car.group.rotation.y;
+      while (diff >  Math.PI) diff -= Math.PI*2;
+      while (diff < -Math.PI) diff += Math.PI*2;
+      car.group.rotation.y += diff * 0.25;
+    }
+  });
+
+  // Clean up stranded cars and try to refill
+  if (dead.length) {
+    [...new Set(dead)].sort((a,b)=>b-a).forEach(i => {
+      world.remove(carList[i].group); carList.splice(i,1);
+    });
+    const comp = getLargestRoadComponent();
+    if (comp.length >= 4) while (carList.length < MAX_CARS) spawnCar(comp);
+  }
+}
+
 // ── Place / Erase ──────────────────────────────────
 function placeItem(r, c) {
   if (!selectedTool) return;
   const key = `${r},${c}`;
 
   if (selectedTool === 'erase') {
-    if (placedItems[key]) { world.remove(placedItems[key]); delete placedItems[key]; }
+    if (placedItems[key]) {
+      const wasRoad = placedItems[key].userData.type === 'road';
+      world.remove(placedItems[key]); delete placedItems[key];
+      if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
+    }
     return;
   }
 
-  // Remove existing
+  const wasRoad = placedItems[key] && placedItems[key].userData.type === 'road';
   if (placedItems[key]) world.remove(placedItems[key]);
 
   let mesh;
   if      (selectedTool === 'road')  mesh = buildRoad(r, c);
   else if (selectedTool === 'house') mesh = buildHouse(r, c);
   else if (selectedTool === 'park')  mesh = buildPark(r, c);
-  if (mesh) { world.add(mesh); placedItems[key] = mesh; }
+  if (mesh) {
+    world.add(mesh); placedItems[key] = mesh;
+    if (selectedTool === 'road' || wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
+  }
 }
 
 // ─────────────────────────────────────────────────
@@ -1401,6 +1613,7 @@ function animate() {
   });
 
   updateCompass(rotY);
+  tickCars();
   renderer.render(scene, camera);
 }
 animate();
