@@ -217,6 +217,31 @@
   </div>
 </div>
 
+<!-- House type picker -->
+<div id="house-picker">
+  <div class="hpicker-title">Choose Style</div>
+  <div class="htype active" data-htype="cottage">
+    <span class="htype-icon">🏡</span>
+    <div><div class="htype-name">Cottage</div><div class="htype-desc">Cozy &amp; charming</div></div>
+  </div>
+  <div class="htype" data-htype="modern">
+    <span class="htype-icon">🏢</span>
+    <div><div class="htype-name">Modern</div><div class="htype-desc">Sleek flat-roof</div></div>
+  </div>
+  <div class="htype" data-htype="villa">
+    <span class="htype-icon">🏛️</span>
+    <div><div class="htype-name">Villa</div><div class="htype-desc">Grand &amp; elegant</div></div>
+  </div>
+  <div class="htype" data-htype="cabin">
+    <span class="htype-icon">🛖</span>
+    <div><div class="htype-name">Log Cabin</div><div class="htype-desc">Rustic A-frame</div></div>
+  </div>
+  <div class="htype" data-htype="apartment">
+    <span class="htype-icon">🏬</span>
+    <div><div class="htype-name">Apartment</div><div class="htype-desc">Multi-level living</div></div>
+  </div>
+</div>
+
 <!-- Active tool badge -->
 <div id="tool-badge">
   <span class="ti" id="badge-icon"></span>
@@ -229,8 +254,8 @@
 //  SCENE
 // ─────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x6AAFE6);
-scene.fog = new THREE.FogExp2(0x8EC8EE, 0.0038);
+scene.background = new THREE.Color(0x1C2B4A);
+scene.fog = new THREE.FogExp2(0x1A2840, 0.0032);
 
 // ─────────────────────────────────────────────────
 //  RENDERER
@@ -240,6 +265,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.18;
 
 // ─────────────────────────────────────────────────
 //  CAMERA  (fixed direction, 20–100 m range)
@@ -266,17 +293,23 @@ onResize();
 // ─────────────────────────────────────────────────
 //  LIGHTS
 // ─────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xC8E4FF, 0.55));
-const sun = new THREE.DirectionalLight(0xFFF5DD, 1.15);
-sun.position.set(55, 100, 60);
+scene.add(new THREE.AmbientLight(0x3A4E6E, 0.7));
+// Golden-hour sun low on horizon
+const sun = new THREE.DirectionalLight(0xFFB347, 1.4);
+sun.position.set(80, 55, 70);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.near = 1; sun.shadow.camera.far = 300;
-sun.shadow.camera.left = -90; sun.shadow.camera.right = 90;
-sun.shadow.camera.top  =  90; sun.shadow.camera.bottom = -90;
-sun.shadow.bias = -0.0008;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 320;
+sun.shadow.camera.left = -95; sun.shadow.camera.right = 95;
+sun.shadow.camera.top  =  95; sun.shadow.camera.bottom = -95;
+sun.shadow.bias = -0.0006;
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xA0D0FF, 0x3D8C28, 0.5));
+// Cool twilight fill from opposite side (blue-violet sky reflection)
+const fill = new THREE.DirectionalLight(0x6699CC, 0.55);
+fill.position.set(-60, 40, -50);
+scene.add(fill);
+// Warm ground bounce
+scene.add(new THREE.HemisphereLight(0x8AAABB, 0x3A5C28, 0.45));
 
 // ─────────────────────────────────────────────────
 //  WORLD GROUP  (rotates on Y)
@@ -387,51 +420,7 @@ const raycaster = new THREE.Raycaster();
 let selectedTool  = null;
 let buildMenuOpen = false;
 const placedItems = {};   // key "r,c" → THREE.Group
-const housePanels = {};   // key "r,c" → { div, localX, localZ }
-
-// ── House panel helpers ────────────────────────────
-function createHousePanel(r, c) {
-  const key = `${r},${c}`;
-  removeHousePanel(key); // clean up if replacing
-  const { x, z } = cellCenter(r, c);
-
-  const div = document.createElement('div');
-  div.className = 'house-panel';
-  div.innerHTML = `
-    <div class="hp-header"><span>🏠</span> Village Home</div>
-    <iframe
-      src="https://sketchfab.com/models/90beca02b4dc4709b92fef0217d33825/embed?camera=0&transparent=1&ui_theme=dark&dnt=1&autostart=1"
-      width="260" height="185"
-      frameborder="0"
-      allow="autoplay; fullscreen; xr-spatial-tracking"
-      allowfullscreen>
-    </iframe>`;
-  document.body.appendChild(div);
-  housePanels[key] = { div, localX: x, localZ: z };
-  positionHousePanel(key);
-}
-
-function positionHousePanel(key) {
-  const p = housePanels[key];
-  if (!p) return;
-  // Transform local position through world group (handles rotation)
-  const localPt = new THREE.Vector3(p.localX, 1.8, p.localZ);
-  const worldPt = localPt.clone().applyMatrix4(world.matrixWorld);
-  const projected = worldPt.clone().project(camera);
-  const sx = (projected.x *  0.5 + 0.5) * window.innerWidth;
-  const sy = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-  // Hide if behind camera plane
-  p.div.style.display = (projected.z > 1 || projected.z < -1) ? 'none' : 'block';
-  p.div.style.left = sx + 'px';
-  p.div.style.top  = sy + 'px';
-}
-
-function removeHousePanel(key) {
-  if (housePanels[key]) {
-    housePanels[key].div.remove();
-    delete housePanels[key];
-  }
-}
+let selectedHouseType = 'cottage';
 
 function cellCenter(r, c) {
   return { x: -LAND/2 + CELL/2 + c*CELL, z: -LAND/2 + CELL/2 + r*CELL };
@@ -537,61 +526,510 @@ function buildRoad(r, c) {
   return g;
 }
 
-// ── House ─────────────────────────────────────────
+// ── House builders ─────────────────────────────────
+function phong(col, spec = 0x222222, shine = 12) {
+  return new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine });
+}
+function glassWarm(intensity = 0.55) {
+  return new THREE.MeshPhongMaterial({
+    color: 0xFFE0A0, specular: 0xFFFFFF, shininess: 80,
+    emissive: new THREE.Color(0xFF8C00), emissiveIntensity: intensity,
+    transparent: true, opacity: 0.82
+  });
+}
+function glassCool(intensity = 0.18) {
+  return new THREE.MeshPhongMaterial({
+    color: 0xA8CDE8, specular: 0xDDEEFF, shininess: 120,
+    emissive: new THREE.Color(0x2255AA), emissiveIntensity: intensity,
+    transparent: true, opacity: 0.75
+  });
+}
+
 function buildHouse(r, c) {
+  const fns = { cottage: buildCottage, modern: buildModern,
+                villa: buildVilla, cabin: buildCabin, apartment: buildApartment };
+  return (fns[selectedHouseType] || buildCottage)(r, c);
+}
+
+// 1 ── Cottage  (English Country) ───────────────────
+function buildCottage(r, c) {
   const { x, z } = cellCenter(r, c);
-  const g = new THREE.Group();
-  const w = 3.5, d = 3.5, h = 2.8;
+  const g = new THREE.Group(); g.userData.type = 'house';
 
-  // Foundation slab
-  const found = new THREE.Mesh(
-    new THREE.BoxGeometry(CELL-0.1, 0.18, CELL-0.1),
-    new THREE.MeshLambertMaterial({ color: 0xCCBB99 })
-  );
-  found.position.y = 0.09; found.receiveShadow = true; g.add(found);
+  // Stone plinth
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05, 0.28, CELL-0.05), phong(0xB8A88A,0x111111,5));
+  plinth.position.y = 0.14; plinth.receiveShadow = true; g.add(plinth);
 
-  // Walls
-  const walls = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshLambertMaterial({ color: 0xF0DCAA })
-  );
-  walls.position.y = 0.18 + h/2;
-  walls.castShadow = true; walls.receiveShadow = true; g.add(walls);
+  // Render walls
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(4.1, 2.9, 4.0), phong(0xF0E4CC,0x221100,8));
+  walls.position.y = 0.28+1.45; walls.castShadow=true; walls.receiveShadow=true; g.add(walls);
 
-  // Roof (pyramid)
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(w * 0.79, 1.8, 4),
-    new THREE.MeshLambertMaterial({ color: 0xB44A2D })
-  );
-  roof.position.y = 0.18 + h + 0.88; roof.rotation.y = Math.PI/4;
-  roof.castShadow = true; g.add(roof);
+  // Bay projection
+  const bay = new THREE.Mesh(new THREE.BoxGeometry(1.5,2.9,0.18), phong(0xEAD8BB,0x221100,8));
+  bay.position.set(0, 0.28+1.45, 2.01); bay.castShadow=true; g.add(bay);
 
-  // Door
-  const door = new THREE.Mesh(
-    new THREE.BoxGeometry(0.65, 1.1, 0.06),
-    new THREE.MeshLambertMaterial({ color: 0x6B3E10 })
-  );
-  door.position.set(0, 0.18 + 0.55, d/2+0.01); g.add(door);
+  // Slate roof
+  const slateMat = phong(0x2E3340,0x5566AA,32);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(3.22, 2.3, 4), slateMat);
+  roof.position.y = 0.28+2.9+1.15; roof.rotation.y = Math.PI/4; roof.castShadow=true; g.add(roof);
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.18,3.4), phong(0x23282E,0x333344,20));
+  ridge.position.y = 0.28+2.9+2.28; g.add(ridge);
 
-  // Door knob
-  const knob = new THREE.Mesh(
-    new THREE.SphereGeometry(0.07, 5, 5),
-    new THREE.MeshLambertMaterial({ color: 0xFFD700 })
-  );
-  knob.position.set(0.25, 0.18+0.52, d/2+0.07); g.add(knob);
+  // Brick chimney
+  const brickM = phong(0x7A3322,0x110000,6);
+  const chi = new THREE.Mesh(new THREE.BoxGeometry(0.50,1.65,0.50), brickM);
+  chi.position.set(1.1, 0.28+2.9+0.82, -0.9); chi.castShadow=true; g.add(chi);
+  const chiCap = new THREE.Mesh(new THREE.BoxGeometry(0.64,0.11,0.64), brickM);
+  chiCap.position.set(1.1, 0.28+2.9+1.66, -0.9); g.add(chiCap);
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.28,8), phong(0x5A2218,0x110000,5));
+  pot.position.set(1.1, 0.28+2.9+1.81, -0.9); g.add(pot);
 
-  // Windows
-  const winMat = new THREE.MeshLambertMaterial({ color: 0x9ECAE1 });
-  const winFrameMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
-  [-1.1, 1.1].forEach(wx => {
-    const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 0.06), winMat);
-    win.position.set(wx, 0.18+1.55, d/2+0.01); g.add(win);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.62, 0.04), winFrameMat);
-    frame.position.set(wx, 0.18+1.55, d/2-0.01); g.add(frame);
+  // Navy door with panels
+  const doorMat = phong(0x1B3A5C,0x4488CC,55);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.82,1.45,0.11), doorMat);
+  door.position.set(0, 0.28+0.725, 2.03); g.add(door);
+  [[0,0.3],[0,-0.3]].forEach(([,dy]) => {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.42,0.05), phong(0x152D4A,0x3377BB,50));
+    panel.position.set(0, 0.28+0.725+dy, 2.09); g.add(panel);
+  });
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.058,10,10), phong(0xD4A017,0xFFEE66,140));
+  knob.position.set(0.31, 0.28+0.72, 2.10); g.add(knob);
+  // Warm fanlight above door
+  const fan = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.34,0.09), glassWarm(0.7));
+  fan.position.set(0, 0.28+1.45+0.17, 2.03); g.add(fan);
+
+  // Sash windows with amber glow + flower boxes
+  const wFrameM = phong(0xF4EFE4,0xCCCCCC,25);
+  [-1.15, 1.15].forEach(wx => {
+    const frm = new THREE.Mesh(new THREE.BoxGeometry(1.02,1.22,0.11), wFrameM);
+    frm.position.set(wx, 0.28+1.65, 2.04); g.add(frm);
+    [-0.27,0.27].forEach(dy => {
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(0.80,0.48,0.07), glassWarm(0.5));
+      pane.position.set(wx, 0.28+1.65+dy, 2.06); g.add(pane);
+    });
+    const mH = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.045,0.09), wFrameM);
+    mH.position.set(wx, 0.28+1.65, 2.08); g.add(mH);
+    const mV = new THREE.Mesh(new THREE.BoxGeometry(0.045,1.0,0.09), wFrameM);
+    mV.position.set(wx, 0.28+1.65, 2.08); g.add(mV);
+    // Flower box
+    const fb = new THREE.Mesh(new THREE.BoxGeometry(0.96,0.22,0.26), phong(0x7A3A18,0x221100,10));
+    fb.position.set(wx, 0.28+1.05, 2.06); g.add(fb);
+    [0xE84040,0xF4A020,0xFF6FA0].forEach((col,fi) => {
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.18,5), phong(0x2A6A14));
+      stem.position.set(wx-0.22+fi*0.22, 0.28+1.24, 2.11); g.add(stem);
+      const bud = new THREE.Mesh(new THREE.SphereGeometry(0.092,8,7),
+        new THREE.MeshPhongMaterial({ color:col, specular:0xFFFFFF, shininess:35, emissive:new THREE.Color(col).multiplyScalar(0.12) }));
+      bud.position.set(wx-0.22+fi*0.22, 0.28+1.36, 2.12); g.add(bud);
+    });
   });
 
-  g.position.set(x, 0, z);
-  return g;
+  // Low stone front wall + gate posts
+  const stoneW = phong(0xA89878,0x111111,5);
+  [-1.65,1.65].forEach(wx => {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.52,0.24), stoneW);
+    wall.position.set(wx, 0.26, 2.38); g.add(wall);
+  });
+  [-0.55,0.55].forEach(wx => {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.62,0.18), stoneW);
+    post.position.set(wx, 0.31, 2.38); g.add(post);
+  });
+  const path = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.04,0.9), phong(0xCCBBA0,0x111111,5));
+  path.position.set(0, 0.22, 2.0); g.add(path);
+
+  // Shrubs
+  const shrubM = phong(0x1E5C18,0x112211,10);
+  [[-1.55,1.72],[1.55,1.72]].forEach(([sx,sz]) => {
+    const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.42,9,7), shrubM);
+    s1.position.set(sx,0.42,sz); s1.castShadow=true; g.add(s1);
+    const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,6), shrubM);
+    s2.position.set(sx+0.25,0.60,sz-0.18); g.add(s2);
+  });
+
+  g.position.set(x,0,z); return g;
+}
+
+// 2 ── Modern  (Glass & Concrete Masterpiece) ────────
+function buildModern(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group(); g.userData.type = 'house';
+
+  const concM  = phong(0x3C3C3C,0x555555,18);
+  const concLt = phong(0xECECE8,0xBBBBBB,22);
+  const steelM = phong(0x1A1A1A,0x444444,80);
+
+  // Concrete plinth
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.32,CELL-0.05), concM);
+  plinth.position.y = 0.16; plinth.receiveShadow=true; g.add(plinth);
+
+  // Rear upper volume
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4.5,3.5,2.6), concLt);
+  body.position.set(0, 0.32+1.75, -0.5); body.castShadow=true; body.receiveShadow=true; g.add(body);
+
+  // Front lower wing (cantilevered feel)
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(4.5,2.0,1.8), concLt);
+  wing.position.set(0, 0.32+1.0, 1.05); wing.castShadow=true; wing.receiveShadow=true; g.add(wing);
+
+  // Cantilevered flat roof + soffit
+  const roofSlab = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.18,4.7), concM);
+  roofSlab.position.y = 0.32+3.5+0.09; roofSlab.castShadow=true; g.add(roofSlab);
+  const soffit = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.10,0.5), phong(0x2A2A2A,0x444444,15));
+  soffit.position.set(0, 0.32+3.5+0.05, 2.1); g.add(soffit);
+
+  // Floor-to-ceiling glass wall (two warm panels)
+  const glassL = new THREE.Mesh(new THREE.BoxGeometry(1.6,1.95,0.10), glassWarm(0.52));
+  glassL.position.set(-1.3, 0.32+0.975, 1.96); g.add(glassL);
+  const glassR = new THREE.Mesh(new THREE.BoxGeometry(2.1,1.95,0.10), glassWarm(0.52));
+  glassR.position.set(0.85, 0.32+0.975, 1.96); g.add(glassR);
+
+  // Steel mullions
+  [-0.45,1.9].forEach(fx => {
+    const div = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.98,0.14), steelM);
+    div.position.set(fx, 0.32+0.975, 1.97); g.add(div);
+  });
+  const topR = new THREE.Mesh(new THREE.BoxGeometry(4.0,0.06,0.14), steelM);
+  topR.position.set(0, 0.32+1.97, 1.97); g.add(topR);
+  const botR = new THREE.Mesh(new THREE.BoxGeometry(4.0,0.06,0.14), steelM);
+  botR.position.set(0, 0.32+0.03, 1.97); g.add(botR);
+
+  // Upper cool glass (rear volume front face)
+  const upGlass = new THREE.Mesh(new THREE.BoxGeometry(4.4,2.0,0.09), glassCool(0.25));
+  upGlass.position.set(0, 0.32+2.5, 0.21); g.add(upGlass);
+  [0,0.95,-0.95].forEach(dy => {
+    const hs = new THREE.Mesh(new THREE.BoxGeometry(4.42,0.06,0.11), steelM);
+    hs.position.set(0, 0.32+2.5+dy, 0.22); g.add(hs);
+  });
+
+  // Pivot door
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.96,2.1,0.10), phong(0x111111,0x444444,80));
+  door.position.set(-1.3, 0.32+1.05, 1.97); g.add(door);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.045,0.09), phong(0x888888,0xCCCCCC,120));
+  handle.position.set(-1.3, 0.32+1.1, 2.03); g.add(handle);
+
+  // Floating concrete steps
+  [[0.22,0.26,2.12],[0.14,0.14,2.24]].forEach(([h,th,fz]) => {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(2.0,th,0.5), concM);
+    step.position.set(-1.3, h, fz); g.add(step);
+  });
+
+  // Perimeter LED strip
+  const led = new THREE.MeshPhongMaterial({ color:0xFFEECC, emissive:new THREE.Color(0xFFCC88), emissiveIntensity:0.9 });
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(4.52,0.05,0.05), led);
+  strip.position.set(0, 0.34, 1.98); g.add(strip);
+
+  // Roof terrace glass railing
+  const railGlass = new THREE.MeshPhongMaterial({ color:0xBBDDFF, transparent:true, opacity:0.32, specular:0xFFFFFF, shininess:120 });
+  [[-2.2,0],[2.2,0],[0,-2.1],[0,2.1]].forEach(([rx,rz]) => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(rx)>1?0.06:4.9, 0.6, Math.abs(rz)>1?0.06:4.9), railGlass);
+    rail.position.set(rx*0.99, 0.32+3.68+0.3, rz*0.42); g.add(rail);
+  });
+
+  // Side garage door
+  const gar = new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,0.09), phong(0x555555,0x888888,40));
+  gar.position.set(1.5, 0.32+0.8, 1.97); g.add(gar);
+  [0.4,0,-0.4].forEach(dy => {
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(1.82,0.04,0.12), phong(0x333333,0x555555,30));
+    gl.position.set(1.5, 0.32+0.8+dy, 1.99); g.add(gl);
+  });
+
+  g.position.set(x,0,z); return g;
+}
+
+// 3 ── Villa  (Tuscan / Mediterranean Luxury) ────────
+function buildVilla(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group(); g.userData.type = 'house';
+
+  const travM  = phong(0xE8D9B5,0x332200,10);
+  const travDk = phong(0xD4C097,0x221100,8);
+  const colM   = phong(0xFAF0E0,0x332200,18);
+
+  // Travertine foundation
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.30,CELL-0.05), travDk);
+  plinth.position.y = 0.15; plinth.receiveShadow=true; g.add(plinth);
+
+  // Main body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4.2,3.6,3.9), travM);
+  body.position.y = 0.30+1.8; body.castShadow=true; body.receiveShadow=true; g.add(body);
+
+  // Stepped terracotta tile roof
+  const tileM  = phong(0xB84A2A,0x441100,14);
+  const tileLt = phong(0xCA6040,0x441100,14);
+  for (let i=0; i<5; i++) {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(4.5-i*0.22, 0.28, 4.1-i*0.22), i%2===0?tileM:tileLt);
+    band.position.y = 0.30+3.6+i*0.26+0.14; band.castShadow=true; g.add(band);
+  }
+  const hipRoof = new THREE.Mesh(new THREE.ConeGeometry(3.0,1.4,4), tileM);
+  hipRoof.position.y = 0.30+3.6+5*0.26+0.7; hipRoof.rotation.y=Math.PI/4; hipRoof.castShadow=true; g.add(hipRoof);
+
+  // Arched colonnade entry
+  [-0.9,0,0.9].forEach(cx => {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.18,3.0,10), colM);
+    shaft.position.set(cx, 0.30+1.5, 2.02); shaft.castShadow=true; g.add(shaft);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.18,0.42), colM);
+    cap.position.set(cx, 0.30+3.09, 2.02); g.add(cap);
+    const base2 = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.14,0.38), colM);
+    base2.position.set(cx, 0.30+0.07, 2.02); g.add(base2);
+  });
+  const entab = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.28,0.40), colM);
+  entab.position.set(0, 0.30+3.24, 2.02); g.add(entab);
+  // Pediment
+  const pedGeo = new THREE.BufferGeometry();
+  const pedV = new Float32Array([-1.3,0,0, 1.3,0,0, 0,0.9,0]);
+  pedGeo.setAttribute('position', new THREE.BufferAttribute(pedV,3));
+  pedGeo.setIndex([0,1,2]); pedGeo.computeVertexNormals();
+  g.add(new THREE.Mesh(pedGeo, colM)).position.set(0, 0.30+3.36, 2.04);
+
+  // Arched windows with warm glow + keystones
+  [[-1.45,2.4],[1.45,2.4],[-1.45,1.1],[1.45,1.1]].forEach(([wx,wy]) => {
+    const frm = new THREE.Mesh(new THREE.BoxGeometry(0.90,1.35,0.12), phong(0xF8F0DE,0x332200,15));
+    frm.position.set(wx, 0.30+wy, 1.98); g.add(frm);
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(0.68,1.12,0.08), glassWarm(0.48));
+    gl.position.set(wx, 0.30+wy, 2.01); g.add(gl);
+    const ks = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.14), travDk);
+    ks.position.set(wx, 0.30+wy+0.7, 2.00); g.add(ks);
+  });
+
+  // Upper balcony with balusters
+  const balcFloor = new THREE.Mesh(new THREE.BoxGeometry(4.4,0.16,0.85), travDk);
+  balcFloor.position.set(0, 0.30+1.9, 2.2); g.add(balcFloor);
+  for (let i=-3; i<=3; i++) {
+    const bal = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.07,0.6,8), colM);
+    bal.position.set(i*0.58, 0.30+1.9+0.46, 2.45); g.add(bal);
+  }
+  const topRail = new THREE.Mesh(new THREE.BoxGeometry(4.1,0.10,0.12), travDk);
+  topRail.position.set(0, 0.30+1.9+0.76, 2.45); g.add(topRail);
+
+  // Grand double door
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.22,2.3,0.12), phong(0x5C2E0A,0x220800,30));
+  door.position.set(0, 0.30+1.15, 2.03); g.add(door);
+  const dSplit = new THREE.Mesh(new THREE.BoxGeometry(0.04,2.3,0.16), phong(0x3A1A04));
+  dSplit.position.set(0, 0.30+1.15, 2.07); g.add(dSplit);
+  const dKnob = new THREE.Mesh(new THREE.SphereGeometry(0.065,10,10), phong(0xCCA020,0xFFEE44,150));
+  dKnob.position.set(0.48, 0.30+1.2, 2.10); g.add(dKnob);
+
+  // Turquoise pool
+  const poolWater = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.06,1.4),
+    new THREE.MeshPhongMaterial({ color:0x40B4CC, specular:0xAAEEFF, shininess:180, transparent:true, opacity:0.82 }));
+  poolWater.position.set(0, 0.24, -1.8); g.add(poolWater);
+  const poolEdge = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.12,1.6), travDk);
+  poolEdge.position.set(0, 0.22, -1.8); g.add(poolEdge);
+
+  // Cypress trees
+  const cypM = phong(0x1A4A22,0x0A220E,6);
+  [[-2.2,-1.6],[2.2,-1.6]].forEach(([cx,cz]) => {
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.38,2.6,7), cypM);
+    cyl.position.set(cx, 1.3, cz); cyl.castShadow=true; g.add(cyl);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.7,7), cypM);
+    top.position.set(cx, 2.95, cz); g.add(top);
+  });
+
+  g.position.set(x,0,z); return g;
+}
+
+// 4 ── Cabin  (Alpine Mountain Chalet) ───────────────
+function buildCabin(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group(); g.userData.type = 'house';
+
+  const stoneM  = phong(0x7A7068,0x222222,8);
+  const stoneLt = phong(0x9A8E82,0x222222,8);
+  const logDk   = phong(0x4A2E14,0x221100,12);
+  const logLt   = phong(0x6A4228,0x221100,12);
+  const woodFrm = phong(0x5A3018,0x221100,12);
+
+  // Stone base
+  const base2 = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.55,CELL-0.05), stoneM);
+  base2.position.y = 0.275; base2.receiveShadow=true; g.add(base2);
+
+  // Alternating heavy timber logs with notched ends
+  const logH=0.35, logCount=7;
+  for (let i=0; i<logCount; i++) {
+    const log = new THREE.Mesh(new THREE.BoxGeometry(4.2,logH,4.0), i%2===0?logDk:logLt);
+    log.position.y = 0.55+i*logH+logH/2; log.castShadow=true; log.receiveShadow=true; g.add(log);
+    [-2.0,2.0].forEach(ex => {
+      const notch = new THREE.Mesh(new THREE.BoxGeometry(0.28,logH*0.7,4.05), i%2===0?logLt:logDk);
+      notch.position.set(ex, 0.55+i*logH+logH/2, 0); g.add(notch);
+    });
+  }
+  const wallTop = 0.55+logCount*logH;
+
+  // Steep dark A-frame roof with eaves
+  const roofM = phong(0x1E1208,0x111111,5);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(3.35,3.1,4), roofM);
+  roof.position.y = wallTop+1.55; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
+  [[0,0,-2.1],[0,0,2.1],[-2.1,0,0],[2.1,0,0]].forEach(([ex,,ez],i) => {
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(i<2?0.35:4.25, 0.12, i<2?4.25:0.35), phong(0x3A2010,0x221100,8));
+    eave.position.set(ex, wallTop+0.06, ez); g.add(eave);
+  });
+
+  // Massive stone chimney with fireplace glow slit
+  for (let ci=0; ci<8; ci++) {
+    const stone = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.26,0.72), ci%2===0?stoneM:stoneLt);
+    stone.position.set(-1.1, 0.55+ci*0.28, -1.0); g.add(stone);
+  }
+  const chiTop = new THREE.Mesh(new THREE.BoxGeometry(0.72,1.1,0.72), stoneM);
+  chiTop.position.set(-1.1, wallTop+1.0, -1.0); chiTop.castShadow=true; g.add(chiTop);
+  const chiCap = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.14,0.88), stoneLt);
+  chiCap.position.set(-1.1, wallTop+1.61, -1.0); g.add(chiCap);
+  // Fireplace ember glow
+  const fireMat = new THREE.MeshPhongMaterial({ color:0xFF6600, emissive:new THREE.Color(0xFF4400), emissiveIntensity:0.9, transparent:true, opacity:0.9 });
+  const fire = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.32,0.05), fireMat);
+  fire.position.set(-1.1, 0.75, 2.01); g.add(fire);
+
+  // Large triangular gable window (warm amber)
+  const gable = new THREE.Mesh(new THREE.BoxGeometry(2.0,1.35,0.09), glassWarm(0.65));
+  gable.position.set(0, wallTop+1.0, 2.01); g.add(gable);
+  [new THREE.BoxGeometry(2.1,0.09,0.12), new THREE.BoxGeometry(0.09,1.42,0.12), new THREE.BoxGeometry(0.09,1.42,0.12)]
+    .forEach((geo,i) => {
+      const frm = new THREE.Mesh(geo, woodFrm);
+      frm.position.set(i===1?-1.0:i===2?1.0:0, wallTop+1.0, 2.04);
+      if (i===0) frm.position.y = wallTop+0.33;
+      g.add(frm);
+    });
+
+  // Cross-pane sash windows with glow
+  [-1.0,1.0].forEach(wx => {
+    const frm = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.86,0.12), woodFrm);
+    frm.position.set(wx, 0.55+1.55, 2.04); g.add(frm);
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(0.60,0.64,0.07), glassWarm(0.55));
+    gl.position.set(wx, 0.55+1.55, 2.07); g.add(gl);
+    const mH = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.05,0.10), woodFrm);
+    mH.position.set(wx, 0.55+1.55, 2.10); g.add(mH);
+    const mV = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.66,0.10), woodFrm);
+    mV.position.set(wx, 0.55+1.55, 2.10); g.add(mV);
+  });
+
+  // Covered front porch with posts + beam
+  const deckM = phong(0x5A3A1A,0x221100,10);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,1.0), deckM);
+  deck.position.set(0, 0.55+0.06, 2.45); g.add(deck);
+  [-1.4,1.4].forEach(px => {
+    const pp = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.12,1.1,8), deckM);
+    pp.position.set(px, 0.55+0.12+0.55, 2.9); pp.castShadow=true; g.add(pp);
+  });
+  const pBeam = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.12,0.14), deckM);
+  pBeam.position.set(0, 0.55+1.2, 2.9); g.add(pBeam);
+
+  // Plank door with iron ring
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.84,1.5,0.12), phong(0x3A1A08,0x221100,15));
+  door.position.set(0, 0.55+0.75, 2.04); g.add(door);
+  [-0.22,0.22].forEach(dv => {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(0.05,1.52,0.14), phong(0x2A1205));
+    plank.position.set(dv, 0.55+0.75, 2.08); g.add(plank);
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.018,8,12), phong(0x333333,0x666666,80));
+  ring.position.set(0.32, 0.55+0.8, 2.11); ring.rotation.x=Math.PI/2; g.add(ring);
+
+  // Wood fence with pointed posts
+  const fenceM = phong(0x6A4028,0x221100,8);
+  [-1.8,-1.2,1.2,1.8].forEach(fx => {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.65,0.10), fenceM);
+    post.position.set(fx, 0.33, 2.5); g.add(post);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07,0.2,4), fenceM);
+    tip.position.set(fx, 0.73, 2.5); g.add(tip);
+  });
+  [-1.5,1.5].forEach(rx => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.3,0.07,0.07), fenceM);
+    rail.position.set(rx, 0.52, 2.5); g.add(rail);
+  });
+
+  g.position.set(x,0,z); return g;
+}
+
+// 5 ── Apartment  (Luxury Contemporary Tower) ────────
+function buildApartment(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group(); g.userData.type = 'house';
+
+  const concM  = phong(0x4A4A4A,0x666666,20);
+  const concLt = phong(0xD8D5CF,0xBBBBBB,18);
+  const steelM = phong(0x1A1A1A,0x444444,80);
+
+  // Concrete podium
+  const podium = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.40,CELL-0.05), concM);
+  podium.position.y = 0.20; podium.receiveShadow=true; g.add(podium);
+
+  // Ground floor glazed lobby
+  const lobby = new THREE.Mesh(new THREE.BoxGeometry(4.6,1.6,3.9), concLt);
+  lobby.position.y = 0.40+0.8; lobby.castShadow=true; lobby.receiveShadow=true; g.add(lobby);
+  const lobbyGlass = new THREE.Mesh(new THREE.BoxGeometry(4.5,1.55,0.09), glassWarm(0.42));
+  lobbyGlass.position.set(0, 0.40+0.775, 1.96); g.add(lobbyGlass);
+  [-1.5,0,1.5].forEach(mx => {
+    const mul = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.58,0.12), steelM);
+    mul.position.set(mx, 0.40+0.78, 1.97); g.add(mul);
+  });
+
+  // Floor 2
+  const fl2 = new THREE.Mesh(new THREE.BoxGeometry(4.4,1.5,3.7), concLt);
+  fl2.position.y = 0.40+1.6+0.75; fl2.castShadow=true; fl2.receiveShadow=true; g.add(fl2);
+
+  // Floor 3 (narrower setback)
+  const fl3 = new THREE.Mesh(new THREE.BoxGeometry(4.2,1.5,3.5), concLt);
+  fl3.position.y = 0.40+3.1+0.75; fl3.castShadow=true; fl3.receiveShadow=true; g.add(fl3);
+
+  // Spandrel bands
+  [1.6,3.1,4.6].forEach(fy => {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(4.65,0.18,4.0), concM);
+    band.position.y = 0.40+fy+0.09; g.add(band);
+  });
+
+  // Cool glass curtain wall (upper floors)
+  [[4.4,0.40+1.6+0.76,1.86],[4.2,0.40+3.1+0.76,1.76]].forEach(([w,y,fz]) => {
+    const cw = new THREE.Mesh(new THREE.BoxGeometry(w,1.45,0.09), glassCool(0.22));
+    cw.position.set(0, y, fz); g.add(cw);
+  });
+
+  // Warm glowing window panels (scattered lit rooms)
+  [
+    [-1.5,0.40+2.1,1.97],[0,0.40+2.1,1.97],[1.5,0.40+2.1,1.97],
+    [-1.5,0.40+3.55,1.87],[0,0.40+3.55,1.87],[1.5,0.40+3.55,1.87],
+  ].forEach(([wx,wy,wz],i) => {
+    const warmW = new THREE.MeshPhongMaterial({ color:0xFFDD99, specular:0xFFFFFF, shininess:60,
+      emissive:new THREE.Color(0xFF8800), emissiveIntensity:0.35+(i%3)*0.1, transparent:true, opacity:0.85 });
+    const wp = new THREE.Mesh(new THREE.BoxGeometry(1.1,1.0,0.08), warmW);
+    wp.position.set(wx,wy,wz); g.add(wp);
+    const wf = new THREE.Mesh(new THREE.BoxGeometry(1.18,1.08,0.06), steelM);
+    wf.position.set(wx,wy,wz-0.02); g.add(wf);
+  });
+
+  // Cantilevered balconies with glass railings
+  [0.40+1.58,0.40+3.08].forEach(by => {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(4.2,0.14,0.75), concM);
+    slab.position.set(0, by, 2.27); g.add(slab);
+    const glBal = new THREE.MeshPhongMaterial({ color:0xCCDDEE, transparent:true, opacity:0.32, specular:0xFFFFFF, shininess:150 });
+    const balG = new THREE.Mesh(new THREE.BoxGeometry(4.0,0.5,0.06), glBal);
+    balG.position.set(0, by+0.32, 2.6); g.add(balG);
+    const topR = new THREE.Mesh(new THREE.BoxGeometry(4.1,0.055,0.055), steelM);
+    topR.position.set(0, by+0.58, 2.6); g.add(topR);
+  });
+
+  // Entrance canopy + steel posts
+  const can = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.10,1.0), phong(0x888888,0xAAAAAA,40));
+  can.position.set(0, 0.40+1.65, 2.1); g.add(can);
+  [-0.9,0.9].forEach(cpx => {
+    const cPost = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.28,0.06), steelM);
+    cPost.position.set(cpx, 0.40+1.0, 2.55); g.add(cPost);
+  });
+
+  // Double glass entry doors
+  const entDoor = new THREE.MeshPhongMaterial({ color:0xDDEEFF, specular:0xFFFFFF, shininess:180,
+    emissive:new THREE.Color(0xFF8800), emissiveIntensity:0.22, transparent:true, opacity:0.7 });
+  [-0.38,0.38].forEach(dx => {
+    const d = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.55,0.09), entDoor);
+    d.position.set(dx, 0.40+0.775, 1.97); g.add(d);
+  });
+  const dDiv = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.58,0.12), steelM);
+  dDiv.position.set(0, 0.40+0.775, 1.99); g.add(dDiv);
+
+  // Mechanical penthouse + roof slab + perimeter edge
+  const ph = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.75,2.0), concM);
+  ph.position.set(0.5, 0.40+4.6+0.375, 0); ph.castShadow=true; g.add(ph);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.6,0.18,3.9), concM);
+  roof.position.y = 0.40+4.6+0.09; g.add(roof);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(4.7,0.20,4.0), phong(0x3A3A3A,0x555555,20));
+  edge.position.y = 0.40+4.6+0.28; g.add(edge);
+
+  g.position.set(x,0,z); return g;
 }
 
 // ── Park ──────────────────────────────────────────
@@ -645,16 +1083,15 @@ function placeItem(r, c) {
 
   if (selectedTool === 'erase') {
     if (placedItems[key]) { world.remove(placedItems[key]); delete placedItems[key]; }
-    removeHousePanel(key);
     return;
   }
 
-  // Remove existing (and its panel if it was a house)
-  if (placedItems[key]) { world.remove(placedItems[key]); removeHousePanel(key); }
+  // Remove existing
+  if (placedItems[key]) world.remove(placedItems[key]);
 
   let mesh;
   if      (selectedTool === 'road')  mesh = buildRoad(r, c);
-  else if (selectedTool === 'house') { mesh = buildHouse(r, c); createHousePanel(r, c); }
+  else if (selectedTool === 'house') mesh = buildHouse(r, c);
   else if (selectedTool === 'park')  mesh = buildPark(r, c);
   if (mesh) { world.add(mesh); placedItems[key] = mesh; }
 }
@@ -679,12 +1116,17 @@ const clouds = [[-40,38,-70,1.1],[30,44,-80,.9],[70,36,-55,1.2],[-75,42,20,1],
     return { mesh: c, speed: .008+Math.random()*.006, dir: Math.random()>.5?1:-1 };
   });
 
-// Sky haze
+// Twilight horizon glow
 const haze = new THREE.Mesh(
-  new THREE.PlaneGeometry(800,200),
-  new THREE.MeshBasicMaterial({ color:0xC0DCF5, transparent:true, opacity:.35, side:THREE.DoubleSide })
+  new THREE.PlaneGeometry(800, 200),
+  new THREE.MeshBasicMaterial({ color: 0xFF7733, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
 );
-haze.position.set(0,28,-200); scene.add(haze);
+haze.position.set(0, 22, -200); scene.add(haze);
+const haze2 = new THREE.Mesh(
+  new THREE.PlaneGeometry(800, 300),
+  new THREE.MeshBasicMaterial({ color: 0x1A2A5E, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+);
+haze2.position.set(0, 50, -200); scene.add(haze2);
 
 // ─────────────────────────────────────────────────
 //  INPUT — drag to rotate  |  tap to build
@@ -788,27 +1230,46 @@ const TOOL_INFO = {
   erase: { icon: '🗑️', name: 'Erase', color: '#FF8888' },
 };
 
+const HOUSE_TYPES = {
+  cottage:   { icon: '🏡', name: 'Cottage'   },
+  modern:    { icon: '🏢', name: 'Modern'    },
+  villa:     { icon: '🏛️', name: 'Villa'     },
+  cabin:     { icon: '🛖', name: 'Log Cabin' },
+  apartment: { icon: '🏬', name: 'Apartment' },
+};
+
+const housePicker = document.getElementById('house-picker');
+let housePickerOpen = false;
+
+function closeHousePicker() {
+  housePickerOpen = false;
+  housePicker.classList.remove('open');
+}
+
 function setTool(tool) {
-  if (selectedTool === tool) {
+  if (selectedTool === tool && tool !== 'house') {
     // Deselect
     selectedTool = null;
     document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
     toolBadge.classList.remove('show');
     hoverMesh.visible = false; hoverBorder.visible = false;
+    closeHousePicker();
   } else {
     selectedTool = tool;
     document.querySelectorAll('.bitem').forEach(e =>
       e.classList.toggle('selected', e.dataset.tool === tool));
     const info = TOOL_INFO[tool];
-    badgeIcon.textContent = info.icon;
-    badgeName.textContent = info.name + ' — tap land';
-    toolBadge.classList.add('show');
-    // Tint hover
-    if (tool === 'erase') {
-      hoverMat.color.set(0xFF6666);
+    if (tool === 'house') {
+      const ht = HOUSE_TYPES[selectedHouseType];
+      badgeIcon.textContent = ht.icon;
+      badgeName.textContent = ht.name + ' — tap land';
     } else {
-      hoverMat.color.set(0x88FF88);
+      badgeIcon.textContent = info.icon;
+      badgeName.textContent = info.name + ' — tap land';
     }
+    toolBadge.classList.add('show');
+    hoverMat.color.set(tool === 'erase' ? 0xFF6666 : 0x88FF88);
+    closeHousePicker();
   }
 }
 
@@ -817,12 +1278,47 @@ buildBtn.addEventListener('click', () => {
   buildMenu.classList.toggle('open', buildMenuOpen);
   buildBtn.classList.toggle('open', buildMenuOpen);
   buildBtn.textContent = buildMenuOpen ? '✕' : '🏗️';
+  if (!buildMenuOpen) closeHousePicker();
 });
 
 document.querySelectorAll('.bitem').forEach(el => {
   el.addEventListener('click', () => {
-    setTool(el.dataset.tool);
-    // Close menu after selecting (nice UX on mobile)
+    if (el.dataset.tool === 'house') {
+      // Toggle the house picker without closing the build menu
+      housePickerOpen = !housePickerOpen;
+      housePicker.classList.toggle('open', housePickerOpen);
+      // Mark house as selected visually
+      document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedTool = 'house';
+      const ht = HOUSE_TYPES[selectedHouseType];
+      badgeIcon.textContent = ht.icon;
+      badgeName.textContent = ht.name + ' — tap land';
+      toolBadge.classList.add('show');
+      hoverMat.color.set(0x88FF88);
+    } else {
+      closeHousePicker();
+      setTool(el.dataset.tool);
+      buildMenuOpen = false;
+      buildMenu.classList.remove('open');
+      buildBtn.classList.remove('open');
+      buildBtn.textContent = '🏗️';
+    }
+  });
+});
+
+// House type selection
+document.querySelectorAll('.htype').forEach(el => {
+  el.addEventListener('click', () => {
+    selectedHouseType = el.dataset.htype;
+    document.querySelectorAll('.htype').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    // Update badge
+    const ht = HOUSE_TYPES[selectedHouseType];
+    badgeIcon.textContent = ht.icon;
+    badgeName.textContent = ht.name + ' — tap land';
+    // Close both panels
+    closeHousePicker();
     buildMenuOpen = false;
     buildMenu.classList.remove('open');
     buildBtn.classList.remove('open');
@@ -832,11 +1328,15 @@ document.querySelectorAll('.bitem').forEach(el => {
 
 // Tap outside build menu to close it
 document.addEventListener('click', e => {
+  if (housePickerOpen && !housePicker.contains(e.target) && !buildMenu.contains(e.target)) {
+    closeHousePicker();
+  }
   if (buildMenuOpen && !buildMenu.contains(e.target) && e.target !== buildBtn) {
     buildMenuOpen = false;
     buildMenu.classList.remove('open');
     buildBtn.classList.remove('open');
     buildBtn.textContent = '🏗️';
+    closeHousePicker();
   }
 });
 
@@ -901,8 +1401,6 @@ function animate() {
   });
 
   updateCompass(rotY);
-  // Update house panel 2D positions every frame (tracks world rotation)
-  Object.keys(housePanels).forEach(k => positionHousePanel(k));
   renderer.render(scene, camera);
 }
 animate();
