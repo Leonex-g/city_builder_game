@@ -65,45 +65,82 @@
       transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), background 0.2s;
       touch-action: manipulation; z-index: 20;
     }
-    #build-btn.open {
-      background: linear-gradient(145deg, #c1121f, #e63946);
-      font-size: 21px;
-      letter-spacing: 0;
-    }
+    #build-btn.open { background: linear-gradient(145deg, #c1121f, #e63946); font-size: 21px; }
     #build-btn:active { transform: scale(0.9); }
-    #build-btn.open:active { transform: scale(0.9); }
 
     /* ── BUILD MENU ───────────────────────────────── */
     #build-menu {
       position: fixed; bottom: 96px; left: 18px;
-      display: flex; flex-direction: column; gap: 9px;
       opacity: 0; transform: translateY(16px) scale(0.97);
       pointer-events: none;
       transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
       z-index: 20;
+      background: rgba(10,14,22,0.88);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border: 1.5px solid rgba(255,255,255,0.14);
+      border-radius: 20px; overflow: hidden;
+      min-width: 210px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
     #build-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
+    /* page inside the menu */
+    .menu-page { display: flex; flex-direction: column; }
+    .menu-page.hidden { display: none; }
+
+    /* section title row */
+    .menu-section-title {
+      padding: 9px 16px 7px;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+      color: rgba(255,255,255,0.38);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* back button row */
+    .menu-back {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; cursor: pointer;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.55);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      transition: color 0.12s, background 0.12s;
+      touch-action: manipulation;
+    }
+    .menu-back:active { background: rgba(255,255,255,0.06); color: #fff; }
+
+    /* category / build item */
     .bitem {
       display: flex; align-items: center; gap: 11px;
-      background: rgba(15,15,15,0.48); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1.5px solid rgba(255,255,255,0.18); border-radius: 16px;
-      padding: 10px 16px 10px 12px; cursor: pointer;
+      padding: 11px 16px 11px 14px; cursor: pointer;
       color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
-      transition: background 0.14s, transform 0.1s, border-color 0.14s;
-      touch-action: manipulation; white-space: nowrap; min-width: 130px;
+      transition: background 0.12s; touch-action: manipulation;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .bitem .bi  { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .bitem:last-child { border-bottom: none; }
+    .bitem .bi  { font-size: 20px; line-height: 1; flex-shrink: 0; }
     .bitem .blabel { display: flex; flex-direction: column; }
     .bitem .bname  { font-size: 13px; font-weight: 700; line-height: 1; }
-    .bitem .bdesc  { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.5); margin-top: 2px; }
-    .bitem:active  { transform: scale(0.95); }
-    .bitem.selected {
-      background: rgba(45,106,79,0.65);
-      border-color: rgba(100,255,160,0.45);
-      color: #fff;
-    }
+    .bitem .bdesc  { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 2px; }
+    .bitem:active  { background: rgba(255,255,255,0.07); }
+    .bitem.selected { background: rgba(45,106,79,0.5); }
     .bitem.selected .bname { color: #88ffbb; }
+    /* house category item gets a chevron */
+    #house-cat-btn::after { content: ' ›'; color: rgba(255,255,255,0.35); font-size: 16px; margin-left: auto; }
+
+    /* house style rows */
+    .htype {
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 16px 10px 14px; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.12s; touch-action: manipulation;
+    }
+    .htype:last-child { border-bottom: none; }
+    .htype:active { background: rgba(255,255,255,0.07); }
+    .htype.active { background: rgba(45,106,79,0.45); }
+    .htype-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+    .htype-name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1; }
+    .htype-desc { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .htype.active .htype-name { color: #88ffbb; }
 
     /* ── ACTIVE TOOL BADGE ────────────────────────── */
     #tool-badge {
@@ -119,44 +156,20 @@
     #tool-badge .ti { font-size: 17px; }
     #tool-badge .tn { font-size: 11px; color: #88ffbb; }
 
-    /* ── HOUSE TYPE PICKER ───────────────────────── */
-    #house-picker {
-      position: fixed; bottom: 96px; left: 168px;
-      background: rgba(8,12,20,0.92);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border: 1.5px solid rgba(255,255,255,0.16); border-radius: 18px;
-      overflow: hidden; z-index: 30; min-width: 190px;
-      opacity: 0; transform: translateX(-10px) scale(0.97);
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    /* ── PAN CONTROLS (front / back) ─────────────── */
+    #pan-wrap {
+      position: fixed; bottom: 28px; right: 74px;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      z-index: 20;
     }
-    #house-picker.open {
-      opacity: 1; transform: translateX(0) scale(1); pointer-events: auto;
+    .panbtn {
+      width: 46px; height: 46px; border-radius: 50%;
+      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 20px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
     }
-    .hpicker-title {
-      padding: 9px 14px 7px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.9px;
-      color: rgba(255,255,255,0.4); text-transform: uppercase;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
-    }
-    .htype {
-      display: flex; align-items: center; gap: 11px;
-      padding: 9px 14px 9px 12px; cursor: pointer;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      transition: background 0.12s, transform 0.08s;
-      touch-action: manipulation;
-    }
-    .htype:last-child { border-bottom: none; }
-    .htype:active { transform: scale(0.97); background: rgba(255,255,255,0.07); }
-    .htype.active {
-      background: rgba(45,106,79,0.55);
-      border-color: rgba(100,255,160,0.15);
-    }
-    .htype-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
-    .htype-name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1; }
-    .htype-desc { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 2px; }
-    .htype.active .htype-name { color: #88ffbb; }
+    .panbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
   </style>
 </head>
 <body>
@@ -197,49 +210,59 @@
 <!-- Build button -->
 <button id="build-btn" aria-label="Toggle build menu">🏗️</button>
 
-<!-- Build menu -->
+<!-- Build menu (drill-down: categories → house styles) -->
 <div id="build-menu">
-  <div class="bitem" data-tool="road">
-    <span class="bi">🛣️</span>
-    <span class="blabel"><span class="bname">Road</span><span class="bdesc">Connect your city</span></span>
+  <!-- Page 1: Main categories -->
+  <div id="menu-main" class="menu-page">
+    <div class="menu-section-title">Build</div>
+    <div class="bitem" data-tool="road">
+      <span class="bi">🛣️</span>
+      <span class="blabel"><span class="bname">Road</span><span class="bdesc">Connect your city</span></span>
+    </div>
+    <div class="bitem" id="house-cat-btn">
+      <span class="bi">🏠</span>
+      <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
+    </div>
+    <div class="bitem" data-tool="park">
+      <span class="bi">🌲</span>
+      <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
+    </div>
+    <div class="bitem" data-tool="erase">
+      <span class="bi">🗑️</span>
+      <span class="blabel"><span class="bname">Erase</span><span class="bdesc">Clear a plot</span></span>
+    </div>
   </div>
-  <div class="bitem" data-tool="house">
-    <span class="bi">🏠</span>
-    <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
-  </div>
-  <div class="bitem" data-tool="park">
-    <span class="bi">🌲</span>
-    <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
-  </div>
-  <div class="bitem" data-tool="erase">
-    <span class="bi">🗑️</span>
-    <span class="blabel"><span class="bname">Erase</span><span class="bdesc">Clear a plot</span></span>
+  <!-- Page 2: House styles -->
+  <div id="menu-house" class="menu-page hidden">
+    <div class="menu-back" id="back-to-main">← Categories</div>
+    <div class="menu-section-title">House Style</div>
+    <div class="htype active" data-htype="cottage">
+      <span class="htype-icon">🏡</span>
+      <div><div class="htype-name">Cottage</div><div class="htype-desc">Cozy &amp; charming</div></div>
+    </div>
+    <div class="htype" data-htype="modern">
+      <span class="htype-icon">🏢</span>
+      <div><div class="htype-name">Modern</div><div class="htype-desc">Sleek flat-roof</div></div>
+    </div>
+    <div class="htype" data-htype="villa">
+      <span class="htype-icon">🏛️</span>
+      <div><div class="htype-name">Villa</div><div class="htype-desc">Grand &amp; elegant</div></div>
+    </div>
+    <div class="htype" data-htype="cabin">
+      <span class="htype-icon">🛖</span>
+      <div><div class="htype-name">Log Cabin</div><div class="htype-desc">Rustic A-frame</div></div>
+    </div>
+    <div class="htype" data-htype="apartment">
+      <span class="htype-icon">🏬</span>
+      <div><div class="htype-name">Apartment</div><div class="htype-desc">Multi-level living</div></div>
+    </div>
   </div>
 </div>
 
-<!-- House type picker -->
-<div id="house-picker">
-  <div class="hpicker-title">Choose Style</div>
-  <div class="htype active" data-htype="cottage">
-    <span class="htype-icon">🏡</span>
-    <div><div class="htype-name">Cottage</div><div class="htype-desc">Cozy &amp; charming</div></div>
-  </div>
-  <div class="htype" data-htype="modern">
-    <span class="htype-icon">🏢</span>
-    <div><div class="htype-name">Modern</div><div class="htype-desc">Sleek flat-roof</div></div>
-  </div>
-  <div class="htype" data-htype="villa">
-    <span class="htype-icon">🏛️</span>
-    <div><div class="htype-name">Villa</div><div class="htype-desc">Grand &amp; elegant</div></div>
-  </div>
-  <div class="htype" data-htype="cabin">
-    <span class="htype-icon">🛖</span>
-    <div><div class="htype-name">Log Cabin</div><div class="htype-desc">Rustic A-frame</div></div>
-  </div>
-  <div class="htype" data-htype="apartment">
-    <span class="htype-icon">🏬</span>
-    <div><div class="htype-name">Apartment</div><div class="htype-desc">Multi-level living</div></div>
-  </div>
+<!-- Pan controls (front / back) -->
+<div id="pan-wrap">
+  <button class="panbtn" id="pan-fwd"  aria-label="Pan forward">▲</button>
+  <button class="panbtn" id="pan-back" aria-label="Pan back">▼</button>
 </div>
 
 <!-- Active tool badge -->
@@ -275,9 +298,12 @@ const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
 const ZOOM_MIN = 20, ZOOM_MAX = 100, ZOOM_DEF = 60;
 const CAM_DIR  = new THREE.Vector3(0, 30, 55).normalize();
 let   zoomDist = ZOOM_DEF, targetZoom = ZOOM_DEF;
+let   panOffX = 0, panOffZ = 0, targetPanX = 0, targetPanZ = 0;
+const PAN_LIMIT = 28;
 function updateCamera() {
-  camera.position.copy(CAM_DIR).multiplyScalar(zoomDist);
-  camera.lookAt(0, 0, 0);
+  const base = CAM_DIR.clone().multiplyScalar(zoomDist);
+  camera.position.set(base.x, base.y, base.z + panOffZ);
+  camera.lookAt(0, 0, panOffZ);
 }
 updateCamera();
 
@@ -1077,13 +1103,18 @@ function buildPark(r, c) {
 }
 
 // ─────────────────────────────────────────────────
-//  CAR SYSTEM
-//  Cars appear once a connected road cluster of
-//  4+ tiles exists.  Max 2 cars at a time.
+//  VEHICLE SYSTEM  — per 5 road tiles: 2 cars + 1 bike
 // ─────────────────────────────────────────────────
-const CAR_COLORS = [0xE63946, 0x1D6DB5];   // red, blue
-const MAX_CARS   = 2;
-const carList    = [];
+const CAR_COLORS  = [0xE63946, 0x1D6DB5, 0xF4A261, 0x2D6A4F, 0xE9C46A];
+const BIKE_COLORS = [0x22CC55, 0xFF3366, 0xAA44FF];
+const carList  = [];
+const bikeList = [];
+
+function getRoadTileCount() {
+  return Object.keys(placedItems).filter(k => placedItems[k].userData.type === 'road').length;
+}
+function calcMaxCars()  { return Math.floor(getRoadTileCount() / 5) * 2; }
+function calcMaxBikes() { return Math.floor(getRoadTileCount() / 5) * 1; }
 
 function buildCar(color) {
   const g        = new THREE.Group();
@@ -1099,18 +1130,10 @@ function buildCar(color) {
   const tailMat  = new THREE.MeshPhongMaterial({
     color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85
   });
-
-  // Car forward direction = local +Z  (headlights face +Z, taillights face -Z)
-
-  // Lower chassis
   const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat);
   chassis.position.y = 0.56; chassis.castShadow=true; g.add(chassis);
-
-  // Upper cabin (offset slightly forward)
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
   cabin.position.set(0,0.84,0.10); cabin.castShadow=true; g.add(cabin);
-
-  // Windshields / side windows
   const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
   wf.position.set(0,0.85,0.57); g.add(wf);
   const wr = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
@@ -1119,42 +1142,90 @@ function buildCar(color) {
     const sw = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat);
     sw.position.set(sx,0.85,0.10); g.add(sw);
   });
-
-  // Headlights (front = +Z)
   [-0.27,0.27].forEach(hx => {
     const h = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), headMat);
     h.position.set(hx,0.57,0.89); g.add(h);
-  });
-  // Taillights (rear = -Z)
-  [-0.27,0.27].forEach(hx => {
     const t = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat);
     t.position.set(hx,0.57,-0.89); g.add(t);
   });
-
-  // Bumpers
   const bf = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
   bf.position.set(0,0.45,0.90); g.add(bf);
   const br = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
   br.position.set(0,0.45,-0.90); g.add(br);
-
-  // 4 wheels: cylinder axis along X (rotation.z = π/2)
-  // Wheel center y=0.18 → wheel bottom at y=0 → sits exactly on road surface
   [[0.47,0.60],[-0.47,0.60],[0.47,-0.60],[-0.47,-0.60]].forEach(([wx,wz]) => {
     const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat);
     tyre.rotation.z = Math.PI/2; tyre.position.set(wx,0.18,wz); tyre.castShadow=true; g.add(tyre);
     const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat);
     rim.rotation.z = Math.PI/2; rim.position.set(wx,0.18,wz); g.add(rim);
   });
-
   return g;
 }
 
-// BFS → returns key-array of the largest contiguous road cluster
+function buildBike(color) {
+  const g        = new THREE.Group();
+  const bodyMat  = new THREE.MeshLambertMaterial({ color });
+  const darkMat  = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const chromeMat= new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
+  const helmetMat= new THREE.MeshLambertMaterial({ color: 0xFF6600 });
+  const headMat  = new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 });
+
+  // Frame (thin, low)
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.14,0.80), bodyMat);
+  frame.position.y = 0.36; g.add(frame);
+  // Engine block
+  const eng = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.30), darkMat);
+  eng.position.set(0,0.30,0.0); g.add(eng);
+  // Fuel tank / body top
+  const tank = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.36), bodyMat);
+  tank.position.set(0,0.46,-0.05); g.add(tank);
+  // Seat
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.06,0.34), darkMat);
+  seat.position.set(0,0.52,-0.22); g.add(seat);
+  // Handlebars
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.40,0.04,0.04), chromeMat);
+  bar.position.set(0,0.56,0.36); g.add(bar);
+  // Exhaust pipe
+  const exh = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.55,6), chromeMat);
+  exh.rotation.z = Math.PI/2; exh.position.set(0.14,0.24,0.05); g.add(exh);
+  // 2 wheels
+  [0.40,-0.40].forEach(wz => {
+    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.07,14), darkMat);
+    tyre.rotation.z = Math.PI/2; tyre.position.set(0,0.18,wz); tyre.castShadow=true; g.add(tyre);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.08,10), chromeMat);
+    rim.rotation.z = Math.PI/2; rim.position.set(0,0.18,wz); g.add(rim);
+    // Spokes
+    for (let s=0;s<5;s++) {
+      const sp = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.28,0.015), chromeMat);
+      sp.rotation.z = Math.PI/2; sp.rotation.x = s*Math.PI/5;
+      sp.position.set(0,0.18,wz); g.add(sp);
+    }
+  });
+  // Forks (front)
+  const forkL = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
+  forkL.position.set(-0.08,0.28,0.40); g.add(forkL);
+  const forkR = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
+  forkR.position.set( 0.08,0.28,0.40); g.add(forkR);
+  // Headlight
+  const hl = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.09,0.06), headMat);
+  hl.position.set(0,0.40,0.46); g.add(hl);
+  // Rider body
+  const rbody = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.28,0.16), bodyMat);
+  rbody.position.set(0,0.72,-0.06); g.add(rbody);
+  // Rider head / helmet
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115,8,7), helmetMat);
+  head.position.set(0,0.98,0.04); g.add(head);
+  // Visor
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.05,0.04),
+    new THREE.MeshPhongMaterial({ color:0x88AACC, transparent:true, opacity:0.7 }));
+  visor.position.set(0,0.96,0.12); g.add(visor);
+  return g;
+}
+
+// BFS → largest contiguous road cluster
 function getLargestRoadComponent() {
   const keys = Object.keys(placedItems).filter(k => placedItems[k].userData.type==='road');
   if (!keys.length) return [];
-  const visited = new Set();
-  let largest = [];
+  const visited = new Set(); let largest = [];
   for (const key of keys) {
     if (visited.has(key)) continue;
     const comp=[], q=[key], seen=new Set([key]);
@@ -1171,7 +1242,6 @@ function getLargestRoadComponent() {
   return largest;
 }
 
-// Pick next adjacent road tile; avoid U-turns where possible
 function nextRoadCell(r, c, pr, pc) {
   const ns = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
   const fw = ns.filter(([nr,nc]) => !(nr===pr&&nc===pc));
@@ -1180,106 +1250,105 @@ function nextRoadCell(r, c, pr, pc) {
 }
 
 function spawnCar(roadKeys) {
-  if (carList.length >= MAX_CARS) return;
-  // Try not to start on a cell already occupied by another car
-  const occupied = new Set(carList.map(c=>`${c.cur.r},${c.cur.c}`));
+  const occupied = new Set([
+    ...carList.map(c=>`${c.cur.r},${c.cur.c}`),
+    ...bikeList.map(b=>`${b.cur.r},${b.cur.c}`)
+  ]);
   const free = roadKeys.filter(k => !occupied.has(k));
   const pool = free.length ? free : roadKeys;
   const key  = pool[Math.floor(Math.random()*pool.length)];
   const [r,c] = key.split(',').map(Number);
   const nxt = nextRoadCell(r,c,r,c);
   if (!nxt) return;
-
   const grp = buildCar(CAR_COLORS[carList.length % CAR_COLORS.length]);
   const { x, z } = cellCenter(r,c);
-  grp.position.set(x, 0.14, z);   // 0.14 = top surface of road slab
+  grp.position.set(x, 0.14, z);
   world.add(grp);
-  carList.push({
-    group: grp,
-    cur: {r,c},
-    tgt: {r:nxt[0],c:nxt[1]},
-    prv: {r,c},
-    t:   0,
-    spd: 0.018 + Math.random()*0.008   // slight speed variation per car
-  });
+  carList.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c}, t:0, spd:0.018+Math.random()*0.008 });
 }
 
-function removeAllCars() {
-  carList.forEach(c => world.remove(c.group));
-  carList.length = 0;
+function spawnBike(roadKeys) {
+  const occupied = new Set([
+    ...carList.map(c=>`${c.cur.r},${c.cur.c}`),
+    ...bikeList.map(b=>`${b.cur.r},${b.cur.c}`)
+  ]);
+  const free = roadKeys.filter(k => !occupied.has(k));
+  const pool = free.length ? free : roadKeys;
+  const key  = pool[Math.floor(Math.random()*pool.length)];
+  const [r,c] = key.split(',').map(Number);
+  const nxt = nextRoadCell(r,c,r,c);
+  if (!nxt) return;
+  const grp = buildBike(BIKE_COLORS[bikeList.length % BIKE_COLORS.length]);
+  const { x, z } = cellCenter(r,c);
+  grp.position.set(x, 0.14, z);
+  world.add(grp);
+  bikeList.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c}, t:0, spd:0.026+Math.random()*0.010 });
 }
 
-// Called after every road build / erase
+function removeAllVehicles() {
+  carList.forEach(c => world.remove(c.group));  carList.length = 0;
+  bikeList.forEach(b => world.remove(b.group)); bikeList.length = 0;
+}
+
 function updateCarSystem() {
   const comp = getLargestRoadComponent();
-  if (comp.length < 4) { removeAllCars(); return; }
+  if (comp.length < 5) { removeAllVehicles(); return; }
 
-  // Remove any car whose current or target tile was just erased
+  // Remove vehicles whose tiles were erased
   for (let i=carList.length-1; i>=0; i--) {
-    const car=carList[i];
-    if (!hasRoad(car.cur.r,car.cur.c) || !hasRoad(car.tgt.r,car.tgt.c)) {
-      world.remove(car.group); carList.splice(i,1);
-    }
+    const v=carList[i];
+    if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); carList.splice(i,1); }
   }
-  // Bring car count up to MAX_CARS
-  while (carList.length < MAX_CARS) spawnCar(comp);
+  for (let i=bikeList.length-1; i>=0; i--) {
+    const v=bikeList[i];
+    if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); bikeList.splice(i,1); }
+  }
+
+  const maxCars = calcMaxCars(), maxBikes = calcMaxBikes();
+
+  // Scale up
+  while (carList.length  < maxCars)  spawnCar(comp);
+  while (bikeList.length < maxBikes) spawnBike(comp);
+  // Scale down
+  while (carList.length  > maxCars)  { world.remove(carList.pop().group);  }
+  while (bikeList.length > maxBikes) { world.remove(bikeList.pop().group); }
 }
 
-// Called every animation frame — moves cars along the road
-function tickCars() {
-  if (!carList.length) return;
+function tickVehicle(list, isBike) {
+  if (!list.length) return;
   const dead = [];
-
-  carList.forEach((car,idx) => {
-    car.t += car.spd;
-
-    // Reached next tile
-    if (car.t >= 1) {
-      car.t -= 1;                           // keep sub-frame remainder
-      car.prv = {...car.cur};
-      car.cur = {...car.tgt};
-
-      // Bail if road tile was erased while car was en-route
-      if (!hasRoad(car.cur.r,car.cur.c)) { dead.push(idx); return; }
-
-      const nxt = nextRoadCell(car.cur.r,car.cur.c,car.prv.r,car.prv.c);
+  list.forEach((v, idx) => {
+    v.t += v.spd;
+    if (v.t >= 1) {
+      v.t -= 1; v.prv = {...v.cur}; v.cur = {...v.tgt};
+      if (!hasRoad(v.cur.r,v.cur.c)) { dead.push(idx); return; }
+      const nxt = nextRoadCell(v.cur.r,v.cur.c,v.prv.r,v.prv.c);
       if (!nxt) { dead.push(idx); return; }
-      car.tgt = { r:nxt[0], c:nxt[1] };
+      v.tgt = { r:nxt[0], c:nxt[1] };
     }
-
-    // Also bail if target tile was erased between frames
-    if (!hasRoad(car.tgt.r,car.tgt.c)) { dead.push(idx); return; }
-
-    // Interpolate world position (world-local space, same as cellCenter)
-    const from = cellCenter(car.cur.r,car.cur.c);
-    const to   = cellCenter(car.tgt.r,car.tgt.c);
-    car.group.position.set(
-      from.x + (to.x-from.x)*car.t,
-      0.14,
-      from.z + (to.z-from.z)*car.t
-    );
-
-    // Smoothly rotate to face direction of travel
-    // car local +Z is forward → rotation.y = atan2(-dx, dz)
+    if (!hasRoad(v.tgt.r,v.tgt.c)) { dead.push(idx); return; }
+    const from = cellCenter(v.cur.r,v.cur.c), to = cellCenter(v.tgt.r,v.tgt.c);
+    v.group.position.set(from.x+(to.x-from.x)*v.t, 0.14, from.z+(to.z-from.z)*v.t);
     const dx=to.x-from.x, dz=to.z-from.z;
-    if (dx!==0 || dz!==0) {
-      const ang = Math.atan2(-dx, dz);
-      let diff  = ang - car.group.rotation.y;
-      while (diff >  Math.PI) diff -= Math.PI*2;
-      while (diff < -Math.PI) diff += Math.PI*2;
-      car.group.rotation.y += diff * 0.25;
+    if (dx!==0||dz!==0) {
+      const ang=Math.atan2(-dx,dz); let diff=ang-v.group.rotation.y;
+      while(diff> Math.PI) diff-=Math.PI*2;
+      while(diff<-Math.PI) diff+=Math.PI*2;
+      v.group.rotation.y += diff * (isBike ? 0.30 : 0.25);
     }
   });
-
-  // Clean up stranded cars and try to refill
   if (dead.length) {
-    [...new Set(dead)].sort((a,b)=>b-a).forEach(i => {
-      world.remove(carList[i].group); carList.splice(i,1);
-    });
+    [...new Set(dead)].sort((a,b)=>b-a).forEach(i => { world.remove(list[i].group); list.splice(i,1); });
     const comp = getLargestRoadComponent();
-    if (comp.length >= 4) while (carList.length < MAX_CARS) spawnCar(comp);
+    if (comp.length >= 5) {
+      const maxC=calcMaxCars(), maxB=calcMaxBikes();
+      while(carList.length  < maxC) spawnCar(comp);
+      while(bikeList.length < maxB) spawnBike(comp);
+    }
   }
 }
+function tickCars()  { tickVehicle(carList,  false); }
+function tickBikes() { tickVehicle(bikeList, true);  }
 
 // ── Place / Erase ──────────────────────────────────
 function placeItem(r, c) {
@@ -1343,23 +1412,28 @@ haze2.position.set(0, 50, -200); scene.add(haze2);
 // ─────────────────────────────────────────────────
 //  INPUT — drag to rotate  |  tap to build
 // ─────────────────────────────────────────────────
-let dragging = false, lastX = 0, rotY = 0, targetY = 0, vel = 0;
-let tapStartX = 0, tapStartY = 0, tapMoved = 0;   // tap detection
+let dragging = false, lastX = 0, lastY = 0, rotY = 0, targetY = 0, vel = 0;
+let tapStartX = 0, tapStartY = 0, tapMoved = 0;
 let pinching = false, lastPinchDist = 0;
-let lastMouseX = 0, lastMouseY = 0;                // for hover highlight
+let lastMouseX = 0, lastMouseY = 0;
 
-const TAP_THRESHOLD = 9; // px
+const TAP_THRESHOLD = 9;
 
 function startDrag(x, y) {
-  dragging = true; lastX = x; vel = 0;
+  dragging = true; lastX = x; lastY = y; vel = 0;
   tapStartX = x; tapStartY = y; tapMoved = 0;
   if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded=true; }, 1200); }
 }
-function moveDrag(x) {
+function moveDrag(x, y) {
   if (!dragging) return;
-  tapMoved += Math.abs(x - lastX);
+  tapMoved += Math.abs(x - lastX) + Math.abs(y - lastY);
+  // Horizontal → rotate
   const dx = (x - lastX) * 0.011;
-  vel = dx; targetY += dx; lastX = x;
+  vel = dx; targetY += dx;
+  // Vertical → pan world forward/back in scene space
+  const dy = (y - lastY) * 0.18;
+  targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dy));
+  lastX = x; lastY = y;
 }
 function endDrag(ex, ey) {
   if (dragging && tapMoved < TAP_THRESHOLD && selectedTool) {
@@ -1376,7 +1450,7 @@ function getPinchDist(t) {
 
 // Mouse
 canvas.addEventListener('mousedown',  e => startDrag(e.clientX, e.clientY));
-canvas.addEventListener('mousemove',  e => { moveDrag(e.clientX); lastMouseX = e.clientX; lastMouseY = e.clientY; });
+canvas.addEventListener('mousemove',  e => { moveDrag(e.clientX, e.clientY); lastMouseX = e.clientX; lastMouseY = e.clientY; });
 canvas.addEventListener('mouseup',    e => endDrag(e.clientX, e.clientY));
 canvas.addEventListener('mouseleave', () => { dragging = false; });
 
@@ -1400,7 +1474,7 @@ canvas.addEventListener('touchmove', e => {
     const d = getPinchDist(e.touches);
     targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
     lastPinchDist = d;
-  } else if (!pinching) { moveDrag(e.touches[0].clientX); }
+  } else if (!pinching) { moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
@@ -1427,61 +1501,60 @@ document.getElementById('btn-out').addEventListener('click', () => { targetZoom 
 });
 
 // ─────────────────────────────────────────────────
-//  BUILD BUTTON & MENU
+//  PAN BUTTONS  (front / back)
 // ─────────────────────────────────────────────────
+['pan-fwd','pan-back'].forEach((id, i) => {
+  const el = document.getElementById(id); const dir = i===0 ? -1 : 1; let raf;
+  const step = () => { targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dir * 0.9)); raf = requestAnimationFrame(step); };
+  el.addEventListener('pointerdown', () => step());
+  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
+  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
+});
 const buildBtn  = document.getElementById('build-btn');
 const buildMenu = document.getElementById('build-menu');
 const toolBadge = document.getElementById('tool-badge');
 const badgeIcon = document.getElementById('badge-icon');
 const badgeName = document.getElementById('badge-name');
 
-const TOOL_INFO = {
-  road:  { icon: '🛣️', name: 'Road',  color: '#aaa' },
-  house: { icon: '🏠', name: 'House', color: '#F0DCAA' },
-  park:  { icon: '🌲', name: 'Park',  color: '#88ffbb' },
-  erase: { icon: '🗑️', name: 'Erase', color: '#FF8888' },
-};
-
 const HOUSE_TYPES = {
-  cottage:   { icon: '🏡', name: 'Cottage'   },
-  modern:    { icon: '🏢', name: 'Modern'    },
-  villa:     { icon: '🏛️', name: 'Villa'     },
-  cabin:     { icon: '🛖', name: 'Log Cabin' },
-  apartment: { icon: '🏬', name: 'Apartment' },
+  cottage:   { icon: '\U0001F3E1', name: 'Cottage'   },
+  modern:    { icon: '\U0001F3E2', name: 'Modern'    },
+  villa:     { icon: '\U0001F3DB\uFE0F', name: 'Villa'     },
+  cabin:     { icon: '\U0001F6D6', name: 'Log Cabin' },
+  apartment: { icon: '\U0001F3EC', name: 'Apartment' },
 };
 
-const housePicker = document.getElementById('house-picker');
-let housePickerOpen = false;
+const menuMain    = document.getElementById('menu-main');
+const menuHouse   = document.getElementById('menu-house');
+const houseCatBtn = document.getElementById('house-cat-btn');
+const backToMain  = document.getElementById('back-to-main');
 
-function closeHousePicker() {
-  housePickerOpen = false;
-  housePicker.classList.remove('open');
+function showMainMenu()  { menuMain.classList.remove('hidden'); menuHouse.classList.add('hidden'); }
+function showHouseMenu() { menuMain.classList.add('hidden');   menuHouse.classList.remove('hidden'); }
+
+function closeBuildMenu() {
+  buildMenuOpen = false;
+  buildMenu.classList.remove('open');
+  buildBtn.classList.remove('open');
+  buildBtn.textContent = '\U0001F3D7\uFE0F';
+  showMainMenu();
 }
 
 function setTool(tool) {
-  if (selectedTool === tool && tool !== 'house') {
-    // Deselect
+  if (selectedTool === tool) {
     selectedTool = null;
-    document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
     toolBadge.classList.remove('show');
     hoverMesh.visible = false; hoverBorder.visible = false;
-    closeHousePicker();
   } else {
     selectedTool = tool;
-    document.querySelectorAll('.bitem').forEach(e =>
-      e.classList.toggle('selected', e.dataset.tool === tool));
-    const info = TOOL_INFO[tool];
-    if (tool === 'house') {
-      const ht = HOUSE_TYPES[selectedHouseType];
-      badgeIcon.textContent = ht.icon;
-      badgeName.textContent = ht.name + ' — tap land';
-    } else {
-      badgeIcon.textContent = info.icon;
-      badgeName.textContent = info.name + ' — tap land';
-    }
+    const icons = { road:'\U0001F6E3\uFE0F', park:'\U0001F332', erase:'\U0001F5D1\uFE0F',
+                    house: (HOUSE_TYPES[selectedHouseType]||{icon:'\U0001F3E0'}).icon };
+    const names = { road:'Road', park:'Park', erase:'Erase',
+                    house: (HOUSE_TYPES[selectedHouseType]||{name:'House'}).name };
+    badgeIcon.textContent = icons[tool] || '?';
+    badgeName.textContent = (names[tool] || tool) + ' \u2014 tap land';
     toolBadge.classList.add('show');
     hoverMat.color.set(tool === 'erase' ? 0xFF6666 : 0x88FF88);
-    closeHousePicker();
   }
 }
 
@@ -1489,66 +1562,50 @@ buildBtn.addEventListener('click', () => {
   buildMenuOpen = !buildMenuOpen;
   buildMenu.classList.toggle('open', buildMenuOpen);
   buildBtn.classList.toggle('open', buildMenuOpen);
-  buildBtn.textContent = buildMenuOpen ? '✕' : '🏗️';
-  if (!buildMenuOpen) closeHousePicker();
+  buildBtn.textContent = buildMenuOpen ? '\u2715' : '\U0001F3D7\uFE0F';
+  if (!buildMenuOpen) showMainMenu();
 });
 
-document.querySelectorAll('.bitem').forEach(el => {
-  el.addEventListener('click', () => {
-    if (el.dataset.tool === 'house') {
-      // Toggle the house picker without closing the build menu
-      housePickerOpen = !housePickerOpen;
-      housePicker.classList.toggle('open', housePickerOpen);
-      // Mark house as selected visually
-      document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
-      el.classList.add('selected');
-      selectedTool = 'house';
-      const ht = HOUSE_TYPES[selectedHouseType];
-      badgeIcon.textContent = ht.icon;
-      badgeName.textContent = ht.name + ' — tap land';
-      toolBadge.classList.add('show');
-      hoverMat.color.set(0x88FF88);
-    } else {
-      closeHousePicker();
-      setTool(el.dataset.tool);
-      buildMenuOpen = false;
-      buildMenu.classList.remove('open');
-      buildBtn.classList.remove('open');
-      buildBtn.textContent = '🏗️';
-    }
+// Road / Park / Erase tools
+document.querySelectorAll('#menu-main .bitem[data-tool]').forEach(function(el) {
+  el.addEventListener('click', function() {
+    setTool(el.dataset.tool);
+    closeBuildMenu();
   });
 });
 
-// House type selection
-document.querySelectorAll('.htype').forEach(el => {
-  el.addEventListener('click', () => {
+// House category -> drill into style submenu
+houseCatBtn.addEventListener('click', function() {
+  selectedTool = 'house';
+  var ht = HOUSE_TYPES[selectedHouseType] || { icon: '\U0001F3E0', name: 'House' };
+  badgeIcon.textContent = ht.icon;
+  badgeName.textContent = ht.name + ' \u2014 tap land';
+  toolBadge.classList.add('show');
+  hoverMat.color.set(0x88FF88);
+  showHouseMenu();
+});
+
+// Back to categories
+backToMain.addEventListener('click', function() { showMainMenu(); });
+
+// House style selection
+document.querySelectorAll('.htype').forEach(function(el) {
+  el.addEventListener('click', function() {
     selectedHouseType = el.dataset.htype;
-    document.querySelectorAll('.htype').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('.htype').forEach(function(e) { e.classList.remove('active'); });
     el.classList.add('active');
-    // Update badge
-    const ht = HOUSE_TYPES[selectedHouseType];
+    var ht = HOUSE_TYPES[selectedHouseType] || { icon: '\U0001F3E0', name: 'House' };
     badgeIcon.textContent = ht.icon;
-    badgeName.textContent = ht.name + ' — tap land';
-    // Close both panels
-    closeHousePicker();
-    buildMenuOpen = false;
-    buildMenu.classList.remove('open');
-    buildBtn.classList.remove('open');
-    buildBtn.textContent = '🏗️';
+    badgeName.textContent = ht.name + ' \u2014 tap land';
+    toolBadge.classList.add('show');
+    closeBuildMenu();
   });
 });
 
-// Tap outside build menu to close it
-document.addEventListener('click', e => {
-  if (housePickerOpen && !housePicker.contains(e.target) && !buildMenu.contains(e.target)) {
-    closeHousePicker();
-  }
+// Tap outside build menu to close
+document.addEventListener('click', function(e) {
   if (buildMenuOpen && !buildMenu.contains(e.target) && e.target !== buildBtn) {
-    buildMenuOpen = false;
-    buildMenu.classList.remove('open');
-    buildBtn.classList.remove('open');
-    buildBtn.textContent = '🏗️';
-    closeHousePicker();
+    closeBuildMenu();
   }
 });
 
@@ -1579,6 +1636,9 @@ function animate() {
   if (!dragging) { vel *= 0.91; targetY += vel; }
   rotY += (targetY - rotY) * 0.13;
   world.rotation.y = rotY;
+
+  // Pan smoothing
+  panOffZ += (targetPanZ - panOffZ) * 0.12;
 
   // Zoom
   zoomDist += (targetZoom - zoomDist) * 0.10;
@@ -1614,6 +1674,7 @@ function animate() {
 
   updateCompass(rotY);
   tickCars();
+  tickBikes();
   renderer.render(scene, camera);
 }
 animate();
