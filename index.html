@@ -53,94 +53,166 @@
       border-radius: 4px; overflow: hidden; }
     #zoom-bar-fill { width: 100%; background: rgba(255,255,255,0.75); border-radius: 4px; transition: height 0.2s; }
 
-    /* ── BUILD BUTTON ─────────────────────────────── */
+    /* ── BUILD BUTTON  — fluid, works on every screen ── */
     #build-btn {
-      position: fixed; bottom: 28px; left: 18px;
-      width: 56px; height: 56px; border-radius: 50%;
+      position: fixed;
+      bottom: clamp(14px, 3.8vw, 28px);
+      left:   clamp(12px, 3.2vw, 18px);
+      width:  clamp(50px, 13.5vw, 62px);
+      height: clamp(50px, 13.5vw, 62px);
+      border-radius: 50%;
       background: linear-gradient(145deg, #2d6a4f, #40916c);
       border: 2px solid rgba(255,255,255,0.28);
-      color: #fff; font-size: 26px; cursor: pointer;
+      color: #fff;
+      font-size: clamp(20px, 5.5vw, 28px);
+      cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.32);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
       transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), background 0.2s;
       touch-action: manipulation; z-index: 20;
+      /* iOS safe area */
+      bottom: max(clamp(14px, 3.8vw, 28px), env(safe-area-inset-bottom, 0px));
     }
-    #build-btn.open { background: linear-gradient(145deg, #c1121f, #e63946); font-size: 21px; }
-    #build-btn:active { transform: scale(0.9); }
+    #build-btn.open {
+      background: linear-gradient(145deg, #c1121f, #e63946);
+      font-size: clamp(16px, 4.5vw, 22px);
+    }
+    #build-btn:active { transform: scale(0.88); }
 
-    /* ── BUILD MENU ───────────────────────────────── */
+    /* ── BUILD MENU  — fluid width, scrollable, every screen ── */
     #build-menu {
-      position: fixed; bottom: 96px; left: 18px;
-      opacity: 0; transform: translateY(16px) scale(0.97);
+      position: fixed;
+      /* sits above the build button — accounts for button size + gap */
+      bottom: clamp(76px, 20vw, 104px);
+      left:   clamp(12px, 3.2vw, 18px);
+      opacity: 0; transform: translateY(14px) scale(0.97);
       pointer-events: none;
       transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
       z-index: 20;
-      background: rgba(10,14,22,0.88);
-      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      background: rgba(10,14,22,0.93);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1.5px solid rgba(255,255,255,0.14);
-      border-radius: 20px; overflow: hidden;
-      min-width: 210px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      border-radius: clamp(14px, 4vw, 22px);
+      overflow: hidden;
+      /* fluid width: fills small screens, capped on large ones */
+      width: clamp(190px, 70vw, 252px);
+      /* never taller than the viewport minus header + button row */
+      max-height: calc(100dvh - clamp(100px, 24vw, 130px));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.55);
+      /* hide scrollbar track */
+      scrollbar-width: none;
     }
+    #build-menu::-webkit-scrollbar { display: none; }
     #build-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
-    /* page inside the menu */
+    /* pages */
     .menu-page { display: flex; flex-direction: column; }
     .menu-page.hidden { display: none; }
 
-    /* section title row */
+    /* section title */
     .menu-section-title {
-      padding: 9px 16px 7px;
-      font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-      color: rgba(255,255,255,0.38);
+      padding: clamp(7px, 2vw, 10px) clamp(12px, 3.5vw, 17px) clamp(5px, 1.5vw, 7px);
+      font-size: clamp(9px, 2.4vw, 11px);
+      font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+      color: rgba(255,255,255,0.36);
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
 
-    /* back button row */
+    /* back row */
     .menu-back {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px; cursor: pointer;
-      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
-      color: rgba(255,255,255,0.55);
+      display: flex; align-items: center; gap: 7px;
+      min-height: clamp(44px, 12vw, 52px);
+      padding: 0 clamp(12px, 3.5vw, 17px);
+      cursor: pointer;
+      font-size: clamp(10px, 2.8vw, 12px); font-weight: 700; letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.52);
       border-bottom: 1px solid rgba(255,255,255,0.08);
       transition: color 0.12s, background 0.12s;
       touch-action: manipulation;
     }
-    .menu-back:active { background: rgba(255,255,255,0.06); color: #fff; }
+    .menu-back:active { background: rgba(255,255,255,0.07); color: #fff; }
 
-    /* category / build item */
+    /* build item row */
     .bitem {
-      display: flex; align-items: center; gap: 11px;
-      padding: 11px 16px 11px 14px; cursor: pointer;
-      color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; letter-spacing: 0.3px;
-      transition: background 0.12s; touch-action: manipulation;
+      display: flex; align-items: center;
+      gap: clamp(9px, 2.8vw, 13px);
+      padding: 0 clamp(12px, 3.5vw, 17px);
+      min-height: clamp(46px, 13vw, 56px);
+      cursor: pointer;
+      color: rgba(255,255,255,0.9);
+      transition: background 0.13s; touch-action: manipulation;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .bitem:last-child { border-bottom: none; }
-    .bitem .bi  { font-size: 20px; line-height: 1; flex-shrink: 0; }
-    .bitem .blabel { display: flex; flex-direction: column; }
-    .bitem .bname  { font-size: 13px; font-weight: 700; line-height: 1; }
-    .bitem .bdesc  { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.42); margin-top: 2px; }
-    .bitem:active  { background: rgba(255,255,255,0.07); }
-    .bitem.selected { background: rgba(45,106,79,0.5); }
+    .bitem .bi    { font-size: clamp(18px, 5vw, 23px); line-height: 1; flex-shrink: 0; }
+    .bitem .blabel{ display: flex; flex-direction: column; }
+    .bitem .bname { font-size: clamp(12px, 3.3vw, 14px); font-weight: 700; line-height: 1.1; }
+    .bitem .bdesc { font-size: clamp(9px, 2.3vw, 11px); color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .bitem:active  { background: rgba(255,255,255,0.08); }
+    .bitem.selected { background: rgba(45,106,79,0.52); }
     .bitem.selected .bname { color: #88ffbb; }
-    /* house category item gets a chevron */
-    #house-cat-btn::after { content: ' ›'; color: rgba(255,255,255,0.35); font-size: 16px; margin-left: auto; }
+    #house-cat-btn::after {
+      content: '›'; margin-left: auto;
+      font-size: clamp(16px, 4.5vw, 20px); color: rgba(255,255,255,0.32);
+    }
 
     /* house style rows */
     .htype {
-      display: flex; align-items: center; gap: 11px;
-      padding: 10px 16px 10px 14px; cursor: pointer;
+      display: flex; align-items: center;
+      gap: clamp(9px, 2.8vw, 13px);
+      padding: 0 clamp(12px, 3.5vw, 17px);
+      min-height: clamp(46px, 13vw, 54px);
+      cursor: pointer;
       border-bottom: 1px solid rgba(255,255,255,0.06);
-      transition: background 0.12s; touch-action: manipulation;
+      transition: background 0.13s; touch-action: manipulation;
     }
     .htype:last-child { border-bottom: none; }
-    .htype:active { background: rgba(255,255,255,0.07); }
-    .htype.active { background: rgba(45,106,79,0.45); }
-    .htype-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
-    .htype-name { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1; }
-    .htype-desc { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .htype:active { background: rgba(255,255,255,0.08); }
+    .htype.active { background: rgba(45,106,79,0.48); }
+    .htype-icon { font-size: clamp(18px, 5vw, 22px); line-height: 1; flex-shrink: 0; }
+    .htype-name {
+      font-size: clamp(11px, 3.1vw, 13px); font-weight: 700;
+      color: rgba(255,255,255,0.9); line-height: 1.1;
+    }
+    .htype-desc { font-size: clamp(9px, 2.2vw, 11px); color: rgba(255,255,255,0.38); margin-top: 2px; }
     .htype.active .htype-name { color: #88ffbb; }
+
+    /* ── Tablet (≥ 640px) ────────────────────────── */
+    @media (min-width: 640px) {
+      #build-btn { width: 58px; height: 58px; bottom: 28px; left: 18px; font-size: 25px; }
+      #build-btn.open { font-size: 20px; }
+      #build-menu { width: 228px; bottom: 100px; left: 18px; border-radius: 20px; }
+      .bitem, .htype { min-height: 50px; }
+    }
+
+    /* ── Desktop (≥ 1024px) ──────────────────────── */
+    @media (min-width: 1024px) {
+      #build-btn { width: 60px; height: 60px; font-size: 27px; }
+      #build-btn.open { font-size: 21px; }
+      #build-menu { width: 240px; bottom: 104px; }
+      .bitem, .htype { min-height: 52px; }
+      .bitem .bi, .htype-icon { font-size: 22px; }
+      .bitem .bname { font-size: 13px; }
+      .bitem .bdesc, .htype-desc { font-size: 10px; }
+    }
+
+    /* ── Very small phones (≤ 360px wide) ───────── */
+    @media (max-width: 360px) {
+      #build-menu { width: 83vw; }
+      .bitem .bdesc, .htype-desc { display: none; }
+    }
+
+    /* ── Landscape phone — limit menu height ─────── */
+    @media (max-height: 500px) {
+      #build-menu {
+        max-height: calc(100dvh - 80px);
+        bottom: 72px;
+      }
+      .bitem, .htype { min-height: 40px; }
+      .bitem .bdesc, .htype-desc { display: none; }
+    }
 
     /* ── ACTIVE TOOL BADGE ────────────────────────── */
     #tool-badge {
@@ -1517,11 +1589,11 @@ const badgeIcon = document.getElementById('badge-icon');
 const badgeName = document.getElementById('badge-name');
 
 const HOUSE_TYPES = {
-  cottage:   { icon: '\U0001F3E1', name: 'Cottage'   },
-  modern:    { icon: '\U0001F3E2', name: 'Modern'    },
-  villa:     { icon: '\U0001F3DB\uFE0F', name: 'Villa'     },
-  cabin:     { icon: '\U0001F6D6', name: 'Log Cabin' },
-  apartment: { icon: '\U0001F3EC', name: 'Apartment' },
+  cottage:   { icon: '🏡', name: 'Cottage'   },
+  modern:    { icon: '🏢', name: 'Modern'    },
+  villa:     { icon: '🏛️', name: 'Villa'     },
+  cabin:     { icon: '🛖', name: 'Log Cabin' },
+  apartment: { icon: '🏬', name: 'Apartment' },
 };
 
 const menuMain    = document.getElementById('menu-main');
@@ -1536,7 +1608,7 @@ function closeBuildMenu() {
   buildMenuOpen = false;
   buildMenu.classList.remove('open');
   buildBtn.classList.remove('open');
-  buildBtn.textContent = '\U0001F3D7\uFE0F';
+  buildBtn.textContent = '🏗️';
   showMainMenu();
 }
 
@@ -1547,12 +1619,12 @@ function setTool(tool) {
     hoverMesh.visible = false; hoverBorder.visible = false;
   } else {
     selectedTool = tool;
-    const icons = { road:'\U0001F6E3\uFE0F', park:'\U0001F332', erase:'\U0001F5D1\uFE0F',
-                    house: (HOUSE_TYPES[selectedHouseType]||{icon:'\U0001F3E0'}).icon };
-    const names = { road:'Road', park:'Park', erase:'Erase',
-                    house: (HOUSE_TYPES[selectedHouseType]||{name:'House'}).name };
+    const icons = { road: '🛣️', park: '🌲', erase: '🗑️',
+                    house: (HOUSE_TYPES[selectedHouseType] || { icon: '🏠' }).icon };
+    const names = { road: 'Road', park: 'Park', erase: 'Erase',
+                    house: (HOUSE_TYPES[selectedHouseType] || { name: 'House' }).name };
     badgeIcon.textContent = icons[tool] || '?';
-    badgeName.textContent = (names[tool] || tool) + ' \u2014 tap land';
+    badgeName.textContent = (names[tool] || tool) + ' — tap land';
     toolBadge.classList.add('show');
     hoverMat.color.set(tool === 'erase' ? 0xFF6666 : 0x88FF88);
   }
@@ -1562,7 +1634,7 @@ buildBtn.addEventListener('click', () => {
   buildMenuOpen = !buildMenuOpen;
   buildMenu.classList.toggle('open', buildMenuOpen);
   buildBtn.classList.toggle('open', buildMenuOpen);
-  buildBtn.textContent = buildMenuOpen ? '\u2715' : '\U0001F3D7\uFE0F';
+  buildBtn.textContent = buildMenuOpen ? '✕' : '🏗️';
   if (!buildMenuOpen) showMainMenu();
 });
 
@@ -1574,12 +1646,12 @@ document.querySelectorAll('#menu-main .bitem[data-tool]').forEach(function(el) {
   });
 });
 
-// House category -> drill into style submenu
+// House category → drill into style submenu
 houseCatBtn.addEventListener('click', function() {
   selectedTool = 'house';
-  var ht = HOUSE_TYPES[selectedHouseType] || { icon: '\U0001F3E0', name: 'House' };
+  const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
   badgeIcon.textContent = ht.icon;
-  badgeName.textContent = ht.name + ' \u2014 tap land';
+  badgeName.textContent = ht.name + ' — tap land';
   toolBadge.classList.add('show');
   hoverMat.color.set(0x88FF88);
   showHouseMenu();
@@ -1594,9 +1666,9 @@ document.querySelectorAll('.htype').forEach(function(el) {
     selectedHouseType = el.dataset.htype;
     document.querySelectorAll('.htype').forEach(function(e) { e.classList.remove('active'); });
     el.classList.add('active');
-    var ht = HOUSE_TYPES[selectedHouseType] || { icon: '\U0001F3E0', name: 'House' };
+    const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
     badgeIcon.textContent = ht.icon;
-    badgeName.textContent = ht.name + ' \u2014 tap land';
+    badgeName.textContent = ht.name + ' — tap land';
     toolBadge.classList.add('show');
     closeBuildMenu();
   });
