@@ -1147,8 +1147,8 @@ function _spawnVehicle(list, roadKeys, buildFn, colors, baseSpd, spdVar) {
               t: 0, spd: baseSpd + Math.random() * spdVar });
 }
 
-function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.019, 0.008); }
-function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.027, 0.010); }
+function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.010, 0.000); }
+function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.010, 0.000); }
 
 function removeAllVehicles() {
   carList.forEach(c => world.remove(c.group));  carList.length = 0;
