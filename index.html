@@ -1147,8 +1147,8 @@ function _spawnVehicle(list, roadKeys, buildFn, colors, baseSpd, spdVar) {
               t: 0, spd: baseSpd + Math.random() * spdVar });
 }
 
-function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.010, 0.000); }
-function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.010, 0.000); }
+function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.013, 0.0065); }
+function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.018, 0.012);  }
 
 function removeAllVehicles() {
   carList.forEach(c => world.remove(c.group));  carList.length = 0;
@@ -1168,16 +1168,85 @@ function updateCarSystem() {
 }
 
 // ── TICK ─────────────────────────────────────────────
-// Right-hand traffic: every vehicle rides ROAD_LANE_OFF units to
-// the RIGHT of its heading.  heading h → right-perp = (cos h, sin h)
-// in XZ.  Vehicles going in opposite directions end up on opposite
-// sides of the yellow centre line — no extra bookkeeping required.
+// Safe-following distance (world units).
+// Cars are ~1.70 long, bikes ~0.80 long — keep at least 1.8 u gap.
+const SAFE_DIST = 2.2;   // stop threshold
+const SLOW_DIST = 3.8;   // start braking threshold
+
+// Return the 3-D world position a vehicle will be at when t fraction of
+// the cur→tgt segment is covered, already including lane offset.
+function vehicleWorldPos(v) {
+  const from = cellCenter(v.cur.r, v.cur.c);
+  const to   = cellCenter(v.tgt.r, v.tgt.c);
+  const cx = from.x + (to.x - from.x) * v.t;
+  const cz = from.z + (to.z - from.z) * v.t;
+  const h  = v.group.rotation.y;
+  return { x: cx + Math.cos(h) * ROAD_LANE_OFF, z: cz + Math.sin(h) * ROAD_LANE_OFF };
+}
+
+function dist2D(a, b) {
+  const dx = a.x - b.x, dz = a.z - b.z;
+  return Math.sqrt(dx*dx + dz*dz);
+}
+
+// Are two vehicles heading in roughly the same direction? (same lane)
+function sameLane(a, b) {
+  const da = a.group.rotation.y, db = b.group.rotation.y;
+  let diff = Math.abs(da - db);
+  if (diff > Math.PI) diff = Math.PI * 2 - diff;
+  return diff < Math.PI * 0.5;   // within 90°  → same lane
+}
+
+// All vehicles in one flat array for cross-list collision checks
+function allVehicles() { return [...carList, ...bikeList]; }
+
 function tickVehicle(list, isBike) {
   if (!list.length) return;
   const dead = [];
+  const all  = allVehicles();
 
   list.forEach((v, idx) => {
-    v.t += v.spd;
+    // ── 1. Compute position ahead ────────────────────
+    const myPos = vehicleWorldPos(v);
+
+    // Find the closest vehicle that is:
+    //  • not ourselves
+    //  • in the same lane (same heading ± 90°)
+    //  • ahead of us (dot product of heading with vector-to-other > 0)
+    //  • within SLOW_DIST
+    let closestDist = Infinity;
+    const hx = -Math.sin(v.group.rotation.y);  // heading unit vector X
+    const hz =  Math.cos(v.group.rotation.y);  // heading unit vector Z
+
+    for (const other of all) {
+      if (other === v) continue;
+      if (!sameLane(v, other)) continue;
+      const op = vehicleWorldPos(other);
+      const toOther_x = op.x - myPos.x;
+      const toOther_z = op.z - myPos.z;
+      // Only vehicles that are *ahead* (positive dot product)
+      const dot = toOther_x * hx + toOther_z * hz;
+      if (dot <= 0) continue;
+      const d = Math.sqrt(toOther_x*toOther_x + toOther_z*toOther_z);
+      if (d < closestDist) closestDist = d;
+    }
+
+    // ── 2. Compute effective speed (car-following model) ─
+    let effectiveSpd = v.spd;
+
+    if (closestDist <= SAFE_DIST) {
+      // Full stop — vehicle in front too close
+      effectiveSpd = 0;
+    } else if (closestDist <= SLOW_DIST) {
+      // Smooth braking: interpolate from full speed → 0
+      const factor = (closestDist - SAFE_DIST) / (SLOW_DIST - SAFE_DIST);
+      effectiveSpd = v.spd * factor * factor;   // quadratic deceleration
+    }
+
+    // ── 3. Advance along path ────────────────────────
+    if (effectiveSpd > 0) {
+      v.t += effectiveSpd;
+    }
 
     if (v.t >= 1) {
       v.t -= 1;
@@ -1190,14 +1259,12 @@ function tickVehicle(list, isBike) {
     }
     if (!hasRoad(v.tgt.r, v.tgt.c)) { dead.push(idx); return; }
 
+    // ── 4. World position + smooth heading ───────────
     const from = cellCenter(v.cur.r, v.cur.c);
     const to   = cellCenter(v.tgt.r, v.tgt.c);
-
-    // Road centre-line interpolation
     const cx = from.x + (to.x - from.x) * v.t;
     const cz = from.z + (to.z - from.z) * v.t;
 
-    // Smooth heading toward target
     const dx = to.x - from.x, dz = to.z - from.z;
     if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
       const tAng = Math.atan2(-dx, dz);
@@ -1205,11 +1272,12 @@ function tickVehicle(list, isBike) {
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       const turning = Math.abs(diff) > 0.08;
+      // Slow down a little on sharp turns (realistic)
+      if (turning && effectiveSpd > 0) v.t -= effectiveSpd * 0.18;
       v.group.rotation.y += diff * (isBike ? 0.30 : turning ? 0.26 : 0.18);
     }
 
-    // Lane offset: right of heading = (cos h, sin h) in XZ
-    const h  = v.group.rotation.y;
+    const h = v.group.rotation.y;
     v.group.position.set(
       cx + Math.cos(h) * ROAD_LANE_OFF,
       0.14,
