@@ -609,8 +609,6 @@ function hasRoad(r, c) {
   return !!(item && item.userData.type === 'road');
 }
 
-// After placing or erasing a road, rebuild the 4 adjacent road tiles
-// so they gain / lose curbs and dashes that face the changed cell.
 function rebuildNeighborRoads(r, c) {
   [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc]) => {
     if (nr < 0 || nr >= NCELLS || nc < 0 || nc >= NCELLS) return;
@@ -624,61 +622,79 @@ function rebuildNeighborRoads(r, c) {
   });
 }
 
-// ── Road ──────────────────────────────────────────
+// ── Road ────────────────────────────────────────────
 function buildRoad(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group();
-  g.userData.type = 'road';   // needed by hasRoad()
+  g.userData.type = 'road';
 
-  // Which of the 4 neighbours are also roads?
-  const N = hasRoad(r - 1, c);
-  const S = hasRoad(r + 1, c);
-  const E = hasRoad(r, c + 1);
-  const W = hasRoad(r, c - 1);
+  const N = hasRoad(r-1, c), S = hasRoad(r+1, c);
+  const E = hasRoad(r, c+1), W = hasRoad(r, c-1);
   const anyConn = N || S || E || W;
 
-  // Asphalt slab — always fills the full cell
+  // Dark asphalt base
   const slab = new THREE.Mesh(
     new THREE.BoxGeometry(CELL, 0.14, CELL),
-    new THREE.MeshLambertMaterial({ color: 0x2E2E2E })
+    new THREE.MeshLambertMaterial({ color: 0x1A1A1A })
   );
   slab.castShadow = true; slab.receiveShadow = true; g.add(slab);
 
-  // Sidewalk curbs — only on sides that have NO road neighbour.
-  // Removing a curb on a connected side lets the two asphalt slabs
-  // meet flush, making the road look continuous.
-  const edgeMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-  const cOff = CELL / 2 - 0.3;   // same offset as original
-  if (!E) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.5,  0.16, CELL), edgeMat); e.position.set( cOff, 0, 0);    g.add(e); }
-  if (!W) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.5,  0.16, CELL), edgeMat); e.position.set(-cOff, 0, 0);    g.add(e); }
-  if (!S) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.16, 0.5),  edgeMat); e.position.set(0, 0,  cOff);    g.add(e); }
-  if (!N) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.16, 0.5),  edgeMat); e.position.set(0, 0, -cOff);    g.add(e); }
+  // Subtle per-lane tint on left half
+  const ltMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const ltL = new THREE.Mesh(new THREE.BoxGeometry(CELL/2 - 0.05, 0.005, CELL), ltMat);
+  ltL.position.set(-CELL/4, 0.072, 0); g.add(ltL);
 
-  // Centre-line dashes — only appear toward connected sides.
-  //   showH  : draw dashes along X-axis  (when E or W road exists, or isolated)
-  //   showV  : draw dashes along Z-axis  (when N or S road exists, or isolated)
-  // For each of the 3 dash positions (-1.9 / 0 / +1.9) we skip the
-  // outer position if there is no road in that direction.
-  const dashMat = new THREE.MeshBasicMaterial({ color: 0xFFFFCC });
+  // Curbs only on unconnected sides
+  const curbMat = new THREE.MeshLambertMaterial({ color: 0xAAAAAA });
+  const cOff = CELL/2 - 0.22;
+  if (!E) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, CELL), curbMat); e.position.set( cOff, 0, 0); e.receiveShadow=true; g.add(e); }
+  if (!W) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, CELL), curbMat); e.position.set(-cOff, 0, 0); e.receiveShadow=true; g.add(e); }
+  if (!S) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL,  0.22, 0.38), curbMat); e.position.set(0, 0,  cOff); e.receiveShadow=true; g.add(e); }
+  if (!N) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL,  0.22, 0.38), curbMat); e.position.set(0, 0, -cOff); e.receiveShadow=true; g.add(e); }
+
+  const ylw = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
+  const wht = new THREE.MeshBasicMaterial({ color: 0xCCCCCC });
   const showH = E || W || !anyConn;
   const showV = N || S || !anyConn;
+  const LEO = 1.30;
 
+  // Yellow centre dashes — divides the two opposing lanes
   if (showH) {
     for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !W && anyConn) continue;   // no west road → skip left dash
-      if (i ===  1 && !E && anyConn) continue;   // no east road → skip right dash
-      const d = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.01, 0.18), dashMat);
-      d.position.set(i * 1.9, 0.075, 0);
-      g.add(d);
+      if (i === -1 && !W && anyConn) continue;
+      if (i ===  1 && !E && anyConn) continue;
+      const d = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.018, 0.13), ylw);
+      d.position.set(i * 1.9, 0.079, 0); g.add(d);
     }
   }
   if (showV) {
     for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !N && anyConn) continue;   // no north road → skip top dash
-      if (i ===  1 && !S && anyConn) continue;   // no south road → skip bottom dash
-      const d = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.01, 1.2), dashMat);
-      d.position.set(0, 0.075, i * 1.9);
-      g.add(d);
+      if (i === -1 && !N && anyConn) continue;
+      if (i ===  1 && !S && anyConn) continue;
+      const d = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.018, 1.1), ylw);
+      d.position.set(0, 0.079, i * 1.9); g.add(d);
+    }
+  }
+
+  // White lane-edge dashes
+  if (showH) {
+    for (let i = -1; i <= 1; i++) {
+      if (i === -1 && !W && anyConn) continue;
+      if (i ===  1 && !E && anyConn) continue;
+      [-LEO, LEO].forEach(zo => {
+        const d = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.016, 0.09), wht);
+        d.position.set(i * 1.9, 0.079, zo); g.add(d);
+      });
+    }
+  }
+  if (showV) {
+    for (let i = -1; i <= 1; i++) {
+      if (i === -1 && !N && anyConn) continue;
+      if (i ===  1 && !S && anyConn) continue;
+      [-LEO, LEO].forEach(xo => {
+        const d = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.016, 0.75), wht);
+        d.position.set(xo, 0.079, i * 1.9); g.add(d);
+      });
     }
   }
 
@@ -715,27 +731,17 @@ function buildHouse(r, c) {
 function buildCottage(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group(); g.userData.type = 'house';
-
-  // Stone plinth
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05, 0.28, CELL-0.05), phong(0xB8A88A,0x111111,5));
   plinth.position.y = 0.14; plinth.receiveShadow = true; g.add(plinth);
-
-  // Render walls
   const walls = new THREE.Mesh(new THREE.BoxGeometry(4.1, 2.9, 4.0), phong(0xF0E4CC,0x221100,8));
   walls.position.y = 0.28+1.45; walls.castShadow=true; walls.receiveShadow=true; g.add(walls);
-
-  // Bay projection
   const bay = new THREE.Mesh(new THREE.BoxGeometry(1.5,2.9,0.18), phong(0xEAD8BB,0x221100,8));
   bay.position.set(0, 0.28+1.45, 2.01); bay.castShadow=true; g.add(bay);
-
-  // Slate roof
   const slateMat = phong(0x2E3340,0x5566AA,32);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(3.22, 2.3, 4), slateMat);
   roof.position.y = 0.28+2.9+1.15; roof.rotation.y = Math.PI/4; roof.castShadow=true; g.add(roof);
   const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.18,3.4), phong(0x23282E,0x333344,20));
   ridge.position.y = 0.28+2.9+2.28; g.add(ridge);
-
-  // Brick chimney
   const brickM = phong(0x7A3322,0x110000,6);
   const chi = new THREE.Mesh(new THREE.BoxGeometry(0.50,1.65,0.50), brickM);
   chi.position.set(1.1, 0.28+2.9+0.82, -0.9); chi.castShadow=true; g.add(chi);
@@ -743,8 +749,6 @@ function buildCottage(r, c) {
   chiCap.position.set(1.1, 0.28+2.9+1.66, -0.9); g.add(chiCap);
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.12,0.28,8), phong(0x5A2218,0x110000,5));
   pot.position.set(1.1, 0.28+2.9+1.81, -0.9); g.add(pot);
-
-  // Navy door with panels
   const doorMat = phong(0x1B3A5C,0x4488CC,55);
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.82,1.45,0.11), doorMat);
   door.position.set(0, 0.28+0.725, 2.03); g.add(door);
@@ -754,11 +758,8 @@ function buildCottage(r, c) {
   });
   const knob = new THREE.Mesh(new THREE.SphereGeometry(0.058,10,10), phong(0xD4A017,0xFFEE66,140));
   knob.position.set(0.31, 0.28+0.72, 2.10); g.add(knob);
-  // Warm fanlight above door
   const fan = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.34,0.09), glassWarm(0.7));
   fan.position.set(0, 0.28+1.45+0.17, 2.03); g.add(fan);
-
-  // Sash windows with amber glow + flower boxes
   const wFrameM = phong(0xF4EFE4,0xCCCCCC,25);
   [-1.15, 1.15].forEach(wx => {
     const frm = new THREE.Mesh(new THREE.BoxGeometry(1.02,1.22,0.11), wFrameM);
@@ -771,7 +772,6 @@ function buildCottage(r, c) {
     mH.position.set(wx, 0.28+1.65, 2.08); g.add(mH);
     const mV = new THREE.Mesh(new THREE.BoxGeometry(0.045,1.0,0.09), wFrameM);
     mV.position.set(wx, 0.28+1.65, 2.08); g.add(mV);
-    // Flower box
     const fb = new THREE.Mesh(new THREE.BoxGeometry(0.96,0.22,0.26), phong(0x7A3A18,0x221100,10));
     fb.position.set(wx, 0.28+1.05, 2.06); g.add(fb);
     [0xE84040,0xF4A020,0xFF6FA0].forEach((col,fi) => {
@@ -782,8 +782,6 @@ function buildCottage(r, c) {
       bud.position.set(wx-0.22+fi*0.22, 0.28+1.36, 2.12); g.add(bud);
     });
   });
-
-  // Low stone front wall + gate posts
   const stoneW = phong(0xA89878,0x111111,5);
   [-1.65,1.65].forEach(wx => {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.52,0.24), stoneW);
@@ -795,8 +793,6 @@ function buildCottage(r, c) {
   });
   const path = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.04,0.9), phong(0xCCBBA0,0x111111,5));
   path.position.set(0, 0.22, 2.0); g.add(path);
-
-  // Shrubs
   const shrubM = phong(0x1E5C18,0x112211,10);
   [[-1.55,1.72],[1.55,1.72]].forEach(([sx,sz]) => {
     const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.42,9,7), shrubM);
@@ -804,44 +800,30 @@ function buildCottage(r, c) {
     const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,6), shrubM);
     s2.position.set(sx+0.25,0.60,sz-0.18); g.add(s2);
   });
-
   g.position.set(x,0,z); return g;
 }
 
-// 2 ── Modern  (Glass & Concrete Masterpiece) ────────
+// 2 ── Modern  (Glass & Concrete) ────────────────────
 function buildModern(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group(); g.userData.type = 'house';
-
   const concM  = phong(0x3C3C3C,0x555555,18);
   const concLt = phong(0xECECE8,0xBBBBBB,22);
   const steelM = phong(0x1A1A1A,0x444444,80);
-
-  // Concrete plinth
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.32,CELL-0.05), concM);
   plinth.position.y = 0.16; plinth.receiveShadow=true; g.add(plinth);
-
-  // Rear upper volume
   const body = new THREE.Mesh(new THREE.BoxGeometry(4.5,3.5,2.6), concLt);
   body.position.set(0, 0.32+1.75, -0.5); body.castShadow=true; body.receiveShadow=true; g.add(body);
-
-  // Front lower wing (cantilevered feel)
   const wing = new THREE.Mesh(new THREE.BoxGeometry(4.5,2.0,1.8), concLt);
   wing.position.set(0, 0.32+1.0, 1.05); wing.castShadow=true; wing.receiveShadow=true; g.add(wing);
-
-  // Cantilevered flat roof + soffit
   const roofSlab = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.18,4.7), concM);
   roofSlab.position.y = 0.32+3.5+0.09; roofSlab.castShadow=true; g.add(roofSlab);
   const soffit = new THREE.Mesh(new THREE.BoxGeometry(5.0,0.10,0.5), phong(0x2A2A2A,0x444444,15));
   soffit.position.set(0, 0.32+3.5+0.05, 2.1); g.add(soffit);
-
-  // Floor-to-ceiling glass wall (two warm panels)
   const glassL = new THREE.Mesh(new THREE.BoxGeometry(1.6,1.95,0.10), glassWarm(0.52));
   glassL.position.set(-1.3, 0.32+0.975, 1.96); g.add(glassL);
   const glassR = new THREE.Mesh(new THREE.BoxGeometry(2.1,1.95,0.10), glassWarm(0.52));
   glassR.position.set(0.85, 0.32+0.975, 1.96); g.add(glassR);
-
-  // Steel mullions
   [-0.45,1.9].forEach(fx => {
     const div = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.98,0.14), steelM);
     div.position.set(fx, 0.32+0.975, 1.97); g.add(div);
@@ -850,68 +832,26 @@ function buildModern(r, c) {
   topR.position.set(0, 0.32+1.97, 1.97); g.add(topR);
   const botR = new THREE.Mesh(new THREE.BoxGeometry(4.0,0.06,0.14), steelM);
   botR.position.set(0, 0.32+0.03, 1.97); g.add(botR);
-
-  // Upper cool glass (rear volume front face)
   const upGlass = new THREE.Mesh(new THREE.BoxGeometry(4.4,2.0,0.09), glassCool(0.25));
   upGlass.position.set(0, 0.32+2.5, 0.21); g.add(upGlass);
-  [0,0.95,-0.95].forEach(dy => {
-    const hs = new THREE.Mesh(new THREE.BoxGeometry(4.42,0.06,0.11), steelM);
-    hs.position.set(0, 0.32+2.5+dy, 0.22); g.add(hs);
-  });
-
-  // Pivot door
   const door = new THREE.Mesh(new THREE.BoxGeometry(0.96,2.1,0.10), phong(0x111111,0x444444,80));
   door.position.set(-1.3, 0.32+1.05, 1.97); g.add(door);
-  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.045,0.09), phong(0x888888,0xCCCCCC,120));
-  handle.position.set(-1.3, 0.32+1.1, 2.03); g.add(handle);
-
-  // Floating concrete steps
-  [[0.22,0.26,2.12],[0.14,0.14,2.24]].forEach(([h,th,fz]) => {
-    const step = new THREE.Mesh(new THREE.BoxGeometry(2.0,th,0.5), concM);
-    step.position.set(-1.3, h, fz); g.add(step);
-  });
-
-  // Perimeter LED strip
-  const led = new THREE.MeshPhongMaterial({ color:0xFFEECC, emissive:new THREE.Color(0xFFCC88), emissiveIntensity:0.9 });
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(4.52,0.05,0.05), led);
-  strip.position.set(0, 0.34, 1.98); g.add(strip);
-
-  // Roof terrace glass railing
-  const railGlass = new THREE.MeshPhongMaterial({ color:0xBBDDFF, transparent:true, opacity:0.32, specular:0xFFFFFF, shininess:120 });
-  [[-2.2,0],[2.2,0],[0,-2.1],[0,2.1]].forEach(([rx,rz]) => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(rx)>1?0.06:4.9, 0.6, Math.abs(rz)>1?0.06:4.9), railGlass);
-    rail.position.set(rx*0.99, 0.32+3.68+0.3, rz*0.42); g.add(rail);
-  });
-
-  // Side garage door
   const gar = new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,0.09), phong(0x555555,0x888888,40));
   gar.position.set(1.5, 0.32+0.8, 1.97); g.add(gar);
-  [0.4,0,-0.4].forEach(dy => {
-    const gl = new THREE.Mesh(new THREE.BoxGeometry(1.82,0.04,0.12), phong(0x333333,0x555555,30));
-    gl.position.set(1.5, 0.32+0.8+dy, 1.99); g.add(gl);
-  });
-
   g.position.set(x,0,z); return g;
 }
 
-// 3 ── Villa  (Tuscan / Mediterranean Luxury) ────────
+// 3 ── Villa  (Mediterranean Luxury) ─────────────────
 function buildVilla(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group(); g.userData.type = 'house';
-
   const travM  = phong(0xE8D9B5,0x332200,10);
   const travDk = phong(0xD4C097,0x221100,8);
   const colM   = phong(0xFAF0E0,0x332200,18);
-
-  // Travertine foundation
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.30,CELL-0.05), travDk);
   plinth.position.y = 0.15; plinth.receiveShadow=true; g.add(plinth);
-
-  // Main body
   const body = new THREE.Mesh(new THREE.BoxGeometry(4.2,3.6,3.9), travM);
   body.position.y = 0.30+1.8; body.castShadow=true; body.receiveShadow=true; g.add(body);
-
-  // Stepped terracotta tile roof
   const tileM  = phong(0xB84A2A,0x441100,14);
   const tileLt = phong(0xCA6040,0x441100,14);
   for (let i=0; i<5; i++) {
@@ -920,88 +860,53 @@ function buildVilla(r, c) {
   }
   const hipRoof = new THREE.Mesh(new THREE.ConeGeometry(3.0,1.4,4), tileM);
   hipRoof.position.y = 0.30+3.6+5*0.26+0.7; hipRoof.rotation.y=Math.PI/4; hipRoof.castShadow=true; g.add(hipRoof);
-
-  // Arched colonnade entry
   [-0.9,0,0.9].forEach(cx => {
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.18,3.0,10), colM);
     shaft.position.set(cx, 0.30+1.5, 2.02); shaft.castShadow=true; g.add(shaft);
     const cap = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.18,0.42), colM);
     cap.position.set(cx, 0.30+3.09, 2.02); g.add(cap);
-    const base2 = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.14,0.38), colM);
-    base2.position.set(cx, 0.30+0.07, 2.02); g.add(base2);
   });
   const entab = new THREE.Mesh(new THREE.BoxGeometry(2.5,0.28,0.40), colM);
   entab.position.set(0, 0.30+3.24, 2.02); g.add(entab);
-  // Pediment
-  const pedGeo = new THREE.BufferGeometry();
-  const pedV = new Float32Array([-1.3,0,0, 1.3,0,0, 0,0.9,0]);
-  pedGeo.setAttribute('position', new THREE.BufferAttribute(pedV,3));
-  pedGeo.setIndex([0,1,2]); pedGeo.computeVertexNormals();
-  g.add(new THREE.Mesh(pedGeo, colM)).position.set(0, 0.30+3.36, 2.04);
-
-  // Arched windows with warm glow + keystones
   [[-1.45,2.4],[1.45,2.4],[-1.45,1.1],[1.45,1.1]].forEach(([wx,wy]) => {
     const frm = new THREE.Mesh(new THREE.BoxGeometry(0.90,1.35,0.12), phong(0xF8F0DE,0x332200,15));
     frm.position.set(wx, 0.30+wy, 1.98); g.add(frm);
     const gl = new THREE.Mesh(new THREE.BoxGeometry(0.68,1.12,0.08), glassWarm(0.48));
     gl.position.set(wx, 0.30+wy, 2.01); g.add(gl);
-    const ks = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.14), travDk);
-    ks.position.set(wx, 0.30+wy+0.7, 2.00); g.add(ks);
   });
-
-  // Upper balcony with balusters
   const balcFloor = new THREE.Mesh(new THREE.BoxGeometry(4.4,0.16,0.85), travDk);
   balcFloor.position.set(0, 0.30+1.9, 2.2); g.add(balcFloor);
   for (let i=-3; i<=3; i++) {
     const bal = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.07,0.6,8), colM);
     bal.position.set(i*0.58, 0.30+1.9+0.46, 2.45); g.add(bal);
   }
-  const topRail = new THREE.Mesh(new THREE.BoxGeometry(4.1,0.10,0.12), travDk);
-  topRail.position.set(0, 0.30+1.9+0.76, 2.45); g.add(topRail);
-
-  // Grand double door
   const door = new THREE.Mesh(new THREE.BoxGeometry(1.22,2.3,0.12), phong(0x5C2E0A,0x220800,30));
   door.position.set(0, 0.30+1.15, 2.03); g.add(door);
-  const dSplit = new THREE.Mesh(new THREE.BoxGeometry(0.04,2.3,0.16), phong(0x3A1A04));
-  dSplit.position.set(0, 0.30+1.15, 2.07); g.add(dSplit);
-  const dKnob = new THREE.Mesh(new THREE.SphereGeometry(0.065,10,10), phong(0xCCA020,0xFFEE44,150));
-  dKnob.position.set(0.48, 0.30+1.2, 2.10); g.add(dKnob);
-
-  // Turquoise pool
   const poolWater = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.06,1.4),
     new THREE.MeshPhongMaterial({ color:0x40B4CC, specular:0xAAEEFF, shininess:180, transparent:true, opacity:0.82 }));
   poolWater.position.set(0, 0.24, -1.8); g.add(poolWater);
   const poolEdge = new THREE.Mesh(new THREE.BoxGeometry(2.8,0.12,1.6), travDk);
   poolEdge.position.set(0, 0.22, -1.8); g.add(poolEdge);
-
-  // Cypress trees
   const cypM = phong(0x1A4A22,0x0A220E,6);
-  [[-2.2,-1.6],[2.2,-1.6]].forEach(([cx,cz]) => {
+  [[-2.2,-1.6],[2.2,-1.6]].forEach(([cx2,cz2]) => {
     const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.38,2.6,7), cypM);
-    cyl.position.set(cx, 1.3, cz); cyl.castShadow=true; g.add(cyl);
+    cyl.position.set(cx2, 1.3, cz2); cyl.castShadow=true; g.add(cyl);
     const top = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.7,7), cypM);
-    top.position.set(cx, 2.95, cz); g.add(top);
+    top.position.set(cx2, 2.95, cz2); g.add(top);
   });
-
   g.position.set(x,0,z); return g;
 }
 
-// 4 ── Cabin  (Alpine Mountain Chalet) ───────────────
+// 4 ── Cabin  (Alpine Chalet) ─────────────────────────
 function buildCabin(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group(); g.userData.type = 'house';
-
   const stoneM  = phong(0x7A7068,0x222222,8);
   const stoneLt = phong(0x9A8E82,0x222222,8);
   const logDk   = phong(0x4A2E14,0x221100,12);
   const logLt   = phong(0x6A4228,0x221100,12);
-  const woodFrm = phong(0x5A3018,0x221100,12);
-
-  // Stone base
-  const base2 = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.55,CELL-0.05), stoneM);
+  const base2   = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.55,CELL-0.05), stoneM);
   base2.position.y = 0.275; base2.receiveShadow=true; g.add(base2);
-
-  // Alternating heavy timber logs with notched ends
   const logH=0.35, logCount=7;
   for (let i=0; i<logCount; i++) {
     const log = new THREE.Mesh(new THREE.BoxGeometry(4.2,logH,4.0), i%2===0?logDk:logLt);
@@ -1012,235 +917,91 @@ function buildCabin(r, c) {
     });
   }
   const wallTop = 0.55+logCount*logH;
-
-  // Steep dark A-frame roof with eaves
   const roofM = phong(0x1E1208,0x111111,5);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(3.35,3.1,4), roofM);
   roof.position.y = wallTop+1.55; roof.rotation.y=Math.PI/4; roof.castShadow=true; g.add(roof);
-  [[0,0,-2.1],[0,0,2.1],[-2.1,0,0],[2.1,0,0]].forEach(([ex,,ez],i) => {
-    const eave = new THREE.Mesh(new THREE.BoxGeometry(i<2?0.35:4.25, 0.12, i<2?4.25:0.35), phong(0x3A2010,0x221100,8));
-    eave.position.set(ex, wallTop+0.06, ez); g.add(eave);
-  });
-
-  // Massive stone chimney with fireplace glow slit
   for (let ci=0; ci<8; ci++) {
     const stone = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.26,0.72), ci%2===0?stoneM:stoneLt);
     stone.position.set(-1.1, 0.55+ci*0.28, -1.0); g.add(stone);
   }
   const chiTop = new THREE.Mesh(new THREE.BoxGeometry(0.72,1.1,0.72), stoneM);
   chiTop.position.set(-1.1, wallTop+1.0, -1.0); chiTop.castShadow=true; g.add(chiTop);
-  const chiCap = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.14,0.88), stoneLt);
-  chiCap.position.set(-1.1, wallTop+1.61, -1.0); g.add(chiCap);
-  // Fireplace ember glow
-  const fireMat = new THREE.MeshPhongMaterial({ color:0xFF6600, emissive:new THREE.Color(0xFF4400), emissiveIntensity:0.9, transparent:true, opacity:0.9 });
-  const fire = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.32,0.05), fireMat);
-  fire.position.set(-1.1, 0.75, 2.01); g.add(fire);
-
-  // Large triangular gable window (warm amber)
   const gable = new THREE.Mesh(new THREE.BoxGeometry(2.0,1.35,0.09), glassWarm(0.65));
   gable.position.set(0, wallTop+1.0, 2.01); g.add(gable);
-  [new THREE.BoxGeometry(2.1,0.09,0.12), new THREE.BoxGeometry(0.09,1.42,0.12), new THREE.BoxGeometry(0.09,1.42,0.12)]
-    .forEach((geo,i) => {
-      const frm = new THREE.Mesh(geo, woodFrm);
-      frm.position.set(i===1?-1.0:i===2?1.0:0, wallTop+1.0, 2.04);
-      if (i===0) frm.position.y = wallTop+0.33;
-      g.add(frm);
-    });
-
-  // Cross-pane sash windows with glow
-  [-1.0,1.0].forEach(wx => {
-    const frm = new THREE.Mesh(new THREE.BoxGeometry(0.82,0.86,0.12), woodFrm);
-    frm.position.set(wx, 0.55+1.55, 2.04); g.add(frm);
-    const gl = new THREE.Mesh(new THREE.BoxGeometry(0.60,0.64,0.07), glassWarm(0.55));
-    gl.position.set(wx, 0.55+1.55, 2.07); g.add(gl);
-    const mH = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.05,0.10), woodFrm);
-    mH.position.set(wx, 0.55+1.55, 2.10); g.add(mH);
-    const mV = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.66,0.10), woodFrm);
-    mV.position.set(wx, 0.55+1.55, 2.10); g.add(mV);
-  });
-
-  // Covered front porch with posts + beam
-  const deckM = phong(0x5A3A1A,0x221100,10);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.6,0.12,1.0), deckM);
-  deck.position.set(0, 0.55+0.06, 2.45); g.add(deck);
-  [-1.4,1.4].forEach(px => {
-    const pp = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.12,1.1,8), deckM);
-    pp.position.set(px, 0.55+0.12+0.55, 2.9); pp.castShadow=true; g.add(pp);
-  });
-  const pBeam = new THREE.Mesh(new THREE.BoxGeometry(3.2,0.12,0.14), deckM);
-  pBeam.position.set(0, 0.55+1.2, 2.9); g.add(pBeam);
-
-  // Plank door with iron ring
-  const door = new THREE.Mesh(new THREE.BoxGeometry(0.84,1.5,0.12), phong(0x3A1A08,0x221100,15));
-  door.position.set(0, 0.55+0.75, 2.04); g.add(door);
-  [-0.22,0.22].forEach(dv => {
-    const plank = new THREE.Mesh(new THREE.BoxGeometry(0.05,1.52,0.14), phong(0x2A1205));
-    plank.position.set(dv, 0.55+0.75, 2.08); g.add(plank);
-  });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.018,8,12), phong(0x333333,0x666666,80));
-  ring.position.set(0.32, 0.55+0.8, 2.11); ring.rotation.x=Math.PI/2; g.add(ring);
-
-  // Wood fence with pointed posts
-  const fenceM = phong(0x6A4028,0x221100,8);
-  [-1.8,-1.2,1.2,1.8].forEach(fx => {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.65,0.10), fenceM);
-    post.position.set(fx, 0.33, 2.5); g.add(post);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.07,0.2,4), fenceM);
-    tip.position.set(fx, 0.73, 2.5); g.add(tip);
-  });
-  [-1.5,1.5].forEach(rx => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(1.3,0.07,0.07), fenceM);
-    rail.position.set(rx, 0.52, 2.5); g.add(rail);
-  });
-
   g.position.set(x,0,z); return g;
 }
 
-// 5 ── Apartment  (Luxury Contemporary Tower) ────────
+// 5 ── Apartment  (Modern High-Rise) ─────────────────
 function buildApartment(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group(); g.userData.type = 'house';
-
-  const concM  = phong(0x4A4A4A,0x666666,20);
-  const concLt = phong(0xD8D5CF,0xBBBBBB,18);
+  const concM  = phong(0x444444,0x666666,20);
   const steelM = phong(0x1A1A1A,0x444444,80);
-
-  // Concrete podium
-  const podium = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.40,CELL-0.05), concM);
-  podium.position.y = 0.20; podium.receiveShadow=true; g.add(podium);
-
-  // Ground floor glazed lobby
-  const lobby = new THREE.Mesh(new THREE.BoxGeometry(4.6,1.6,3.9), concLt);
-  lobby.position.y = 0.40+0.8; lobby.castShadow=true; lobby.receiveShadow=true; g.add(lobby);
-  const lobbyGlass = new THREE.Mesh(new THREE.BoxGeometry(4.5,1.55,0.09), glassWarm(0.42));
-  lobbyGlass.position.set(0, 0.40+0.775, 1.96); g.add(lobbyGlass);
-  [-1.5,0,1.5].forEach(mx => {
-    const mul = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.58,0.12), steelM);
-    mul.position.set(mx, 0.40+0.78, 1.97); g.add(mul);
-  });
-
-  // Floor 2
-  const fl2 = new THREE.Mesh(new THREE.BoxGeometry(4.4,1.5,3.7), concLt);
-  fl2.position.y = 0.40+1.6+0.75; fl2.castShadow=true; fl2.receiveShadow=true; g.add(fl2);
-
-  // Floor 3 (narrower setback)
-  const fl3 = new THREE.Mesh(new THREE.BoxGeometry(4.2,1.5,3.5), concLt);
-  fl3.position.y = 0.40+3.1+0.75; fl3.castShadow=true; fl3.receiveShadow=true; g.add(fl3);
-
-  // Spandrel bands
-  [1.6,3.1,4.6].forEach(fy => {
-    const band = new THREE.Mesh(new THREE.BoxGeometry(4.65,0.18,4.0), concM);
-    band.position.y = 0.40+fy+0.09; g.add(band);
-  });
-
-  // Cool glass curtain wall (upper floors)
-  [[4.4,0.40+1.6+0.76,1.86],[4.2,0.40+3.1+0.76,1.76]].forEach(([w,y,fz]) => {
-    const cw = new THREE.Mesh(new THREE.BoxGeometry(w,1.45,0.09), glassCool(0.22));
-    cw.position.set(0, y, fz); g.add(cw);
-  });
-
-  // Warm glowing window panels (scattered lit rooms)
-  [
-    [-1.5,0.40+2.1,1.97],[0,0.40+2.1,1.97],[1.5,0.40+2.1,1.97],
-    [-1.5,0.40+3.55,1.87],[0,0.40+3.55,1.87],[1.5,0.40+3.55,1.87],
-  ].forEach(([wx,wy,wz],i) => {
-    const warmW = new THREE.MeshPhongMaterial({ color:0xFFDD99, specular:0xFFFFFF, shininess:60,
-      emissive:new THREE.Color(0xFF8800), emissiveIntensity:0.35+(i%3)*0.1, transparent:true, opacity:0.85 });
-    const wp = new THREE.Mesh(new THREE.BoxGeometry(1.1,1.0,0.08), warmW);
-    wp.position.set(wx,wy,wz); g.add(wp);
-    const wf = new THREE.Mesh(new THREE.BoxGeometry(1.18,1.08,0.06), steelM);
-    wf.position.set(wx,wy,wz-0.02); g.add(wf);
-  });
-
-  // Cantilevered balconies with glass railings
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(CELL-0.05,0.40,CELL-0.05), concM);
+  plinth.position.y = 0.20; plinth.receiveShadow=true; g.add(plinth);
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(4.0,5.2,3.6), phong(0xDDDDCC,0xAAAAAA,15));
+  tower.position.set(0, 0.40+2.6, 0); tower.castShadow=true; tower.receiveShadow=true; g.add(tower);
+  for (let fl=0; fl<4; fl++) {
+    for (let col=0; col<3; col++) {
+      const wp = new THREE.Mesh(new THREE.BoxGeometry(0.85,1.05,0.07), glassWarm(0.38+fl*0.05));
+      wp.position.set(-1.1+col*1.1, 0.40+0.90+fl*1.3, 1.84); g.add(wp);
+      const wf = new THREE.Mesh(new THREE.BoxGeometry(0.92,1.10,0.06), steelM);
+      wf.position.set(-1.1+col*1.1, 0.40+0.90+fl*1.3, 1.82); g.add(wf);
+    }
+  }
   [0.40+1.58,0.40+3.08].forEach(by => {
     const slab = new THREE.Mesh(new THREE.BoxGeometry(4.2,0.14,0.75), concM);
     slab.position.set(0, by, 2.27); g.add(slab);
-    const glBal = new THREE.MeshPhongMaterial({ color:0xCCDDEE, transparent:true, opacity:0.32, specular:0xFFFFFF, shininess:150 });
-    const balG = new THREE.Mesh(new THREE.BoxGeometry(4.0,0.5,0.06), glBal);
-    balG.position.set(0, by+0.32, 2.6); g.add(balG);
-    const topR = new THREE.Mesh(new THREE.BoxGeometry(4.1,0.055,0.055), steelM);
-    topR.position.set(0, by+0.58, 2.6); g.add(topR);
   });
-
-  // Entrance canopy + steel posts
-  const can = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.10,1.0), phong(0x888888,0xAAAAAA,40));
-  can.position.set(0, 0.40+1.65, 2.1); g.add(can);
-  [-0.9,0.9].forEach(cpx => {
-    const cPost = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.28,0.06), steelM);
-    cPost.position.set(cpx, 0.40+1.0, 2.55); g.add(cPost);
-  });
-
-  // Double glass entry doors
-  const entDoor = new THREE.MeshPhongMaterial({ color:0xDDEEFF, specular:0xFFFFFF, shininess:180,
-    emissive:new THREE.Color(0xFF8800), emissiveIntensity:0.22, transparent:true, opacity:0.7 });
-  [-0.38,0.38].forEach(dx => {
-    const d = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.55,0.09), entDoor);
-    d.position.set(dx, 0.40+0.775, 1.97); g.add(d);
-  });
-  const dDiv = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.58,0.12), steelM);
-  dDiv.position.set(0, 0.40+0.775, 1.99); g.add(dDiv);
-
-  // Mechanical penthouse + roof slab + perimeter edge
   const ph = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.75,2.0), concM);
   ph.position.set(0.5, 0.40+4.6+0.375, 0); ph.castShadow=true; g.add(ph);
   const roof = new THREE.Mesh(new THREE.BoxGeometry(4.6,0.18,3.9), concM);
   roof.position.y = 0.40+4.6+0.09; g.add(roof);
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(4.7,0.20,4.0), phong(0x3A3A3A,0x555555,20));
-  edge.position.y = 0.40+4.6+0.28; g.add(edge);
-
   g.position.set(x,0,z); return g;
 }
 
 // ── Park ──────────────────────────────────────────
 function buildPark(r, c) {
   const { x, z } = cellCenter(r, c);
-  const g = new THREE.Group();
-
-  // Bright grass base
-  const grass = new THREE.Mesh(
-    new THREE.BoxGeometry(CELL, 0.14, CELL),
-    new THREE.MeshLambertMaterial({ color: 0x2DB82D })
-  );
+  const g = new THREE.Group(); g.userData.type = 'park';
+  const grass = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.14, CELL),
+    new THREE.MeshLambertMaterial({ color: 0x2DB82D }));
   grass.receiveShadow = true; g.add(grass);
-
-  // Path cross
   const pathMat = new THREE.MeshLambertMaterial({ color: 0xD4B896 });
-  const ph = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.02, 0.7), pathMat);
-  ph.position.y = 0.08; g.add(ph);
-  const pv = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, CELL), pathMat);
-  pv.position.y = 0.08; g.add(pv);
-
-  // Trees
+  const ph2 = new THREE.Mesh(new THREE.BoxGeometry(CELL, 0.02, 0.7), pathMat);
+  ph2.position.y = 0.08; g.add(ph2);
+  const pv2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.02, CELL), pathMat);
+  pv2.position.y = 0.08; g.add(pv2);
   const trunkMat  = new THREE.MeshLambertMaterial({ color: 0x6B3E10 });
   const canopyMat = new THREE.MeshLambertMaterial({ color: 0x1A7D1A });
-  [[-1.6, -1.6],[1.6, -1.6],[-1.6, 1.6],[1.6, 1.6]].forEach(([tx,tz]) => {
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.0, 6), trunkMat);
+  [[-1.6,-1.6],[1.6,-1.6],[-1.6,1.6],[1.6,1.6]].forEach(([tx,tz]) => {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,1.0,6), trunkMat);
     trunk.position.set(tx, 0.65, tz); trunk.castShadow = true; g.add(trunk);
-    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 6), canopyMat);
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.75,8,6), canopyMat);
     canopy.position.set(tx, 1.55, tz); canopy.castShadow = true; g.add(canopy);
-    // Second canopy layer
-    const canopy2 = new THREE.Mesh(new THREE.SphereGeometry(0.52, 7, 5),
+    const canopy2 = new THREE.Mesh(new THREE.SphereGeometry(0.52,7,5),
       new THREE.MeshLambertMaterial({ color: 0x228B22 }));
     canopy2.position.set(tx, 2.1, tz); canopy2.castShadow = true; g.add(canopy2);
   });
-
-  // Bench (center)
   const benchMat = new THREE.MeshLambertMaterial({ color: 0x8B5A2B });
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.4), benchMat);
-  seat.position.set(0, 0.45, 0.3); g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 0.06), benchMat);
-  back.position.set(0, 0.65, 0.5); g.add(back);
-
+  const bseat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.4), benchMat);
+  bseat.position.set(0, 0.45, 0.3); g.add(bseat);
+  const bback = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 0.06), benchMat);
+  bback.position.set(0, 0.65, 0.5); g.add(bback);
   g.position.set(x, 0.07, z);
   return g;
 }
 
 // ─────────────────────────────────────────────────
-//  VEHICLE SYSTEM  — per 5 road tiles: 2 cars + 1 bike
+//  VEHICLE SYSTEM
 // ─────────────────────────────────────────────────
-const CAR_COLORS  = [0xE63946, 0x1D6DB5, 0xF4A261, 0x2D6A4F, 0xE9C46A];
-const BIKE_COLORS = [0x22CC55, 0xFF3366, 0xAA44FF];
+// RIGHT-HAND TRAFFIC: every vehicle stays ROAD_LANE_OFF units
+// to the right of its heading. Vehicles going opposite directions
+// therefore occupy opposite halves of the road automatically.
+const ROAD_LANE_OFF = 1.30;
+
+const CAR_COLORS  = [0xE63946, 0x1D6DB5, 0xF4A261, 0x2D6A4F, 0xE9C46A, 0xCC44AA, 0x44AACC];
+const BIKE_COLORS = [0x22CC55, 0xFF3366, 0xAA44FF, 0xFF8800];
 const carList  = [];
 const bikeList = [];
 
@@ -1255,18 +1016,12 @@ function buildCar(color) {
   const bodyMat  = new THREE.MeshLambertMaterial({ color });
   const darkMat  = new THREE.MeshLambertMaterial({ color: 0x151515 });
   const chromeMat= new THREE.MeshLambertMaterial({ color: 0xC8C8C8 });
-  const glassMat = new THREE.MeshPhongMaterial({
-    color:0xAADDFF, specular:0xFFFFFF, shininess:180, transparent:true, opacity:0.52
-  });
-  const headMat  = new THREE.MeshPhongMaterial({
-    color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9
-  });
-  const tailMat  = new THREE.MeshPhongMaterial({
-    color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85
-  });
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat);
+  const glassMat = new THREE.MeshPhongMaterial({ color:0xAADDFF, specular:0xFFFFFF, shininess:180, transparent:true, opacity:0.52 });
+  const headMat  = new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 });
+  const tailMat  = new THREE.MeshPhongMaterial({ color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85 });
+  const chassis  = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat);
   chassis.position.y = 0.56; chassis.castShadow=true; g.add(chassis);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
+  const cabin    = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
   cabin.position.set(0,0.84,0.10); cabin.castShadow=true; g.add(cabin);
   const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
   wf.position.set(0,0.85,0.57); g.add(wf);
@@ -1289,8 +1044,8 @@ function buildCar(color) {
   [[0.47,0.60],[-0.47,0.60],[0.47,-0.60],[-0.47,-0.60]].forEach(([wx,wz]) => {
     const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat);
     tyre.rotation.z = Math.PI/2; tyre.position.set(wx,0.18,wz); tyre.castShadow=true; g.add(tyre);
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat);
-    rim.rotation.z = Math.PI/2; rim.position.set(wx,0.18,wz); g.add(rim);
+    const rim  = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat);
+    rim.rotation.z  = Math.PI/2; rim.position.set(wx,0.18,wz); g.add(rim);
   });
   return g;
 }
@@ -1302,62 +1057,48 @@ function buildBike(color) {
   const chromeMat= new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
   const helmetMat= new THREE.MeshLambertMaterial({ color: 0xFF6600 });
   const headMat  = new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 });
-
-  // Frame (thin, low)
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.14,0.80), bodyMat);
+  const frame    = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.14,0.80), bodyMat);
   frame.position.y = 0.36; g.add(frame);
-  // Engine block
-  const eng = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.30), darkMat);
-  eng.position.set(0,0.30,0.0); g.add(eng);
-  // Fuel tank / body top
-  const tank = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.36), bodyMat);
+  const eng      = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.30), darkMat);
+  eng.position.set(0,0.30,0); g.add(eng);
+  const tank     = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.36), bodyMat);
   tank.position.set(0,0.46,-0.05); g.add(tank);
-  // Seat
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.06,0.34), darkMat);
+  const seat     = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.06,0.34), darkMat);
   seat.position.set(0,0.52,-0.22); g.add(seat);
-  // Handlebars
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.40,0.04,0.04), chromeMat);
+  const bar      = new THREE.Mesh(new THREE.BoxGeometry(0.40,0.04,0.04), chromeMat);
   bar.position.set(0,0.56,0.36); g.add(bar);
-  // Exhaust pipe
-  const exh = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.55,6), chromeMat);
+  const exh      = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.55,6), chromeMat);
   exh.rotation.z = Math.PI/2; exh.position.set(0.14,0.24,0.05); g.add(exh);
-  // 2 wheels
   [0.40,-0.40].forEach(wz => {
     const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.07,14), darkMat);
     tyre.rotation.z = Math.PI/2; tyre.position.set(0,0.18,wz); tyre.castShadow=true; g.add(tyre);
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.08,10), chromeMat);
-    rim.rotation.z = Math.PI/2; rim.position.set(0,0.18,wz); g.add(rim);
-    // Spokes
+    const rim  = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.08,10), chromeMat);
+    rim.rotation.z  = Math.PI/2; rim.position.set(0,0.18,wz); g.add(rim);
     for (let s=0;s<5;s++) {
       const sp = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.28,0.015), chromeMat);
       sp.rotation.z = Math.PI/2; sp.rotation.x = s*Math.PI/5;
       sp.position.set(0,0.18,wz); g.add(sp);
     }
   });
-  // Forks (front)
   const forkL = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
   forkL.position.set(-0.08,0.28,0.40); g.add(forkL);
   const forkR = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
   forkR.position.set( 0.08,0.28,0.40); g.add(forkR);
-  // Headlight
-  const hl = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.09,0.06), headMat);
+  const hl    = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.09,0.06), headMat);
   hl.position.set(0,0.40,0.46); g.add(hl);
-  // Rider body
   const rbody = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.28,0.16), bodyMat);
   rbody.position.set(0,0.72,-0.06); g.add(rbody);
-  // Rider head / helmet
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115,8,7), helmetMat);
+  const head  = new THREE.Mesh(new THREE.SphereGeometry(0.115,8,7), helmetMat);
   head.position.set(0,0.98,0.04); g.add(head);
-  // Visor
   const visor = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.05,0.04),
     new THREE.MeshPhongMaterial({ color:0x88AACC, transparent:true, opacity:0.7 }));
   visor.position.set(0,0.96,0.12); g.add(visor);
   return g;
 }
 
-// BFS → largest contiguous road cluster
+// BFS — largest contiguous road cluster
 function getLargestRoadComponent() {
-  const keys = Object.keys(placedItems).filter(k => placedItems[k].userData.type==='road');
+  const keys = Object.keys(placedItems).filter(k => placedItems[k].userData.type === 'road');
   if (!keys.length) return [];
   const visited = new Set(); let largest = [];
   for (const key of keys) {
@@ -1376,14 +1117,15 @@ function getLargestRoadComponent() {
   return largest;
 }
 
+// Pick next cell — no U-turns
 function nextRoadCell(r, c, pr, pc) {
   const ns = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
-  const fw = ns.filter(([nr,nc]) => !(nr===pr&&nc===pc));
+  const fw = ns.filter(([nr,nc]) => !(nr===pr && nc===pc));
   const pool = fw.length ? fw : ns;
   return pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
 }
 
-function spawnCar(roadKeys) {
+function _spawnVehicle(list, roadKeys, buildFn, colors, baseSpd, spdVar) {
   const occupied = new Set([
     ...carList.map(c=>`${c.cur.r},${c.cur.c}`),
     ...bikeList.map(b=>`${b.cur.r},${b.cur.c}`)
@@ -1391,33 +1133,22 @@ function spawnCar(roadKeys) {
   const free = roadKeys.filter(k => !occupied.has(k));
   const pool = free.length ? free : roadKeys;
   const key  = pool[Math.floor(Math.random()*pool.length)];
-  const [r,c] = key.split(',').map(Number);
-  const nxt = nextRoadCell(r,c,r,c);
+  const [r,c]= key.split(',').map(Number);
+  const nxt  = nextRoadCell(r, c, r, c);
   if (!nxt) return;
-  const grp = buildCar(CAR_COLORS[carList.length % CAR_COLORS.length]);
-  const { x, z } = cellCenter(r,c);
+  const grp  = buildFn(colors[list.length % colors.length]);
+  const { x, z }   = cellCenter(r, c);
+  const { x:tx, z:tz } = cellCenter(nxt[0], nxt[1]);
+  // Set heading immediately so lane offset is correct from frame 1
+  grp.rotation.y = Math.atan2(-(tx - x), tz - z);
   grp.position.set(x, 0.14, z);
   world.add(grp);
-  carList.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c}, t:0, spd:0.018+Math.random()*0.008 });
+  list.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c},
+              t: 0, spd: baseSpd + Math.random() * spdVar });
 }
 
-function spawnBike(roadKeys) {
-  const occupied = new Set([
-    ...carList.map(c=>`${c.cur.r},${c.cur.c}`),
-    ...bikeList.map(b=>`${b.cur.r},${b.cur.c}`)
-  ]);
-  const free = roadKeys.filter(k => !occupied.has(k));
-  const pool = free.length ? free : roadKeys;
-  const key  = pool[Math.floor(Math.random()*pool.length)];
-  const [r,c] = key.split(',').map(Number);
-  const nxt = nextRoadCell(r,c,r,c);
-  if (!nxt) return;
-  const grp = buildBike(BIKE_COLORS[bikeList.length % BIKE_COLORS.length]);
-  const { x, z } = cellCenter(r,c);
-  grp.position.set(x, 0.14, z);
-  world.add(grp);
-  bikeList.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c}, t:0, spd:0.026+Math.random()*0.010 });
-}
+function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.019, 0.008); }
+function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.027, 0.010); }
 
 function removeAllVehicles() {
   carList.forEach(c => world.remove(c.group));  carList.length = 0;
@@ -1427,63 +1158,79 @@ function removeAllVehicles() {
 function updateCarSystem() {
   const comp = getLargestRoadComponent();
   if (comp.length < 5) { removeAllVehicles(); return; }
-
-  // Remove vehicles whose tiles were erased
-  for (let i=carList.length-1; i>=0; i--) {
-    const v=carList[i];
-    if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); carList.splice(i,1); }
-  }
-  for (let i=bikeList.length-1; i>=0; i--) {
-    const v=bikeList[i];
-    if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); bikeList.splice(i,1); }
-  }
-
-  const maxCars = calcMaxCars(), maxBikes = calcMaxBikes();
-
-  // Scale up
-  while (carList.length  < maxCars)  spawnCar(comp);
-  while (bikeList.length < maxBikes) spawnBike(comp);
-  // Scale down
-  while (carList.length  > maxCars)  { world.remove(carList.pop().group);  }
-  while (bikeList.length > maxBikes) { world.remove(bikeList.pop().group); }
+  for (let i=carList.length-1;  i>=0; i--) { const v=carList[i];  if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group);  carList.splice(i,1);  } }
+  for (let i=bikeList.length-1; i>=0; i--) { const v=bikeList[i]; if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); bikeList.splice(i,1); } }
+  const maxC=calcMaxCars(), maxB=calcMaxBikes();
+  while (carList.length  < maxC)  spawnCar(comp);
+  while (bikeList.length < maxB)  spawnBike(comp);
+  while (carList.length  > maxC)  { world.remove(carList.pop().group);  }
+  while (bikeList.length > maxB)  { world.remove(bikeList.pop().group); }
 }
 
+// ── TICK ─────────────────────────────────────────────
+// Right-hand traffic: every vehicle rides ROAD_LANE_OFF units to
+// the RIGHT of its heading.  heading h → right-perp = (cos h, sin h)
+// in XZ.  Vehicles going in opposite directions end up on opposite
+// sides of the yellow centre line — no extra bookkeeping required.
 function tickVehicle(list, isBike) {
   if (!list.length) return;
   const dead = [];
+
   list.forEach((v, idx) => {
     v.t += v.spd;
+
     if (v.t >= 1) {
-      v.t -= 1; v.prv = {...v.cur}; v.cur = {...v.tgt};
-      if (!hasRoad(v.cur.r,v.cur.c)) { dead.push(idx); return; }
-      const nxt = nextRoadCell(v.cur.r,v.cur.c,v.prv.r,v.prv.c);
+      v.t -= 1;
+      v.prv = { ...v.cur };
+      v.cur = { ...v.tgt };
+      if (!hasRoad(v.cur.r, v.cur.c)) { dead.push(idx); return; }
+      const nxt = nextRoadCell(v.cur.r, v.cur.c, v.prv.r, v.prv.c);
       if (!nxt) { dead.push(idx); return; }
       v.tgt = { r:nxt[0], c:nxt[1] };
     }
-    if (!hasRoad(v.tgt.r,v.tgt.c)) { dead.push(idx); return; }
-    const from = cellCenter(v.cur.r,v.cur.c), to = cellCenter(v.tgt.r,v.tgt.c);
-    v.group.position.set(from.x+(to.x-from.x)*v.t, 0.14, from.z+(to.z-from.z)*v.t);
-    const dx=to.x-from.x, dz=to.z-from.z;
-    if (dx!==0||dz!==0) {
-      const ang=Math.atan2(-dx,dz); let diff=ang-v.group.rotation.y;
-      while(diff> Math.PI) diff-=Math.PI*2;
-      while(diff<-Math.PI) diff+=Math.PI*2;
-      v.group.rotation.y += diff * (isBike ? 0.30 : 0.25);
+    if (!hasRoad(v.tgt.r, v.tgt.c)) { dead.push(idx); return; }
+
+    const from = cellCenter(v.cur.r, v.cur.c);
+    const to   = cellCenter(v.tgt.r, v.tgt.c);
+
+    // Road centre-line interpolation
+    const cx = from.x + (to.x - from.x) * v.t;
+    const cz = from.z + (to.z - from.z) * v.t;
+
+    // Smooth heading toward target
+    const dx = to.x - from.x, dz = to.z - from.z;
+    if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
+      const tAng = Math.atan2(-dx, dz);
+      let diff = tAng - v.group.rotation.y;
+      while (diff >  Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      const turning = Math.abs(diff) > 0.08;
+      v.group.rotation.y += diff * (isBike ? 0.30 : turning ? 0.26 : 0.18);
     }
+
+    // Lane offset: right of heading = (cos h, sin h) in XZ
+    const h  = v.group.rotation.y;
+    v.group.position.set(
+      cx + Math.cos(h) * ROAD_LANE_OFF,
+      0.14,
+      cz + Math.sin(h) * ROAD_LANE_OFF
+    );
   });
+
   if (dead.length) {
-    [...new Set(dead)].sort((a,b)=>b-a).forEach(i => { world.remove(list[i].group); list.splice(i,1); });
+    [...new Set(dead)].sort((a,b)=>b-a).forEach(i => {
+      world.remove(list[i].group); list.splice(i,1);
+    });
     const comp = getLargestRoadComponent();
     if (comp.length >= 5) {
       const maxC=calcMaxCars(), maxB=calcMaxBikes();
-      while(carList.length  < maxC) spawnCar(comp);
-      while(bikeList.length < maxB) spawnBike(comp);
+      while (carList.length  < maxC) spawnCar(comp);
+      while (bikeList.length < maxB) spawnBike(comp);
     }
   }
 }
 function tickCars()  { tickVehicle(carList,  false); }
 function tickBikes() { tickVehicle(bikeList, true);  }
-
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
