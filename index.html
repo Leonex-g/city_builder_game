@@ -243,60 +243,51 @@
     }
     .panbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
 
-    /* ── CASH PANEL ───────────────────────────────── */
+    /* ── CASH PANEL  (sits left of the compass) ──── */
     #cash-panel {
-      position: fixed; top: 80px; right: 16px;
+      position: fixed; top: 20px; right: 78px;
       display: flex; align-items: center; gap: 6px;
       background: rgba(0,0,0,0.40); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1.5px solid rgba(255,215,0,0.30); border-radius: 14px;
-      padding: 7px 14px 7px 11px; pointer-events: none; z-index: 15;
-      transition: background 0.25s;
+      border: 1.5px solid rgba(255,255,255,0.20); border-radius: 14px;
+      padding: 7px 14px 7px 10px; pointer-events: none; z-index: 15;
     }
-    #cash-icon { font-size: 16px; line-height: 1; }
-    #cash-amount {
-      font-size: 15px; font-weight: 800; color: #FFD700;
-      letter-spacing: 0.4px; text-shadow: 0 1px 5px rgba(0,0,0,0.5);
-      transition: color 0.25s;
-    }
-    @keyframes cashBump {
-      0%,100% { transform: scale(1); }
-      40%      { transform: scale(1.15); }
-    }
-    #cash-panel.earned  { border-color: rgba(100,255,160,0.55); }
-    #cash-panel.earned #cash-amount { color: #66FF99; animation: cashBump .35s ease; }
+    #cash-icon   { font-size: 17px; line-height: 1; }
+    #cash-amount { font-size: 15px; font-weight: 800; color: #ffffff;
+                   letter-spacing: 0.5px; text-shadow: 0 1px 4px rgba(0,0,0,0.55); }
+
     @keyframes cashShake {
       0%,100% { transform: translateX(0); }
       20%     { transform: translateX(-5px); }
-      40%     { transform: translateX(5px); }
+      40%     { transform: translateX( 5px); }
       60%     { transform: translateX(-4px); }
-      80%     { transform: translateX(3px); }
+      80%     { transform: translateX( 3px); }
     }
-    #cash-panel.broke { animation: cashShake .4s ease; border-color: rgba(255,80,80,0.55); }
-    #cash-panel.broke #cash-amount { color: #FF6666; }
+    #cash-panel.broke { animation: cashShake .38s ease; border-color: rgba(255,80,80,0.6); }
+    #cash-panel.broke #cash-amount { color: #ff6b6b; }
+    @keyframes cashBump { 0%,100%{transform:scale(1)} 40%{transform:scale(1.14)} }
+    #cash-panel.earned { border-color: rgba(100,255,160,0.5); }
+    #cash-panel.earned #cash-amount { color: #66ffaa; animation: cashBump .32s ease; }
 
-    /* ── NOT ENOUGH CASH TOAST ────────────────────── */
+    /* ── NOT-ENOUGH-CASH TOAST ────────────────────── */
     #no-cash-toast {
-      position: fixed; top: 86px; left: 50%;
+      position: fixed; top: 82px; left: 50%;
       transform: translateX(-50%) translateY(-6px);
-      background: rgba(180,20,20,0.90); backdrop-filter: blur(8px);
+      background: rgba(190,15,15,0.88); backdrop-filter: blur(8px);
       color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
-      padding: 7px 18px; border-radius: 20px; white-space: nowrap;
+      padding: 7px 20px; border-radius: 20px; white-space: nowrap;
       pointer-events: none; opacity: 0;
-      transition: opacity 0.18s, transform 0.18s; z-index: 50;
+      transition: opacity .18s, transform .18s; z-index: 50;
     }
     #no-cash-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ── ITEM COST BADGE ──────────────────────────── */
-    .bcost {
-      margin-left: auto; flex-shrink: 0;
-      font-size: clamp(11px, 2.7vw, 13px); font-weight: 800;
-      color: #FFD700; letter-spacing: 0.2px; padding-left: 6px;
-    }
-    .bcost.free { color: rgba(255,255,255,0.35); font-weight: 600; }
-    .bitem.cant-afford .bname  { color: rgba(255,255,255,0.38); }
-    .bitem.cant-afford .bcost  { color: #FF6666; }
-    .htype.cant-afford .htype-name { color: rgba(255,255,255,0.38); }
-    .htype.cant-afford .bcost      { color: #FF6666; }
+    .bcost { margin-left: auto; flex-shrink: 0; padding-left: 6px;
+             font-size: clamp(11px,2.7vw,13px); font-weight: 800; color: #FFD700; }
+    .bcost.free { color: rgba(255,255,255,0.32); font-weight: 600; }
+    .bitem.cant-afford .bname  { color: rgba(255,255,255,0.35); }
+    .bitem.cant-afford .bcost  { color: #ff6b6b; }
+    .htype.cant-afford .htype-name { color: rgba(255,255,255,0.35); }
+    .htype.cant-afford .bcost      { color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -323,16 +314,14 @@
   <circle cx="27" cy="27" r="3.2" fill="rgba(20,20,20,0.6)" stroke="white" stroke-width="1.2"/>
 </svg>
 
-<!-- Cash panel -->
+<!-- Cash panel — left of the compass -->
 <div id="cash-panel">
-  <span id="cash-icon">💰</span>
+  <span id="cash-icon">💵</span>
   <span id="cash-amount">$1,000</span>
 </div>
 
 <!-- Not-enough-cash toast -->
 <div id="no-cash-toast">Not enough cash 💸</div>
-
-<!-- Hint -->
 <div id="hint">← Drag to rotate · Tap to build →</div>
 
 <!-- Zoom controls -->
@@ -359,7 +348,7 @@
     <div class="bitem" id="house-cat-btn">
       <span class="bi">🏠</span>
       <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
-      <span class="bcost">$150+</span>
+      <span class="bcost" id="house-cat-cost">$150</span>
     </div>
     <div class="bitem" data-tool="park">
       <span class="bi">🌲</span>
@@ -1500,45 +1489,36 @@ function tickBikes() { tickVehicle(bikeList, true);  }
 // ─────────────────────────────────────────────────
 let cash = 1000;
 
-// Build costs per item type
 const COSTS = {
-  road:       50,
-  park:       75,
-  cottage:   150,
-  modern:    220,
-  villa:     380,
-  cabin:     130,
-  apartment: 260,
-  erase:       0,
+  road: 50, park: 75,
+  cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
+  erase: 0,
 };
 
-// Parallel map: grid key → cash paid for that tile (used for refunds)
-const paidMap = {};
+const paidMap = {};   // key → original cost paid (for refunds)
 
-const cashPanel   = document.getElementById('cash-panel');
-const cashAmountEl= document.getElementById('cash-amount');
-const noCashToast = document.getElementById('no-cash-toast');
-let toastTimer = null;
+const cashPanel    = document.getElementById('cash-panel');
+const cashAmountEl = document.getElementById('cash-amount');
+const noCashToast  = document.getElementById('no-cash-toast');
+let   toastTimer   = null;
 
-function formatCash(n) {
-  return '$' + n.toLocaleString();
-}
+function formatCash(n) { return '$' + n.toLocaleString(); }
 
 function updateCashUI(delta) {
   cashAmountEl.textContent = formatCash(cash);
-
-  // Animate panel
   cashPanel.classList.remove('broke', 'earned');
-  void cashPanel.offsetWidth;  // force reflow to re-trigger animation
-  if (delta > 0)      cashPanel.classList.add('earned');
+  void cashPanel.offsetWidth;
+  if      (delta > 0) cashPanel.classList.add('earned');
   else if (delta < 0) cashPanel.classList.add('broke');
   setTimeout(() => cashPanel.classList.remove('broke', 'earned'), 500);
-
-  // Grey-out / highlight menu items based on affordability
-  refreshMenuAffordability();
+  refreshAffordability();
 }
 
-function showNoCashToast() {
+function flashBroke() {
+  cashPanel.classList.remove('broke');
+  void cashPanel.offsetWidth;
+  cashPanel.classList.add('broke');
+  setTimeout(() => cashPanel.classList.remove('broke'), 500);
   if (toastTimer) clearTimeout(toastTimer);
   noCashToast.classList.add('show');
   toastTimer = setTimeout(() => noCashToast.classList.remove('show'), 1800);
@@ -1549,32 +1529,22 @@ function getBuildCost(tool) {
   return COSTS[tool] ?? 0;
 }
 
-function canAfford(tool) {
-  return cash >= getBuildCost(tool);
-}
-
-function refreshMenuAffordability() {
-  // Main menu items
+function refreshAffordability() {
   document.querySelectorAll('#menu-main .bitem[data-tool]').forEach(el => {
-    const tool = el.dataset.tool;
-    if (tool === 'erase') return;
-    el.classList.toggle('cant-afford', cash < (COSTS[tool] ?? 0));
+    if (el.dataset.tool === 'erase') return;
+    el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.tool] ?? 0));
   });
-  // House category button: use currently selected house type cost
-  const houseCostEl = document.querySelector('#house-cat-btn .bcost');
   const houseCost = COSTS[selectedHouseType] ?? COSTS.cottage;
-  if (houseCostEl) {
-    houseCostEl.textContent = '$' + houseCost;
-    document.getElementById('house-cat-btn').classList.toggle('cant-afford', cash < houseCost);
-  }
-  // House sub-menu
+  const houseBtn  = document.getElementById('house-cat-btn');
+  const houseCostEl = document.getElementById('house-cat-cost');
+  if (houseCostEl) houseCostEl.textContent = '$' + houseCost;
+  if (houseBtn)   houseBtn.classList.toggle('cant-afford', cash < houseCost);
   document.querySelectorAll('.htype').forEach(el => {
-    const htype = el.dataset.htype;
-    el.classList.toggle('cant-afford', cash < (COSTS[htype] ?? 0));
+    el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.htype] ?? 0));
   });
 }
 
-// Initialise display
+// Init display
 updateCashUI(0);
 
 // ── Place / Erase ──────────────────────────────────
@@ -1582,55 +1552,35 @@ function placeItem(r, c) {
   if (!selectedTool) return;
   const key = `${r},${c}`;
 
-  // ── ERASE ──
   if (selectedTool === 'erase') {
     if (placedItems[key]) {
-      const wasRoad  = placedItems[key].userData.type === 'road';
-      const refund   = Math.floor((paidMap[key] ?? 0) * 0.5);
+      const wasRoad = placedItems[key].userData.type === 'road';
+      const refund  = Math.floor((paidMap[key] ?? 0) * 0.5);
       world.remove(placedItems[key]); delete placedItems[key]; delete paidMap[key];
-      if (refund > 0) {
-        cash += refund;
-        updateCashUI(+refund);
-      }
+      if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
     }
     return;
   }
 
-  // ── CHECK FUNDS ──
   const cost = getBuildCost(selectedTool);
-  if (cash < cost) {
-    showNoCashToast();
-    // Shake the panel
-    cashPanel.classList.remove('broke');
-    void cashPanel.offsetWidth;
-    cashPanel.classList.add('broke');
-    setTimeout(() => cashPanel.classList.remove('broke'), 500);
-    return;
-  }
+  if (cash < cost) { flashBroke(); return; }
 
-  // ── REPLACE existing tile (partial refund) ──
   const wasRoad = placedItems[key] && placedItems[key].userData.type === 'road';
   if (placedItems[key]) {
     const refund = Math.floor((paidMap[key] ?? 0) * 0.5);
-    cash += refund;   // apply refund before deducting new cost
+    cash += refund;
     world.remove(placedItems[key]); delete placedItems[key]; delete paidMap[key];
   }
 
-  // ── BUILD ──
   let mesh;
   if      (selectedTool === 'road')  mesh = buildRoad(r, c);
   else if (selectedTool === 'house') mesh = buildHouse(r, c);
   else if (selectedTool === 'park')  mesh = buildPark(r, c);
-
   if (mesh) {
-    world.add(mesh);
-    placedItems[key] = mesh;
-    paidMap[key] = cost;
-
+    world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
     cash -= cost;
     updateCashUI(-cost);
-
     if (selectedTool === 'road' || wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
   }
 }
@@ -1828,16 +1778,13 @@ function setTool(tool) {
 
 buildBtn.addEventListener('click', () => {
   if (buildMenuOpen) {
-    // Close menu — keep tool active if one was already selected
     closeBuildMenu();
   } else if (selectedTool) {
-    // Tool is active → ✕ tap clears it
     clearTool();
   } else {
-    // Nothing active → open the build menu
     buildMenuOpen = true;
     buildMenu.classList.add('open');
-    refreshMenuAffordability();
+    refreshAffordability();
     updateBuildBtn();
   }
 });
@@ -1876,7 +1823,7 @@ document.querySelectorAll('.htype').forEach(function(el) {
     badgeName.textContent = ht.name + ' — tap land';
     selectedTool = 'house';
     toolBadge.classList.add('show');
-    refreshMenuAffordability();
+    refreshAffordability();
     closeBuildMenu();
   });
 });
