@@ -1175,7 +1175,7 @@ function updateCarSystem() {
 // After STUCK_LIMIT frames of waiting the blocked vehicle tries an
 // alternate free cell so traffic clears naturally.
 const MIN_DIST    = 1.55;   // world-unit hard-stop gap (no overlap)
-const STUCK_LIMIT = 72;     // ~1.2 s at 60 fps → try alternate route
+const STUCK_LIMIT = 28;     // ~0.47 s at 60 fps → reroute immediately
 
 function vehicleWorldPos(v) {
   const from = cellCenter(v.cur.r, v.cur.c);
@@ -1188,38 +1188,46 @@ function vehicleWorldPos(v) {
 
 function allVehicles() { return [...carList, ...bikeList]; }
 
-// Is cell (r,c) currently held by any vehicle other than v?
+// Are two vehicles travelling in roughly opposite directions?
+// Opposite-direction vehicles are in separate lanes — they should never block each other.
+function oppositeDirs(v, other) {
+  const dx1 = v.tgt.c     - v.cur.c,     dz1 = v.tgt.r     - v.cur.r;
+  const dx2 = other.tgt.c - other.cur.c, dz2 = other.tgt.r - other.cur.r;
+  return (dx1 * dx2 + dz1 * dz2) < 0;   // negative dot = opposite headings
+}
+
+// Is cell (r,c) currently reserved by any vehicle other than v?
+// Vehicles going the opposite direction are ignored — they use the other lane.
 function cellTakenBy(v, r, c) {
   for (const other of allVehicles()) {
     if (other === v) continue;
-    // A vehicle "owns" its current cell always
+    if (oppositeDirs(v, other)) continue;           // different lane → not a conflict
     if (other.cur.r === r && other.cur.c === c) return true;
-    // It also starts claiming the next cell once it's more than halfway there
-    if (other.t > 0.50 && other.tgt.r === r && other.tgt.c === c) return true;
+    if (other.t > 0.45 && other.tgt.r === r && other.tgt.c === c) return true;
   }
   return false;
 }
 
-// Pick next road cell, preferring cells NOT currently taken.
-// If stuck (waitFrames > STUCK_LIMIT) it actively avoids the blocked cell.
-function pickNextCell(v) {
+// Pick next road cell.
+// exclude: a cell to strongly avoid (the currently-blocked target during a forced reroute).
+// When no free alternative exists the vehicle will still move — just picks the least-bad option.
+function pickNextCell(v, exclude) {
   const { r, c } = v.cur;
   const all4 = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
-  // No U-turn preference
-  const noU = all4.filter(([nr,nc]) => !(nr === v.prv.r && nc === v.prv.c));
+  // Avoid U-turns unless there is literally nowhere else to go
+  const noU  = all4.filter(([nr,nc]) => !(nr === v.prv.r && nc === v.prv.c));
   const pool = noU.length ? noU : all4;
   if (!pool.length) return null;
 
-  // Split into free vs occupied
-  const free = pool.filter(([nr,nc]) => !cellTakenBy(v, nr, nc));
+  // When force-rerouting, exclude the blocked target so the vehicle genuinely changes route
+  const eligible   = exclude
+    ? pool.filter(([nr,nc]) => !(nr === exclude.r && nc === exclude.c))
+    : pool;
+  const searchPool = eligible.length ? eligible : pool;   // fall back if only 1 option
 
-  // When stuck → strongly prefer free cells (reroute)
-  if (v.waitFrames >= STUCK_LIMIT && free.length) {
-    v.waitFrames = 0;
-    return free[Math.floor(Math.random() * free.length)];
-  }
-  // Normal → prefer free, fall back to any
-  const candidates = free.length ? free : pool;
+  // Prefer cells that are not already taken by a same-direction vehicle
+  const free       = searchPool.filter(([nr,nc]) => !cellTakenBy(v, nr, nc));
+  const candidates = free.length ? free : searchPool;
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
@@ -1249,7 +1257,23 @@ function tickVehicle(list, isBike) {
 
     if (blocked) {
       v.waitFrames++;
-      // Don't advance — wait for gap
+
+      // ── CORE FIX: mid-tile forced reroute ───────────────────────────────
+      // The old code only rerouted inside pickNextCell which runs at tile
+      // boundaries (v.t >= 1).  A blocked vehicle never advances, so t never
+      // reaches 1 → pickNextCell never fires → permanent deadlock.
+      //
+      // Fix: when stuck long enough, snap the vehicle back to its current
+      // cell centre (t = 0) and immediately pick an ALTERNATE target,
+      // explicitly excluding the blocked cell.  On the very next frame the
+      // vehicle starts moving in the new direction.
+      if (v.waitFrames >= STUCK_LIMIT) {
+        v.waitFrames = 0;
+        v.t = 0;                              // return to current cell centre
+        const alt = pickNextCell(v, v.tgt);  // pick a different cell, avoid the blocker
+        if (alt) v.tgt = { r: alt[0], c: alt[1] };
+      }
+      // Do NOT advance t this frame — let the new direction take effect next frame
     } else {
       v.waitFrames = 0;
       v.t += v.spd;
@@ -1261,7 +1285,7 @@ function tickVehicle(list, isBike) {
       v.prv = { ...v.cur };
       v.cur = { ...v.tgt };
       if (!hasRoad(v.cur.r, v.cur.c)) { dead.push(idx); return; }
-      const nxt = pickNextCell(v);
+      const nxt = pickNextCell(v);   // normal transition — no exclusion needed
       if (!nxt) { dead.push(idx); return; }
       v.tgt = { r:nxt[0], c:nxt[1] };
     }
