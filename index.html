@@ -995,21 +995,66 @@ function buildPark(r, c) {
 // ─────────────────────────────────────────────────
 //  VEHICLE SYSTEM
 // ─────────────────────────────────────────────────
-// RIGHT-HAND TRAFFIC: every vehicle stays ROAD_LANE_OFF units
-// to the right of its heading. Vehicles going opposite directions
-// therefore occupy opposite halves of the road automatically.
-const ROAD_LANE_OFF = 1.30;
-
-const CAR_COLORS  = [0xE63946, 0x1D6DB5, 0xF4A261, 0x2D6A4F, 0xE9C46A, 0xCC44AA, 0x44AACC];
-const BIKE_COLORS = [0x22CC55, 0xFF3366, 0xAA44FF, 0xFF8800];
-const carList  = [];
-const bikeList = [];
+// ─────────────────────────────────────────────────
+//  VEHICLE SYSTEM  (cars only — cell-token based)
+//
+//  Rule: every road cell holds AT MOST one car.
+//  A car pre-claims its target cell once it is ≥50% across.
+//  When the target is taken the car waits; after CAR_WAIT_LIMIT
+//  frames it re-routes to the best FREE adjacent cell instead.
+//  Zero world-space distance checks → zero overlaps, zero glitches.
+// ─────────────────────────────────────────────────
+const CAR_COLORS    = [0xE63946, 0x1D6DB5, 0xF4A261, 0x2D6A4F, 0xE9C46A, 0xCC44AA, 0x44AACC];
+const carList       = [];
+const CAR_WAIT_LIMIT = 18;
+const LANE_W         = 0.62;  // right-hand lane offset (world units)
 
 function getRoadTileCount() {
   return Object.keys(placedItems).filter(k => placedItems[k].userData.type === 'road').length;
 }
-function calcMaxCars()  { return Math.floor(getRoadTileCount() / 5) * 2; }
-function calcMaxBikes() { return Math.floor(getRoadTileCount() / 5) * 1; }
+function calcMaxCars() { return Math.floor(getRoadTileCount() / 5) * 2; }
+
+// Two cars going in OPPOSITE directions use opposite lanes → they may share a cell.
+// Same-direction or perpendicular cars cannot share a cell.
+function isCellFree(forCar, r, c) {
+  const myDr = forCar.tgt ? forCar.tgt.r - forCar.cur.r : 0;
+  const myDc = forCar.tgt ? forCar.tgt.c - forCar.cur.c : 0;
+  const hasDir = (myDr !== 0 || myDc !== 0);
+  for (const other of carList) {
+    if (other === forCar) continue;
+    const oDr = other.tgt.r - other.cur.r;
+    const oDc = other.tgt.c - other.cur.c;
+    // Opposite direction → different physical lane → no conflict
+    if (hasDir && myDr === -oDr && myDc === -oDc) continue;
+    if (other.cur.r === r && other.cur.c === c) return false;
+    if (other.t >= 0.50 && other.tgt.r === r && other.tgt.c === c) return false;
+  }
+  return true;
+}
+
+// Pick the best next cell for v.
+//  • No U-turns (unless forced).
+//  • Prefers FREE cells over occupied ones.
+//  • excludeR/excludeC: the currently-blocked cell — skip it so the
+//    car genuinely picks a different direction when rerouting.
+function pickNext(v, excludeR, excludeC) {
+  const { r, c } = v.cur;
+  const all4    = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
+  const noU     = all4.filter(([nr,nc]) => !(nr === v.prv.r && nc === v.prv.c));
+  const pool    = noU.length ? noU : all4;          // allow U-turn only if trapped
+  if (!pool.length) return null;
+
+  // Strip the blocked cell when rerouting
+  const eligible = (excludeR != null)
+    ? pool.filter(([nr,nc]) => !(nr === excludeR && nc === excludeC))
+    : pool;
+  const search  = eligible.length ? eligible : pool;
+
+  // Free cells first, fall back to any
+  const free    = search.filter(([nr,nc]) => isCellFree(v, nr, nc));
+  const pick    = free.length ? free : search;
+  return pick[Math.floor(Math.random() * pick.length)];
+}
 
 function buildCar(color) {
   const g        = new THREE.Group();
@@ -1023,76 +1068,19 @@ function buildCar(color) {
   chassis.position.y = 0.56; chassis.castShadow=true; g.add(chassis);
   const cabin    = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
   cabin.position.set(0,0.84,0.10); cabin.castShadow=true; g.add(cabin);
-  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
-  wf.position.set(0,0.85,0.57); g.add(wf);
-  const wr = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat);
-  wr.position.set(0,0.85,-0.37); g.add(wr);
-  [-0.41,0.41].forEach(sx => {
-    const sw = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat);
-    sw.position.set(sx,0.85,0.10); g.add(sw);
-  });
+  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat); wf.position.set(0,0.85,0.57); g.add(wf);
+  const wr = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat); wr.position.set(0,0.85,-0.37); g.add(wr);
+  [-0.41,0.41].forEach(sx => { const sw = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat); sw.position.set(sx,0.85,0.10); g.add(sw); });
   [-0.27,0.27].forEach(hx => {
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), headMat);
-    h.position.set(hx,0.57,0.89); g.add(h);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat);
-    t.position.set(hx,0.57,-0.89); g.add(t);
+    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), headMat); hl.position.set(hx,0.57, 0.89); g.add(hl);
+    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat); tl.position.set(hx,0.57,-0.89); g.add(tl);
   });
-  const bf = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
-  bf.position.set(0,0.45,0.90); g.add(bf);
-  const br = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat);
-  br.position.set(0,0.45,-0.90); g.add(br);
+  const bf = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat); bf.position.set(0,0.45, 0.90); g.add(bf);
+  const br = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat); br.position.set(0,0.45,-0.90); g.add(br);
   [[0.47,0.60],[-0.47,0.60],[0.47,-0.60],[-0.47,-0.60]].forEach(([wx,wz]) => {
-    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat);
-    tyre.rotation.z = Math.PI/2; tyre.position.set(wx,0.18,wz); tyre.castShadow=true; g.add(tyre);
-    const rim  = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat);
-    rim.rotation.z  = Math.PI/2; rim.position.set(wx,0.18,wz); g.add(rim);
+    const ty = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat); ty.rotation.z=Math.PI/2; ty.position.set(wx,0.18,wz); ty.castShadow=true; g.add(ty);
+    const ri = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat); ri.rotation.z=Math.PI/2; ri.position.set(wx,0.18,wz); g.add(ri);
   });
-  return g;
-}
-
-function buildBike(color) {
-  const g        = new THREE.Group();
-  const bodyMat  = new THREE.MeshLambertMaterial({ color });
-  const darkMat  = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const chromeMat= new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
-  const helmetMat= new THREE.MeshLambertMaterial({ color: 0xFF6600 });
-  const headMat  = new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 });
-  const frame    = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.14,0.80), bodyMat);
-  frame.position.y = 0.36; g.add(frame);
-  const eng      = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.30), darkMat);
-  eng.position.set(0,0.30,0); g.add(eng);
-  const tank     = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.36), bodyMat);
-  tank.position.set(0,0.46,-0.05); g.add(tank);
-  const seat     = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.06,0.34), darkMat);
-  seat.position.set(0,0.52,-0.22); g.add(seat);
-  const bar      = new THREE.Mesh(new THREE.BoxGeometry(0.40,0.04,0.04), chromeMat);
-  bar.position.set(0,0.56,0.36); g.add(bar);
-  const exh      = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.55,6), chromeMat);
-  exh.rotation.z = Math.PI/2; exh.position.set(0.14,0.24,0.05); g.add(exh);
-  [0.40,-0.40].forEach(wz => {
-    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.07,14), darkMat);
-    tyre.rotation.z = Math.PI/2; tyre.position.set(0,0.18,wz); tyre.castShadow=true; g.add(tyre);
-    const rim  = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.08,10), chromeMat);
-    rim.rotation.z  = Math.PI/2; rim.position.set(0,0.18,wz); g.add(rim);
-    for (let s=0;s<5;s++) {
-      const sp = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.28,0.015), chromeMat);
-      sp.rotation.z = Math.PI/2; sp.rotation.x = s*Math.PI/5;
-      sp.position.set(0,0.18,wz); g.add(sp);
-    }
-  });
-  const forkL = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
-  forkL.position.set(-0.08,0.28,0.40); g.add(forkL);
-  const forkR = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.32,0.03), chromeMat);
-  forkR.position.set( 0.08,0.28,0.40); g.add(forkR);
-  const hl    = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.09,0.06), headMat);
-  hl.position.set(0,0.40,0.46); g.add(hl);
-  const rbody = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.28,0.16), bodyMat);
-  rbody.position.set(0,0.72,-0.06); g.add(rbody);
-  const head  = new THREE.Mesh(new THREE.SphereGeometry(0.115,8,7), helmetMat);
-  head.position.set(0,0.98,0.04); g.add(head);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.05,0.04),
-    new THREE.MeshPhongMaterial({ color:0x88AACC, transparent:true, opacity:0.7 }));
-  visor.position.set(0,0.96,0.12); g.add(visor);
   return g;
 }
 
@@ -1117,218 +1105,113 @@ function getLargestRoadComponent() {
   return largest;
 }
 
-// Pick next cell — no U-turns
-function nextRoadCell(r, c, pr, pc) {
-  const ns = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
-  const fw = ns.filter(([nr,nc]) => !(nr===pr && nc===pc));
-  const pool = fw.length ? fw : ns;
-  return pool.length ? pool[Math.floor(Math.random()*pool.length)] : null;
-}
-
-function _spawnVehicle(list, roadKeys, buildFn, colors, baseSpd, spdVar) {
-  const occupied = new Set([
-    ...carList.map(c=>`${c.cur.r},${c.cur.c}`),
-    ...bikeList.map(b=>`${b.cur.r},${b.cur.c}`)
-  ]);
-  const free = roadKeys.filter(k => !occupied.has(k));
+function spawnCar(roadKeys) {
+  const occ  = new Set(carList.map(c => `${c.cur.r},${c.cur.c}`));
+  const free = roadKeys.filter(k => !occ.has(k));
   const pool = free.length ? free : roadKeys;
-  const key  = pool[Math.floor(Math.random()*pool.length)];
-  const [r,c]= key.split(',').map(Number);
-  const nxt  = nextRoadCell(r, c, r, c);
-  if (!nxt) return;
-  const grp  = buildFn(colors[list.length % colors.length]);
-  const { x, z }   = cellCenter(r, c);
-  const { x:tx, z:tz } = cellCenter(nxt[0], nxt[1]);
-  // Set heading immediately so lane offset is correct from frame 1
-  grp.rotation.y = Math.atan2(-(tx - x), tz - z);
-  grp.position.set(x, 0.14, z);
-  world.add(grp);
-  list.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c},
-              t: 0, spd: baseSpd + Math.random() * spdVar,
-              waitFrames: 0 });
-}
+  const key  = pool[Math.floor(Math.random() * pool.length)];
+  const [r, c] = key.split(',').map(Number);
 
-function spawnCar(roadKeys)  { _spawnVehicle(carList,  roadKeys, buildCar,  CAR_COLORS,  0.013, 0.0065); }
-function spawnBike(roadKeys) { _spawnVehicle(bikeList, roadKeys, buildBike, BIKE_COLORS, 0.018, 0.012);  }
+  // Pick any adjacent road cell as initial target (no dummy needed)
+  const neighbors = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]
+    .filter(([nr,nc]) => hasRoad(nr,nc));
+  if (!neighbors.length) return;
+  const nxt = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+  const grp = buildCar(CAR_COLORS[carList.length % CAR_COLORS.length]);
+  const { x, z }     = cellCenter(r, c);
+  const { x:tx, z:tz } = cellCenter(nxt[0], nxt[1]);
+  grp.rotation.y = Math.atan2(-(tx - x), tz - z);
+  const sh = grp.rotation.y;
+  grp.position.set(x - Math.cos(sh) * LANE_W, 0.14, z - Math.sin(sh) * LANE_W);
+  world.add(grp);
+  carList.push({ group:grp, cur:{r,c}, tgt:{r:nxt[0],c:nxt[1]}, prv:{r,c},
+                 t:0, spd:0.013 + Math.random()*0.006, waitFrames:0 });
+}
 
 function removeAllVehicles() {
-  carList.forEach(c => world.remove(c.group));  carList.length = 0;
-  bikeList.forEach(b => world.remove(b.group)); bikeList.length = 0;
+  carList.forEach(c => world.remove(c.group)); carList.length = 0;
 }
 
 function updateCarSystem() {
   const comp = getLargestRoadComponent();
   if (comp.length < 5) { removeAllVehicles(); return; }
-  for (let i=carList.length-1;  i>=0; i--) { const v=carList[i];  if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group);  carList.splice(i,1);  } }
-  for (let i=bikeList.length-1; i>=0; i--) { const v=bikeList[i]; if (!hasRoad(v.cur.r,v.cur.c)||!hasRoad(v.tgt.r,v.tgt.c)) { world.remove(v.group); bikeList.splice(i,1); } }
-  const maxC=calcMaxCars(), maxB=calcMaxBikes();
-  while (carList.length  < maxC)  spawnCar(comp);
-  while (bikeList.length < maxB)  spawnBike(comp);
-  while (carList.length  > maxC)  { world.remove(carList.pop().group);  }
-  while (bikeList.length > maxB)  { world.remove(bikeList.pop().group); }
-}
-
-// ── TICK ─────────────────────────────────────────────
-// Cell-reservation + world-distance collision system.
-// Each vehicle owns its current cell. Before entering a new cell it
-// checks whether that cell is already taken. If taken → stop and wait.
-// After STUCK_LIMIT frames of waiting the blocked vehicle tries an
-// alternate free cell so traffic clears naturally.
-const MIN_DIST    = 1.55;   // world-unit hard-stop gap (no overlap)
-const STUCK_LIMIT = 28;     // ~0.47 s at 60 fps → reroute immediately
-
-function vehicleWorldPos(v) {
-  const from = cellCenter(v.cur.r, v.cur.c);
-  const to   = cellCenter(v.tgt.r, v.tgt.c);
-  const cx = from.x + (to.x - from.x) * v.t;
-  const cz = from.z + (to.z - from.z) * v.t;
-  const h  = v.group.rotation.y;
-  return { x: cx + Math.cos(h) * ROAD_LANE_OFF, z: cz + Math.sin(h) * ROAD_LANE_OFF };
-}
-
-function allVehicles() { return [...carList, ...bikeList]; }
-
-// Are two vehicles travelling in roughly opposite directions?
-// Opposite-direction vehicles are in separate lanes — they should never block each other.
-function oppositeDirs(v, other) {
-  const dx1 = v.tgt.c     - v.cur.c,     dz1 = v.tgt.r     - v.cur.r;
-  const dx2 = other.tgt.c - other.cur.c, dz2 = other.tgt.r - other.cur.r;
-  return (dx1 * dx2 + dz1 * dz2) < 0;   // negative dot = opposite headings
-}
-
-// Is cell (r,c) currently reserved by any vehicle other than v?
-// Vehicles going the opposite direction are ignored — they use the other lane.
-function cellTakenBy(v, r, c) {
-  for (const other of allVehicles()) {
-    if (other === v) continue;
-    if (oppositeDirs(v, other)) continue;           // different lane → not a conflict
-    if (other.cur.r === r && other.cur.c === c) return true;
-    if (other.t > 0.45 && other.tgt.r === r && other.tgt.c === c) return true;
-  }
-  return false;
-}
-
-// Pick next road cell.
-// exclude: a cell to strongly avoid (the currently-blocked target during a forced reroute).
-// When no free alternative exists the vehicle will still move — just picks the least-bad option.
-function pickNextCell(v, exclude) {
-  const { r, c } = v.cur;
-  const all4 = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([nr,nc]) => hasRoad(nr,nc));
-  // Avoid U-turns unless there is literally nowhere else to go
-  const noU  = all4.filter(([nr,nc]) => !(nr === v.prv.r && nc === v.prv.c));
-  const pool = noU.length ? noU : all4;
-  if (!pool.length) return null;
-
-  // When force-rerouting, exclude the blocked target so the vehicle genuinely changes route
-  const eligible   = exclude
-    ? pool.filter(([nr,nc]) => !(nr === exclude.r && nc === exclude.c))
-    : pool;
-  const searchPool = eligible.length ? eligible : pool;   // fall back if only 1 option
-
-  // Prefer cells that are not already taken by a same-direction vehicle
-  const free       = searchPool.filter(([nr,nc]) => !cellTakenBy(v, nr, nc));
-  const candidates = free.length ? free : searchPool;
-  return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-function tickVehicle(list, isBike) {
-  if (!list.length) return;
-  const dead = [];
-  const all  = allVehicles();
-
-  list.forEach((v, idx) => {
-    // ── 1. World-space distance — stop if any vehicle is too close ahead ──
-    const myPos = vehicleWorldPos(v);
-    const hx = -Math.sin(v.group.rotation.y);
-    const hz  =  Math.cos(v.group.rotation.y);
-
-    let blocked = false;
-    for (const other of all) {
-      if (other === v) continue;
-      const op  = vehicleWorldPos(other);
-      const dx  = op.x - myPos.x, dz = op.z - myPos.z;
-      const d   = Math.sqrt(dx*dx + dz*dz);
-      if (d < MIN_DIST) {
-        // Only care if that vehicle is ahead of us (positive dot)
-        const dot = dx * hx + dz * hz;
-        if (dot > 0.05) { blocked = true; break; }
-      }
+  // Drop cars whose tiles were erased
+  for (let i = carList.length-1; i >= 0; i--) {
+    const v = carList[i];
+    if (!hasRoad(v.cur.r,v.cur.c) || !hasRoad(v.tgt.r,v.tgt.c)) {
+      world.remove(v.group); carList.splice(i,1);
     }
+  }
+  const maxC = calcMaxCars();
+  while (carList.length < maxC) spawnCar(comp);
+  while (carList.length > maxC) { world.remove(carList.pop().group); }
+}
 
-    if (blocked) {
+function tickCars() {
+  if (!carList.length) return;
+  const dead = [];
+
+  carList.forEach((v, idx) => {
+    // ── Is the target cell free? ──────────────────
+    if (!isCellFree(v, v.tgt.r, v.tgt.c)) {
       v.waitFrames++;
-
-      // ── CORE FIX: mid-tile forced reroute ───────────────────────────────
-      // The old code only rerouted inside pickNextCell which runs at tile
-      // boundaries (v.t >= 1).  A blocked vehicle never advances, so t never
-      // reaches 1 → pickNextCell never fires → permanent deadlock.
-      //
-      // Fix: when stuck long enough, snap the vehicle back to its current
-      // cell centre (t = 0) and immediately pick an ALTERNATE target,
-      // explicitly excluding the blocked cell.  On the very next frame the
-      // vehicle starts moving in the new direction.
-      if (v.waitFrames >= STUCK_LIMIT) {
+      if (v.waitFrames >= CAR_WAIT_LIMIT) {
+        // Reroute: snap back to cell centre, pick a different free cell
         v.waitFrames = 0;
-        v.t = 0;                              // return to current cell centre
-        const alt = pickNextCell(v, v.tgt);  // pick a different cell, avoid the blocker
-        if (alt) v.tgt = { r: alt[0], c: alt[1] };
+        v.t = 0;
+        const alt = pickNext(v, v.tgt.r, v.tgt.c);
+        if (alt) v.tgt = { r:alt[0], c:alt[1] };
       }
-      // Do NOT advance t this frame — let the new direction take effect next frame
+      // Do not advance this frame — car sits still
     } else {
+      // Path clear — drive forward
       v.waitFrames = 0;
       v.t += v.spd;
     }
 
-    // ── 2. Tile boundary ────────────────────────────
+    // ── Crossed into the next cell? ───────────────
     if (v.t >= 1) {
       v.t -= 1;
       v.prv = { ...v.cur };
       v.cur = { ...v.tgt };
       if (!hasRoad(v.cur.r, v.cur.c)) { dead.push(idx); return; }
-      const nxt = pickNextCell(v);   // normal transition — no exclusion needed
+      const nxt = pickNext(v, null, null);
       if (!nxt) { dead.push(idx); return; }
       v.tgt = { r:nxt[0], c:nxt[1] };
     }
     if (!hasRoad(v.tgt.r, v.tgt.c)) { dead.push(idx); return; }
 
-    // ── 3. World position + smooth heading ───────────
+    // ── Smooth heading ────────────────────────────
     const from = cellCenter(v.cur.r, v.cur.c);
     const to   = cellCenter(v.tgt.r, v.tgt.c);
-    const cx = from.x + (to.x - from.x) * v.t;
-    const cz = from.z + (to.z - from.z) * v.t;
-
-    const dx = to.x - from.x, dz2 = to.z - from.z;
-    if (Math.abs(dx) > 0.001 || Math.abs(dz2) > 0.001) {
-      const tAng = Math.atan2(-dx, dz2);
+    const dx = to.x - from.x, dz = to.z - from.z;
+    if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
+      const tAng = Math.atan2(-dx, dz);
       let diff = tAng - v.group.rotation.y;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      const turning = Math.abs(diff) > 0.08;
-      v.group.rotation.y += diff * (isBike ? 0.30 : turning ? 0.26 : 0.18);
+      v.group.rotation.y += diff * 0.22;
     }
 
-    const h = v.group.rotation.y;
+    // ── World position — right-hand lane offset ───
+    // Right-hand perpendicular of heading h: (-cos h, 0, -sin h)
+    const h  = v.group.rotation.y;
     v.group.position.set(
-      cx + Math.cos(h) * ROAD_LANE_OFF,
+      from.x + dx * v.t - Math.cos(h) * LANE_W,
       0.14,
-      cz + Math.sin(h) * ROAD_LANE_OFF
+      from.z + dz * v.t - Math.sin(h) * LANE_W
     );
   });
 
   if (dead.length) {
     [...new Set(dead)].sort((a,b)=>b-a).forEach(i => {
-      world.remove(list[i].group); list.splice(i,1);
+      world.remove(carList[i].group); carList.splice(i,1);
     });
     const comp = getLargestRoadComponent();
-    if (comp.length >= 5) {
-      const maxC=calcMaxCars(), maxB=calcMaxBikes();
-      while (carList.length  < maxC) spawnCar(comp);
-      while (bikeList.length < maxB) spawnBike(comp);
-    }
+    if (comp.length >= 5) while (carList.length < calcMaxCars()) spawnCar(comp);
   }
 }
-function tickCars()  { tickVehicle(carList,  false); }
-function tickBikes() { tickVehicle(bikeList, true);  }
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
@@ -1745,7 +1628,6 @@ function animate() {
 
   updateCompass(rotY);
   tickCars();
-  tickBikes();
   renderer.render(scene, camera);
 }
 animate();
