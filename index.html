@@ -339,6 +339,12 @@
 <div id="build-menu">
   <!-- Page 1: Main categories -->
   <div id="menu-main" class="menu-page">
+    <div class="menu-section-title">Land</div>
+    <div class="bitem" id="buy-land-btn">
+      <span class="bi">🏞️</span>
+      <span class="blabel"><span class="bname">Buy Land</span><span class="bdesc">Spawn new territory</span></span>
+      <span class="bcost" id="land-cost-badge">$5,000</span>
+    </div>
     <div class="menu-section-title">Build</div>
     <div class="bitem" data-tool="road">
       <span class="bi">🛣️</span>
@@ -482,14 +488,33 @@ scene.add(world);
 // ─────────────────────────────────────────────────
 const LAND = 72, CELL = 6, NCELLS = LAND / CELL, WALL_H = 3;
 
-// Base
-const base = new THREE.Mesh(
-  new THREE.PlaneGeometry(LAND, LAND),
-  new THREE.MeshLambertMaterial({ color: 0x3E8A2C })
-);
-base.rotation.x = -Math.PI / 2;
-base.receiveShadow = true;
-world.add(base);
+// ── Land expansion state ──────────────────────────
+// Order of expansion: East → North → West → South (then cycles)
+let expandR = 0, expandT = 0, expandL = 0, expandB = 0;
+let landExpandDir     = 0;   // 0=East 1=North 2=West 3=South
+let landPurchaseCount = 0;
+
+function gridMinC() { return -expandL; }
+function gridMaxC() { return NCELLS - 1 + expandR; }
+function gridMinR() { return -expandT; }
+function gridMaxR() { return NCELLS - 1 + expandB; }
+function curW()     { return LAND + (expandL + expandR) * CELL; }
+function curD()     { return LAND + (expandT + expandB) * CELL; }
+function curCX()    { return (expandR - expandL) * CELL / 2; }
+function curCZ()    { return (expandB - expandT) * CELL / 2; }
+
+// Base — rebuilt on every land expansion
+let worldBase = null;
+const baseMat = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
+function rebuildBase() {
+  if (worldBase) world.remove(worldBase);
+  worldBase = new THREE.Mesh(new THREE.PlaneGeometry(curW(), curD()), baseMat);
+  worldBase.rotation.x = -Math.PI / 2;
+  worldBase.position.set(curCX(), 0, curCZ());
+  worldBase.receiveShadow = true;
+  world.add(worldBase);
+}
+rebuildBase();
 
 // Grass cell patches
 const GREENS = [0x56B144,0x4EAA3D,0x5FC04E,0x54AE43,0x62C452,0x4AA53A,0x58BA47,0x64C856,0x4CA03C,0x60C04F,0x52AC41,0x5ABC4A];
@@ -505,30 +530,52 @@ for (let r = 0; r < NCELLS; r++) {
   }
 }
 
-// Grid
-const grid = new THREE.GridHelper(LAND, NCELLS, 0x1E6B0D, 0x1E6B0D);
-grid.position.y = 0.04;
-(Array.isArray(grid.material) ? grid.material : [grid.material])
-  .forEach(m => { m.opacity = 0.22; m.transparent = true; });
-world.add(grid);
+// Grid — custom line-based so it stays perfectly rectangular after expansion
+let worldGrid = null;
+const gridLineMat = new THREE.LineBasicMaterial({ color: 0x1E6B0D, transparent: true, opacity: 0.22 });
+function rebuildGrid() {
+  if (worldGrid) world.remove(worldGrid);
+  worldGrid = new THREE.Group();
+  const minC = gridMinC(), maxC = gridMaxC();
+  const minR = gridMinR(), maxR = gridMaxR();
+  const x1 = -LAND/2 + minC*CELL,  x2 = -LAND/2 + (maxC+1)*CELL;
+  const z1 = -LAND/2 + minR*CELL,  z2 = -LAND/2 + (maxR+1)*CELL;
+  const L = (ax,ay,az,bx,by,bz) => {
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
+    worldGrid.add(new THREE.Line(g, gridLineMat));
+  };
+  for (let r = minR; r <= maxR+1; r++) { const z = -LAND/2 + r*CELL; L(x1,.04,z, x2,.04,z); }
+  for (let c = minC; c <= maxC+1; c++) { const x = -LAND/2 + c*CELL; L(x,.04,z1, x,.04,z2); }
+  world.add(worldGrid);
+}
+rebuildGrid();
 
-// Earth walls
+// Earth walls — tracked so they can be removed and rebuilt on expansion
 const dirtMat   = new THREE.MeshLambertMaterial({ color: 0x7B5130 });
 const grassEdge = new THREE.MeshLambertMaterial({ color: 0x3E8A2C });
-[0, Math.PI, -Math.PI/2, Math.PI/2].forEach((angle, i) => {
-  const ax = [0,0,LAND/2,-LAND/2][i], az = [LAND/2,-LAND/2,0,0][i];
-  const d = new THREE.Mesh(new THREE.BoxGeometry(LAND+0.6, WALL_H, 0.65), dirtMat);
-  d.position.set(ax,-WALL_H/2,az); d.rotation.y = angle;
-  d.castShadow = true; d.receiveShadow = true; world.add(d);
-  const e = new THREE.Mesh(new THREE.BoxGeometry(LAND+0.65, 0.18, 0.7), grassEdge);
-  e.position.set(ax, 0.09, az); e.rotation.y = angle; world.add(e);
-});
-const bot = new THREE.Mesh(new THREE.PlaneGeometry(LAND,LAND), dirtMat);
-bot.rotation.x = Math.PI/2; bot.position.y = -WALL_H; world.add(bot);
-[[LAND/2,LAND/2],[-LAND/2,LAND/2],[LAND/2,-LAND/2],[-LAND/2,-LAND/2]].forEach(([x,z]) => {
-  const c = new THREE.Mesh(new THREE.BoxGeometry(0.65,WALL_H,0.65), dirtMat);
-  c.position.set(x,-WALL_H/2,z); world.add(c);
-});
+const wallObjs  = [];
+function rebuildWalls() {
+  wallObjs.forEach(o => world.remove(o)); wallObjs.length = 0;
+  const W = curW(), D = curD(), cx = curCX(), cz = curCZ();
+  const hW = W/2, hD = D/2;
+  // [posX, posZ, rotation, isHorizontal]  — horizontal wall uses W, vertical uses D
+  [[cx, cz-hD, 0, true],[cx, cz+hD, Math.PI, true],[cx+hW, cz, -Math.PI/2, false],[cx-hW, cz, Math.PI/2, false]]
+    .forEach(([ax,az,angle,horiz]) => {
+      const L = horiz ? W : D;
+      const d = new THREE.Mesh(new THREE.BoxGeometry(L+0.6, WALL_H, 0.65), dirtMat);
+      d.position.set(ax,-WALL_H/2,az); d.rotation.y=angle; d.castShadow=true; d.receiveShadow=true;
+      world.add(d); wallObjs.push(d);
+      const e = new THREE.Mesh(new THREE.BoxGeometry(L+0.65, 0.18, 0.7), grassEdge);
+      e.position.set(ax, 0.09, az); e.rotation.y=angle; world.add(e); wallObjs.push(e);
+    });
+  const bot = new THREE.Mesh(new THREE.PlaneGeometry(W,D), dirtMat);
+  bot.rotation.x=Math.PI/2; bot.position.set(cx,-WALL_H,cz); world.add(bot); wallObjs.push(bot);
+  [[cx+hW,cz+hD],[cx-hW,cz+hD],[cx+hW,cz-hD],[cx-hW,cz-hD]].forEach(([px,pz]) => {
+    const co = new THREE.Mesh(new THREE.BoxGeometry(0.65,WALL_H,0.65), dirtMat);
+    co.position.set(px,-WALL_H/2,pz); world.add(co); wallObjs.push(co);
+  });
+}
+rebuildWalls();
 
 // Grass tufts
 const tuftMat = new THREE.MeshLambertMaterial({ color: 0x3E7A2A, side: THREE.DoubleSide });
@@ -547,10 +594,69 @@ for (let i = 0; i < 60; i++) {
 }
 
 // ─────────────────────────────────────────────────
+//  LAND EXPANSION  (East → North → West → South)
+// ─────────────────────────────────────────────────
+function getLandCost() { return 5000 + landPurchaseCount * 500; }
+
+// Place one new grass patch at grid position (r, c)
+function addLandPatch(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const idx = ((r * 7 + c * 3) % patchMats.length + patchMats.length) % patchMats.length;
+  const mesh = new THREE.Mesh(patchGeo, patchMats[idx]);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, 0.015, z);
+  mesh.receiveShadow = true;
+  world.add(mesh);
+}
+
+function expandLand() {
+  const dirs = ['east','north','west','south'];
+  const dir  = dirs[landExpandDir % 4];
+  landExpandDir++;
+
+  // Each purchase adds 3 strips in the chosen direction
+  for (let strip = 0; strip < 3; strip++) {
+    if (dir === 'east') {
+      expandR++;
+      const c = gridMaxC();
+      for (let r = gridMinR(); r <= gridMaxR(); r++) addLandPatch(r, c);
+    } else if (dir === 'north') {
+      expandT++;
+      const r = gridMinR();
+      for (let c = gridMinC(); c <= gridMaxC(); c++) addLandPatch(r, c);
+    } else if (dir === 'west') {
+      expandL++;
+      const c = gridMinC();
+      for (let r = gridMinR(); r <= gridMaxR(); r++) addLandPatch(r, c);
+    } else {                    // south
+      expandB++;
+      const r = gridMaxR();
+      for (let c = gridMinC(); c <= gridMaxC(); c++) addLandPatch(r, c);
+    }
+  }
+
+  rebuildBase();
+  rebuildGrid();
+  rebuildWalls();
+}
+
+function buyLand() {
+  const cost = getLandCost();
+  if (cash < cost) { flashBroke(); return; }
+  cash -= cost;
+  updateCashUI(-cost);
+  landPurchaseCount++;
+  expandLand();
+  refreshAffordability();
+  targetZoom = Math.min(targetZoom + 10, ZOOM_MAX);   // zoom out 10 m to show new land
+  showToast('New land unlocked! 🏞️');
+}
+
+// ─────────────────────────────────────────────────
 //  RAYCASTING HIT PLANE  (child of world → rotates)
 // ─────────────────────────────────────────────────
 const hitPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(LAND, LAND),
+  new THREE.PlaneGeometry(500, 500),
   new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
 );
 hitPlane.rotation.x = -Math.PI / 2;
@@ -598,20 +704,20 @@ function getGridCell(clientX, clientY) {
   const local = world.worldToLocal(hits[0].point.clone());
   const c = Math.floor((local.x + LAND/2) / CELL);
   const r = Math.floor((local.z + LAND/2) / CELL);
-  if (c < 0 || c >= NCELLS || r < 0 || r >= NCELLS) return null;
+  if (c < gridMinC() || c > gridMaxC() || r < gridMinR() || r > gridMaxR()) return null;
   return { r, c };
 }
 
 // ── Road neighbour helpers ─────────────────────────
 function hasRoad(r, c) {
-  if (r < 0 || r >= NCELLS || c < 0 || c >= NCELLS) return false;
+  if (r < gridMinR() || r > gridMaxR() || c < gridMinC() || c > gridMaxC()) return false;
   const item = placedItems[`${r},${c}`];
   return !!(item && item.userData.type === 'road');
 }
 
 function rebuildNeighborRoads(r, c) {
   [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr,nc]) => {
-    if (nr < 0 || nr >= NCELLS || nc < 0 || nc >= NCELLS) return;
+    if (nr < gridMinR() || nr > gridMaxR() || nc < gridMinC() || nc > gridMaxC()) return;
     const key = `${nr},${nc}`;
     if (hasRoad(nr, nc)) {
       world.remove(placedItems[key]);
@@ -1242,14 +1348,22 @@ function updateCashUI(delta) {
   refreshAffordability();
 }
 
+function showToast(msg) {
+  if (toastTimer) clearTimeout(toastTimer);
+  noCashToast.textContent = msg;
+  noCashToast.classList.add('show');
+  toastTimer = setTimeout(() => {
+    noCashToast.classList.remove('show');
+    noCashToast.textContent = 'Not enough cash 💸';
+  }, 1900);
+}
+
 function flashBroke() {
   cashPanel.classList.remove('broke');
   void cashPanel.offsetWidth;
   cashPanel.classList.add('broke');
   setTimeout(() => cashPanel.classList.remove('broke'), 500);
-  if (toastTimer) clearTimeout(toastTimer);
-  noCashToast.classList.add('show');
-  toastTimer = setTimeout(() => noCashToast.classList.remove('show'), 1800);
+  showToast('Not enough cash 💸');
 }
 
 function getBuildCost(tool) {
@@ -1270,6 +1384,14 @@ function refreshAffordability() {
   document.querySelectorAll('.htype').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.htype] ?? 0));
   });
+  // Land button
+  const landBtn   = document.getElementById('buy-land-btn');
+  const landBadge = document.getElementById('land-cost-badge');
+  if (landBtn && landBadge) {
+    const lc = getLandCost();
+    landBadge.textContent = '$' + lc.toLocaleString();
+    landBtn.classList.toggle('cant-afford', cash < lc);
+  }
 }
 
 // Init display
@@ -1561,6 +1683,12 @@ document.addEventListener('click', function(e) {
   if (buildMenuOpen && !buildMenu.contains(e.target) && e.target !== buildBtn) {
     closeBuildMenu();
   }
+});
+
+// Buy Land — immediate action, not a placement tool
+document.getElementById('buy-land-btn').addEventListener('click', function() {
+  buyLand();
+  closeBuildMenu();
 });
 
 // ─────────────────────────────────────────────────
