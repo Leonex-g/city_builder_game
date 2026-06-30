@@ -153,7 +153,7 @@
     .bitem:active  { background: rgba(255,255,255,0.08); }
     .bitem.selected { background: rgba(45,106,79,0.52); }
     .bitem.selected .bname { color: #88ffbb; }
-    #house-cat-btn::after {
+    #house-cat-btn::after, #park-cat-btn::after {
       content: '›'; margin-left: auto;
       font-size: clamp(16px, 4.5vw, 20px); color: rgba(255,255,255,0.32);
     }
@@ -356,20 +356,35 @@
       <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
       <span class="bcost" id="house-cat-cost">$150</span>
     </div>
-    <div class="bitem" data-tool="park">
+    <div class="bitem" id="park-cat-btn">
       <span class="bi">🌲</span>
       <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
-      <span class="bcost">$75</span>
-    </div>
-    <div class="bitem" data-tool="bigpark">
-      <span class="bi">🎡</span>
-      <span class="blabel"><span class="bname">Big Park</span><span class="bdesc">Slides, play zone &amp; more (2×2)</span></span>
-      <span class="bcost">$7,000</span>
+      <span class="bcost" id="park-cat-cost">$75</span>
     </div>
     <div class="bitem" data-tool="erase">
       <span class="bi">🗑️</span>
       <span class="blabel"><span class="bname">Erase</span><span class="bdesc">50% refund</span></span>
       <span class="bcost free">Free</span>
+    </div>
+  </div>
+  <!-- Page 3: Park styles -->
+  <div id="menu-park" class="menu-page hidden">
+    <div class="menu-back" id="back-to-main-park">← Categories</div>
+    <div class="menu-section-title">Park Type</div>
+    <div class="htype active" data-ptype="park">
+      <span class="htype-icon">🌲</span>
+      <div><div class="htype-name">Park</div><div class="htype-desc">Trees, paths &amp; bench</div></div>
+      <span class="bcost">$75</span>
+    </div>
+    <div class="htype" data-ptype="bigpark">
+      <span class="htype-icon">🎡</span>
+      <div><div class="htype-name">Big Park</div><div class="htype-desc">Slides, play zone &amp; more (2×2)</div></div>
+      <span class="bcost">$7,000</span>
+    </div>
+    <div class="htype" data-ptype="amusementpark">
+      <span class="htype-icon">🎢</span>
+      <div><div class="htype-name">Amusement Park</div><div class="htype-desc">Waterfall Wonders — slides, pool &amp; rides (3×3)</div></div>
+      <span class="bcost">$15,000</span>
     </div>
   </div>
   <!-- Page 2: House styles -->
@@ -694,6 +709,7 @@ let selectedTool  = null;
 let buildMenuOpen = false;
 const placedItems = {};   // key "r,c" → THREE.Group
 let selectedHouseType = 'cottage';
+let selectedParkType  = 'park';
 
 function cellCenter(r, c) {
   return { x: -LAND/2 + CELL/2 + c*CELL, z: -LAND/2 + CELL/2 + r*CELL };
@@ -832,6 +848,22 @@ function glassCool(intensity = 0.18) {
     emissive: new THREE.Color(0x2255AA), emissiveIntensity: intensity,
     transparent: true, opacity: 0.75
   });
+}
+// Generates a simple painted-sign texture (used by the amusement park's
+// "Waterfall Wonders" entrance sign). Cheap canvas draw, cached per call.
+function makeSignTexture(text, w = 512, h = 144, bg = '#0E7A5E', fg = '#FFFFFF', accent = '#FFE27A') {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = accent; ctx.lineWidth = 10;
+  ctx.strokeRect(7, 7, w - 14, h - 14);
+  ctx.fillStyle = fg;
+  ctx.font = 'bold 58px "Arial Black", Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, w / 2, h / 2 + 2);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 function buildHouse(r, c) {
@@ -1435,9 +1467,500 @@ function buildBigPark(r, c) {
   return g;
 }
 
+// ── Amusement Park — "Waterfall Wonders" (3×3 = 9 blocks) ──────────
+// A terraced rock formation with twisting water slides, a multi-tier
+// waterfall spilling into a turquoise pool with swimmers and splashes,
+// palm trees, tropical flowers, a cobblestone entrance path, striped
+// food stalls, an entrance archway sign, and a Ferris wheel +
+// rollercoaster silhouette in the background.
+function buildAmusementPark(r, c) {
+  const a  = cellCenter(r, c);
+  const FW = 3, FH = 3;                         // 3 wide × 3 deep = 9 cells
+  const x  = a.x + (FW - 1) * CELL / 2;
+  const z  = a.z + (FH - 1) * CELL / 2;
+  const SX = CELL * FW, SZ = CELL * FH;          // 18 × 18 world units
+  const g  = new THREE.Group(); g.userData.type = 'amusementpark';
 
-//
-//  Rule: every road cell holds AT MOST one car.
+  // Deterministic pseudo-random — organic variation, stable per build call.
+  let _seed = 9173;
+  function rnd() {
+    _seed |= 0; _seed = _seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(_seed ^ _seed >>> 15, 1 | _seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+
+  // ── Ground ─────────────────────────────────────────
+  const ground = new THREE.Mesh(new THREE.BoxGeometry(SX, 0.14, SZ), phong(0xE8D2A0, 0x221100, 6));
+  ground.receiveShadow = true; g.add(ground);
+  const grassMat = new THREE.MeshLambertMaterial({ color: 0x35C23A });
+  const grassN = new THREE.Mesh(new THREE.BoxGeometry(SX, 0.17, 0.9), grassMat);
+  grassN.position.set(0, 0.015, -SZ/2 + 0.45); g.add(grassN);
+
+  // ── Vivid tropical-paradise materials palette ───────
+  const rockMats  = [phong(0xB5835A,0x221100,8), phong(0x9C7050,0x221100,8), phong(0xC79868,0x221100,8), phong(0x8A6244,0x221100,8)];
+  const waterMat  = new THREE.MeshPhongMaterial({ color:0x1FE6D8, specular:0xFFFFFF, shininess:140, transparent:true, opacity:0.88 });
+  const fallMat   = new THREE.MeshPhongMaterial({ color:0xE6FFFB, specular:0xFFFFFF, shininess:170, transparent:true, opacity:0.72, side: THREE.DoubleSide });
+  const cobbleMats= [phong(0xCB8E5E,0x221100,5), phong(0xB97A4C,0x221100,5), phong(0xE0AC78,0x221100,5)];
+  const woodMat   = phong(0x6B3E10, 0x221100, 10);
+  const splashMat = new THREE.MeshPhongMaterial({ color:0xFFFFFF, transparent:true, opacity:0.9, shininess:150 });
+  const trunkMat  = phong(0x7A4A22, 0x221100, 8);
+  const frondMats = [phong(0x149450,0x112211,12), phong(0x1FB85F,0x112211,12), phong(0x36D175,0x112211,12)];
+  const steelMat  = phong(0x3A4048, 0x222222, 30);
+  const tileMatA  = phong(0x1FE6D8, 0x113333, 40);
+  const tileMatB  = phong(0xFFFFFF, 0xCCCCCC, 30);
+  const tileMatC  = phong(0xFFD23F, 0x221100, 35);
+
+  // ── Cobblestone entrance path — long winding tri-tone trail ──
+  const pathPts = [
+    { x: 0,     z: -8.2, w: 1.4  }, { x: 0.35, z: -6.6, w: 1.3 },
+    { x: -0.3,  z: -5.0, w: 1.25 }, { x: 0.30, z: -3.4, w: 1.25 },
+    { x: -0.25, z: -1.8, w: 1.2  }, { x: 0.15, z: -0.2, w: 1.2  },
+    { x: 0,     z:  1.2, w: 1.3  },
+  ];
+  for (let i = 0; i < pathPts.length - 1; i++) {
+    const p0 = pathPts[i], p1 = pathPts[i+1];
+    const mx = (p0.x+p1.x)/2, mz = (p0.z+p1.z)/2;
+    const len = Math.hypot(p1.x-p0.x, p1.z-p0.z) + 0.3;
+    const ang = Math.atan2(p1.x-p0.x, p1.z-p0.z);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry((p0.w+p1.w)/2, 0.03, len), cobbleMats[i % cobbleMats.length]);
+    seg.position.set(mx, 0.085, mz); seg.rotation.y = ang; seg.receiveShadow = true; g.add(seg);
+    for (let k = 0; k < 5; k++) {
+      const fx = mx + (rnd()-0.5)*p0.w*0.7, fz = mz + (rnd()-0.5)*len*0.6;
+      const fleck = new THREE.Mesh(new THREE.BoxGeometry(0.12+rnd()*0.08, 0.018, 0.12+rnd()*0.08), cobbleMats[(i+k+1)%cobbleMats.length]);
+      fleck.position.set(fx, 0.10, fz); fleck.rotation.y = rnd()*Math.PI; g.add(fleck);
+    }
+  }
+
+  // Tiki torches with warm flame glow, alternating with lamp posts along the path
+  const flameMat = new THREE.MeshPhongMaterial({ color:0xFF8A2A, emissive:new THREE.Color(0xFF6A00), emissiveIntensity:1.1 });
+  [[-1.0,-7.2],[1.0,-5.6],[-1.0,-4.0],[1.0,-2.4],[-0.95,-0.8]].forEach(([lx,lz], i) => {
+    if (i % 2 === 0) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,1.5,7), woodMat);
+      pole.position.set(lx, 0.78, lz); pole.castShadow = true; g.add(pole);
+      const bowl = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.18,8,1,true), phong(0x3A2410,0x111100,6));
+      bowl.position.set(lx, 1.55, lz); g.add(bowl);
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.26,7), flameMat);
+      flame.position.set(lx, 1.72, lz); g.add(flame);
+    } else {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.06,1.8,8), steelMat);
+      pole.position.set(lx, 0.98, lz); pole.castShadow = true; g.add(pole);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8),
+        new THREE.MeshPhongMaterial({ color:0xFFF3C0, emissive:new THREE.Color(0xFFD86B), emissiveIntensity:0.75 }));
+      lamp.position.set(lx, 1.93, lz); g.add(lamp);
+    }
+  });
+
+  // Bunting flags strung above the entrance
+  const buntColors = [0xFF2D78,0xFFD23F,0x1FE6D8,0xB14FFF,0xFF7A29];
+  for (let i = -3; i <= 3; i++) {
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.18,3), phong(buntColors[(i+3)%buntColors.length],0x111111,18));
+    flag.position.set(i*0.34, 2.55 + Math.sin(i*0.8)*0.06, -8.45);
+    flag.rotation.z = Math.PI; flag.rotation.y = i*0.2;
+    g.add(flag);
+  }
+
+  // ── Entrance archway — wood + tropical flower garland + sign ──
+  const archZ = -8.5;
+  const archMat = phong(0xD9883A, 0x221100, 14);
+  [-1.05, 1.05].forEach(px => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.18,2.7,10), archMat);
+    post.position.set(px, 1.35, archZ); post.castShadow = true; g.add(post);
+    const base3 = new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.23,0.12,10), phong(0x5A3A1A,0x221100,8));
+    base3.position.set(px, 0.06, archZ); g.add(base3);
+  });
+  const archTop = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.15, 10, 20, Math.PI), archMat);
+  archTop.position.set(0, 2.7, archZ); archTop.rotation.z = Math.PI; archTop.castShadow = true; g.add(archTop);
+  // Flower garland draped along the arch
+  const garlandCols = [0xFF2D78, 0xFFD23F, 0xFF7A29, 0xB14FFF, 0x1FE6D8];
+  for (let i = -8; i <= 8; i++) {
+    const ang = (i/8) * (Math.PI/2);
+    const gx = Math.sin(ang)*1.1, gy = 2.7 + Math.cos(ang)*1.1;
+    const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.075,7,6), phong(garlandCols[(i+8)%garlandCols.length],0x111111,28));
+    bloom.position.set(gx, gy + 0.06, archZ); g.add(bloom);
+  }
+  const signTex = makeSignTexture('WATERFALL WONDERS');
+  const signMat = new THREE.MeshBasicMaterial({ map: signTex, transparent: true });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.72), signMat);
+  sign.position.set(0, 2.72, archZ + 0.03); g.add(sign);
+  const signBack = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.72), signMat);
+  signBack.position.set(0, 2.72, archZ - 0.03); signBack.rotation.y = Math.PI; g.add(signBack);
+
+  // ── Food stalls + gift kiosk near entrance ────────
+  [[-2.8, -7.0, 0xFF2D78, 'SNACKS'], [2.8, -7.0, 0x1FE6D8, 'DRINKS']].forEach(([sx, sz, col, label]) => {
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.9, 0.8), woodMat);
+    counter.position.set(sx, 0.45, sz); counter.castShadow = true; g.add(counter);
+    const counterTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 0.9), phong(0xEDE0C8,0x221100,15));
+    counterTop.position.set(sx, 0.93, sz); g.add(counterTop);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.6,8), woodMat);
+    pole.position.set(sx, 1.7, sz); pole.castShadow = true; g.add(pole);
+    const umbTop = new THREE.Mesh(new THREE.ConeGeometry(0.95, 0.5, 10), phong(col,0x221100,18));
+    umbTop.position.set(sx, 2.55, sz); umbTop.castShadow = true; g.add(umbTop);
+    const umbTrim = new THREE.Mesh(new THREE.TorusGeometry(0.95,0.04,6,10), phong(0xFFFFFF,0x221100,18));
+    umbTrim.rotation.x = Math.PI/2; umbTrim.position.set(sx, 2.30, sz); g.add(umbTrim);
+    const umbTip = new THREE.Mesh(new THREE.SphereGeometry(0.05,6,5), woodMat);
+    umbTip.position.set(sx, 2.83, sz); g.add(umbTip);
+    const menuTex = makeSignTexture(label, 256, 96, '#222222', '#FFD23F', '#FFFFFF');
+    const menuSign = new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.26), new THREE.MeshBasicMaterial({ map: menuTex, transparent: true }));
+    menuSign.position.set(sx, 1.15, sz + 0.41); g.add(menuSign);
+  });
+  // Gift kiosk — small striped hut with a bright canopy
+  const kioskX = 0, kioskZ = -6.0;
+  const kioskBody = new THREE.Mesh(new THREE.BoxGeometry(1.1,1.0,1.0), phong(0xFFF6E0,0x221100,15));
+  kioskBody.position.set(kioskX, 0.5, kioskZ); kioskBody.castShadow = true; g.add(kioskBody);
+  const kioskRoof = new THREE.Mesh(new THREE.ConeGeometry(0.95,0.55,4), phong(0xB14FFF,0x221100,20));
+  kioskRoof.position.set(kioskX, 1.27, kioskZ); kioskRoof.rotation.y = Math.PI/4; kioskRoof.castShadow = true; g.add(kioskRoof);
+  const kioskSignTex = makeSignTexture('GIFT SHOP', 256, 96, '#B14FFF', '#FFFFFF', '#FFD23F');
+  const kioskSign = new THREE.Mesh(new THREE.PlaneGeometry(0.85,0.32), new THREE.MeshBasicMaterial({ map: kioskSignTex, transparent: true }));
+  kioskSign.position.set(kioskX, 1.05, kioskZ + 0.51); g.add(kioskSign);
+
+  // ── Raised flower beds along the path — rich tropical colours ──
+  const flowerCols = [0xFF2D78, 0xFFD23F, 0xFF7A29, 0xB14FFF, 0xFF6F91, 0x1FE6D8];
+  [[-1.5,-7.4,1.4],[1.5,-5.8,1.4],[-1.55,-4.2,1.3],[1.55,-2.6,1.3],[-1.45,-1.0,1.2],[1.45,0.2,1.2]].forEach(([bx,bz,bl]) => {
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, bl), phong(0x5A3A1A,0x221100,6));
+    bed.position.set(bx, 0.09, bz); bed.castShadow = true; g.add(bed);
+    const soil = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.05,bl-0.06), phong(0x3A2410,0x111100,3));
+    soil.position.set(bx, 0.19, bz); g.add(soil);
+    const flowerCount = Math.floor(bl*4);
+    for (let f = 0; f < flowerCount; f++) {
+      const fz = bz - bl/2 + 0.15 + f*(bl-0.3)/flowerCount + rnd()*0.1;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.18,4), frondMats[1]);
+      stem.position.set(bx+(rnd()-0.5)*0.25, 0.32, fz); g.add(stem);
+      const bud = new THREE.Mesh(new THREE.SphereGeometry(0.068,7,6), phong(flowerCols[f % flowerCols.length],0x111111,32));
+      bud.position.set(bx+(rnd()-0.5)*0.25, 0.43, fz); g.add(bud);
+    }
+  });
+
+  // ── Family figures strolling the path ─────────────
+  function addPerson(px, pz, shirtCol, skinCol, scale) {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.13*scale,8,6), phong(shirtCol,0x111111,15));
+    body.scale.set(1,1.3,1); body.position.set(px,0.35*scale,pz); g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09*scale,8,6), phong(skinCol,0x221100,10));
+    head.position.set(px,0.58*scale,pz); g.add(head);
+    [-0.13,0.13].forEach(dx => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035*scale,0.035*scale,0.3*scale,6), phong(skinCol,0x221100,10));
+      leg.position.set(px+dx*scale,0.15*scale,pz); g.add(leg);
+    });
+  }
+  addPerson(-0.5,-5.4, 0xFF2D78, 0xE8B48A, 1);
+  addPerson(-0.3,-5.25,0x1FE6D8, 0xF0C8A0, 0.62);
+  addPerson(0.6,-3.0,  0xFFD23F, 0xC98A5A, 1);
+  addPerson(0.45,-2.85,0xB14FFF, 0xE0AC78, 0.6);
+
+  // ── Pool — vivid mosaic rim, ladder, floating toys ──
+  const poolCX = 0, poolCZ = -1.6, poolR = 2.7;
+  const ringSegs = 32;
+  for (let i = 0; i < ringSegs; i++) {
+    const ang = (i/ringSegs)*Math.PI*2;
+    const m   = i % 6 === 0 ? tileMatC : (i % 3 === 0 ? tileMatA : tileMatB);
+    const tile = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.16,0.5), m);
+    tile.position.set(poolCX + Math.sin(ang)*(poolR+0.27), 0.09, poolCZ + Math.cos(ang)*(poolR+0.27));
+    tile.rotation.y = ang; tile.receiveShadow = true; g.add(tile);
+  }
+  const pool = new THREE.Mesh(new THREE.CylinderGeometry(poolR, poolR-0.05, 0.14, 32), waterMat);
+  pool.position.set(poolCX, 0.16, poolCZ); g.add(pool);
+  const poolDeep = new THREE.Mesh(new THREE.CylinderGeometry(poolR*0.78, poolR*0.7, 0.05, 32),
+    new THREE.MeshPhongMaterial({ color:0x0FA89C, transparent:true, opacity:0.5 }));
+  poolDeep.position.set(poolCX, 0.08, poolCZ); g.add(poolDeep);
+  const ladderMat = phong(0xDDDDDD,0xFFFFFF,90);
+  [-0.18,0.18].forEach(dx => {
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.9,6), ladderMat);
+    rail.position.set(poolCX-poolR+0.15+dx, 0.5, poolCZ-0.6); g.add(rail);
+  });
+  for (let s = 0; s < 3; s++) {
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.36,6), ladderMat);
+    rung.rotation.z = Math.PI/2;
+    rung.position.set(poolCX-poolR+0.15, 0.25+s*0.2, poolCZ-0.6); g.add(rung);
+  }
+  // Floating inflatables — ring + flamingo + beach ball
+  [[poolCX-0.6,poolCZ-1.6,0xFF6F91],[poolCX+1.7,poolCZ+0.3,0xFFD23F]].forEach(([fx,fz,col]) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32,0.1,8,16), phong(col,0x111111,32));
+    ring.rotation.x = Math.PI/2; ring.position.set(fx, 0.22, fz); g.add(ring);
+  });
+  const ballX = poolCX-1.6, ballZ = poolCZ+0.9;
+  const beachBallPanels = [0xFF2D78,0xFFD23F,0x1FE6D8,0xB14FFF];
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,10), phong(0xFFFFFF,0xFFFFFF,40));
+  ball.position.set(ballX,0.24,ballZ); g.add(ball);
+  beachBallPanels.forEach((col,i) => {
+    const wedge = new THREE.Mesh(new THREE.SphereGeometry(0.225,12,10,0,(Math.PI*2)/8), phong(col,0x111111,30));
+    wedge.rotation.y = i*(Math.PI/2);
+    wedge.position.set(ballX,0.24,ballZ); g.add(wedge);
+  });
+  const flamX = poolCX+0.3, flamZ = poolCZ-2.0;
+  const flamBody = new THREE.Mesh(new THREE.TorusGeometry(0.36,0.13,8,16), phong(0xFF6F91,0x111111,28));
+  flamBody.rotation.x = Math.PI/2; flamBody.position.set(flamX,0.22,flamZ); g.add(flamBody);
+  const flamNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,0.5,7), phong(0xFF6F91,0x111111,28));
+  flamNeck.position.set(flamX+0.3,0.45,flamZ); flamNeck.rotation.z = -0.5; g.add(flamNeck);
+  const flamHead = new THREE.Mesh(new THREE.SphereGeometry(0.09,8,7), phong(0xFF6F91,0x111111,28));
+  flamHead.position.set(flamX+0.46,0.68,flamZ); g.add(flamHead);
+  const flamBeak = new THREE.Mesh(new THREE.ConeGeometry(0.03,0.13,6), phong(0x222222,0x111111,15));
+  flamBeak.rotation.z = Math.PI/2; flamBeak.position.set(flamX+0.56,0.66,flamZ); g.add(flamBeak);
+
+  // Swimmers — stylised figures with frozen splash rings
+  const swimColors = [0xFFD23F, 0xFF2D78, 0x1FE6D8, 0xFF6F91, 0x4DDC8A, 0xB14FFF];
+  const swimSpots = [
+    [poolCX-1.3, poolCZ-0.8],[poolCX+0.9, poolCZ-1.2],[poolCX+1.6, poolCZ+0.4],
+    [poolCX-0.6, poolCZ+1.3],[poolCX+0.2, poolCZ-0.3],[poolCX-1.9, poolCZ+0.5],
+    [poolCX+0.5, poolCZ+1.6],
+  ];
+  swimSpots.forEach(([sx, sz], i) => {
+    const col = swimColors[i % swimColors.length];
+    const torso = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), phong(col, 0x111111, 22));
+    torso.scale.set(1, 0.6, 1);
+    torso.position.set(sx, 0.27, sz); g.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), phong(0xE8B48A, 0x221100, 10));
+    head.position.set(sx, 0.40, sz); g.add(head);
+    const splash = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.035, 6, 10), splashMat);
+    splash.rotation.x = Math.PI/2; splash.position.set(sx, 0.22, sz); g.add(splash);
+    for (let d = 0; d < 3; d++) {
+      const droplet = new THREE.Mesh(new THREE.SphereGeometry(0.035, 5, 4), splashMat);
+      droplet.position.set(sx + (rnd()-0.5)*0.5, 0.35 + rnd()*0.25, sz + (rnd()-0.5)*0.5);
+      g.add(droplet);
+    }
+  });
+
+  // Loungers with umbrellas + sunbathers, poolside (east side)
+  const loungerCols = [0x1FE6D8, 0xFF6F91, 0xFFD23F];
+  [[poolCX+poolR+0.6, poolCZ-1.4],[poolCX+poolR+0.6, poolCZ+0.4],[poolCX+poolR+0.6, poolCZ+2.2]]
+    .forEach(([lx, lz], li) => {
+    const cushCol = loungerCols[li % loungerCols.length];
+    const lounger = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 1.5), phong(0xF2F4F6, 0xCCCCCC, 20));
+    lounger.position.set(lx, 0.13, lz); lounger.rotation.y = 0.12; lounger.castShadow = true; g.add(lounger);
+    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.05, 1.4), phong(cushCol, 0x111111, 18));
+    cushion.position.set(lx, 0.17, lz); cushion.rotation.y = 0.12; g.add(cushion);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), phong(0xE8B48A, 0x221100, 15));
+    body.scale.set(1, 0.6, 2.0); body.position.set(lx, 0.27, lz); body.rotation.y = 0.12; g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), phong(0xE8B48A, 0x221100, 10));
+    head.position.set(lx + Math.sin(0.12)*0.65, 0.29, lz + Math.cos(0.12)*0.65); g.add(head);
+    const umbPole = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.6,8), woodMat);
+    umbPole.position.set(lx+0.6, 0.9, lz); g.add(umbPole);
+    const umbTop2 = new THREE.Mesh(new THREE.ConeGeometry(0.55,0.32,10), phong([0xFF7A29,0xB14FFF,0xFFD23F][li],0x221100,18));
+    umbTop2.position.set(lx+0.6, 1.75, lz); g.add(umbTop2);
+  });
+
+  // ── Lazy river / stream connecting waterfall to pool, with an arched bridge ──
+  const streamMat = new THREE.MeshPhongMaterial({ color:0x2FE0D4, specular:0xFFFFFF, shininess:120, transparent:true, opacity:0.8 });
+  const streamPts = [[0,0.6],[0.15,1.6],[-0.1,2.4]];
+  let prevSP = { x: poolCX+0.1, z: poolCZ+poolR-0.3 };
+  streamPts.forEach(([sx, sz]) => {
+    const mx=(prevSP.x+sx)/2, mz=(prevSP.z+sz)/2;
+    const len = Math.hypot(sx-prevSP.x, sz-prevSP.z)+0.4;
+    const ang = Math.atan2(sx-prevSP.x, sz-prevSP.z);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, len), streamMat);
+    seg.position.set(mx, 0.13, mz); seg.rotation.y = ang; g.add(seg);
+    const bank = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.1, len), phong(0xCB8E5E,0x221100,5));
+    bank.position.set(mx, 0.08, mz); bank.rotation.y = ang; g.add(bank);
+    prevSP = { x: sx, z: sz };
+  });
+  // Small arched bridge over the stream
+  const bridgeMat = phong(0x8A5A2A, 0x221100, 12);
+  const bridgeDeck = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.08, 0.9), bridgeMat);
+  bridgeDeck.position.set(0.1, 0.42, 1.1); bridgeDeck.rotation.x = -0.08; bridgeDeck.castShadow = true; g.add(bridgeDeck);
+  [-0.6,0.6].forEach(dx => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.32, 0.9), bridgeMat);
+    rail.position.set(0.1+dx, 0.6, 1.1); rail.rotation.x = -0.08; g.add(rail);
+  });
+  [-0.65, 0.65].forEach(dx => {
+    const sup = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), bridgeMat);
+    sup.position.set(0.1+dx, 0.2, 0.75); g.add(sup);
+    const sup2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.1), bridgeMat);
+    sup2.position.set(0.1+dx, 0.2, 1.45); g.add(sup2);
+  });
+
+  // ── Natural irregular rock formation + waterfall — bigger, 5 tiers ──
+  const rockCX = 0.3, rockBaseZ = 6.4;
+  const tierData = [
+    { y: 0.55, cz: rockBaseZ,        s: 5.4 },
+    { y: 1.65, cz: rockBaseZ - 0.2,  s: 4.3 },
+    { y: 2.75, cz: rockBaseZ - 0.4,  s: 3.2 },
+    { y: 3.75, cz: rockBaseZ - 0.6,  s: 2.2 },
+    { y: 4.6,  cz: rockBaseZ - 0.8,  s: 1.3 },
+  ];
+  tierData.forEach((t, ti) => {
+    const baseSlab = new THREE.Mesh(new THREE.BoxGeometry(t.s, 1.0, t.s*0.62), rockMats[ti % rockMats.length]);
+    baseSlab.position.set(rockCX, t.y, t.cz);
+    baseSlab.rotation.y = (rnd()-0.5)*0.12;
+    baseSlab.castShadow = true; baseSlab.receiveShadow = true; g.add(baseSlab);
+    const boulderCount = 6 + Math.floor(rnd()*3);
+    for (let bi = 0; bi < boulderCount; bi++) {
+      const bx = rockCX + (rnd()-0.5)*t.s*0.9;
+      const bz = t.cz + (rnd()-0.5)*t.s*0.5;
+      const br = 0.24 + rnd()*0.32;
+      const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(br, 0), rockMats[(ti+bi)%rockMats.length]);
+      boulder.position.set(bx, t.y + 0.5 + br*0.4, bz);
+      boulder.rotation.set(rnd()*Math.PI, rnd()*Math.PI, rnd()*Math.PI);
+      boulder.castShadow = true; g.add(boulder);
+    }
+  });
+  // Multi-tier cascading waterfall with foam + mist
+  const fallSteps = [
+    { y0: 5.1,  y1: 3.75, fz: rockBaseZ-1.1, w: 1.3 },
+    { y0: 3.6,  y1: 2.6,  fz: rockBaseZ-0.9, w: 1.2 },
+    { y0: 2.5,  y1: 1.5,  fz: rockBaseZ-0.7, w: 1.1 },
+    { y0: 1.4,  y1: 0.5,  fz: rockBaseZ-0.5, w: 1.0 },
+    { y0: 0.45, y1: 0.1,  fz: rockBaseZ-0.3, w: 0.9 },
+  ];
+  fallSteps.forEach(f => {
+    const h = f.y0 - f.y1;
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(f.w, h, 1, 6), fallMat);
+    fall.position.set(rockCX, (f.y0+f.y1)/2, f.fz); g.add(fall);
+    const foam = new THREE.Mesh(new THREE.CylinderGeometry(f.w*0.55, f.w*0.55, 0.1, 14), splashMat);
+    foam.position.set(rockCX, f.y1+0.05, f.fz+0.35); g.add(foam);
+    for (let m = 0; m < 4; m++) {
+      const mist = new THREE.Mesh(new THREE.SphereGeometry(0.05+rnd()*0.05,6,5),
+        new THREE.MeshPhongMaterial({ color:0xFFFFFF, transparent:true, opacity:0.5 }));
+      mist.position.set(rockCX+(rnd()-0.5)*f.w, f.y1+0.2+rnd()*0.3, f.fz+(rnd()-0.5)*0.4);
+      g.add(mist);
+    }
+  });
+
+  // ── Smoothly twisting water slides — 4 vivid colours ──
+  const slideColors = [0xFF2D78, 0xFFD23F, 0x1FE6D8, 0x7ED957];
+  slideColors.forEach((col, si) => {
+    const slideMat = phong(col, 0x111100, 48);
+    const dirSign = si % 2 === 0 ? 1 : -1;
+    const baseX = rockCX + (si - 1.5) * 0.85;
+    const pts = [new THREE.Vector3(baseX, 5.3, rockBaseZ-0.6)];
+    const turns = 5;
+    for (let k = 1; k <= turns; k++) {
+      const tt = k / turns;
+      pts.push(new THREE.Vector3(
+        baseX + Math.sin(tt*Math.PI*2.4*dirSign) * (1.2 - tt*0.4),
+        5.3 - tt*4.6,
+        (rockBaseZ-0.6) - tt*4.4 + Math.cos(tt*Math.PI*1.6)*0.35
+      ));
+    }
+    pts.push(new THREE.Vector3(baseX*0.3 + poolCX*0.7, 0.35, poolCZ + poolR - 1.3));
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 46, 0.22, 8, false), slideMat);
+    tube.castShadow = true; g.add(tube);
+    for (let sp = 1; sp < pts.length - 1; sp++) {
+      const p = pts[sp];
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,p.y,6), steelMat);
+      strut.position.set(p.x, p.y/2, p.z); g.add(strut);
+    }
+    const exitPt = pts[pts.length-1];
+    const exitSplash = new THREE.Mesh(new THREE.TorusGeometry(0.32,0.05,6,12), splashMat);
+    exitSplash.rotation.x = Math.PI/2; exitSplash.position.set(exitPt.x, exitPt.y+0.05, exitPt.z+0.3);
+    g.add(exitSplash);
+  });
+
+  // ── Palm trees — curved trunks via tube-along-curve, varied tones ──
+  function addPalm(px, pz, scale, bendDir) {
+    const segs = 5, curvePts = [];
+    for (let i = 0; i <= segs; i++) {
+      const tt = i / segs;
+      curvePts.push(new THREE.Vector3(px + Math.sin(tt*1.1)*0.35*scale*bendDir, tt*2.6*scale, pz));
+    }
+    const trunkCurve = new THREE.CatmullRomCurve3(curvePts);
+    const trunk = new THREE.Mesh(new THREE.TubeGeometry(trunkCurve, 12, 0.14*scale, 7, false), trunkMat);
+    trunk.castShadow = true; g.add(trunk);
+    const top = curvePts[curvePts.length-1];
+    for (let i = 0; i < 7; i++) {
+      const ang = (i/7)*Math.PI*2;
+      const frond = new THREE.Mesh(new THREE.ConeGeometry(0.17*scale, 1.4*scale, 4), frondMats[i % frondMats.length]);
+      frond.position.set(top.x + Math.cos(ang)*0.12*scale, top.y, top.z + Math.sin(ang)*0.12*scale);
+      frond.rotation.x = 1.2; frond.rotation.y = ang;
+      frond.castShadow = true; g.add(frond);
+    }
+    for (let cc = 0; cc < 3; cc++) {
+      const coco = new THREE.Mesh(new THREE.SphereGeometry(0.11*scale,6,5), phong(0x5A3A1A,0x221100,6));
+      coco.position.set(top.x+(rnd()-0.5)*0.2, top.y-0.15*scale, top.z+(rnd()-0.5)*0.2); g.add(coco);
+    }
+  }
+  [
+    [-8.2,-7.0,1,1],[8.2,-6.6,0.9,-1],[-8.4,-3.0,1.1,1],[8.4,-2.6,1,-1],
+    [-8.4,1.5,1,1],[8.4,1.2,1.1,-1],[-7.0,8.0,0.9,1],[7.0,8.0,1,-1],
+  ].forEach(([px,pz,sc,bd]) => addPalm(px,pz,sc,bd));
+
+  // ── Ferris wheel (background, back-left corner) — rainbow cabins ──
+  const fwX = -7.0, fwZ = 7.2, fwR = 2.5;
+  const fwHub = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.45,12), steelMat);
+  fwHub.rotation.x = Math.PI/2; fwHub.position.set(fwX, 3.6, fwZ); g.add(fwHub);
+  const fwRingOuter = new THREE.Mesh(new THREE.TorusGeometry(fwR, 0.09, 10, 30), phong(0xFF2D78,0x221100,30));
+  fwRingOuter.position.set(fwX, 3.6, fwZ); g.add(fwRingOuter);
+  const fwRingInner = new THREE.Mesh(new THREE.TorusGeometry(fwR-0.3, 0.045, 8, 26), phong(0xFFD23F,0x221100,30));
+  fwRingInner.position.set(fwX, 3.6, fwZ); g.add(fwRingInner);
+  const cabCols = [0xFF2D78,0xFFD23F,0x1FE6D8,0x7ED957,0xB14FFF,0xFF7A29,0x4DA6FF,0xFF6F91];
+  for (let i = 0; i < cabCols.length; i++) {
+    const ang = (i/cabCols.length) * Math.PI * 2;
+    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,fwR,6), steelMat);
+    spoke.position.set(fwX, 3.6, fwZ);
+    spoke.rotation.z = ang; spoke.translateY(fwR/2); g.add(spoke);
+    const hangX = fwX + Math.sin(ang)*fwR, hangY = 3.6 + Math.cos(ang)*fwR;
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.24,5), steelMat);
+    arm.position.set(hangX, hangY-0.12, fwZ); g.add(arm);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.32,0.36), phong(cabCols[i],0x111111,32));
+    cabin.position.set(hangX, hangY-0.34, fwZ); cabin.castShadow = true; g.add(cabin);
+    const cabGlow = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.34,0.02),
+      new THREE.MeshPhongMaterial({ color: cabCols[i], emissive: new THREE.Color(cabCols[i]), emissiveIntensity: 0.5 }));
+    cabGlow.position.set(hangX, hangY-0.34, fwZ+0.18); g.add(cabGlow);
+  }
+  [-0.55, 0.55].forEach(dx => {
+    const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.11,3.7,8), steelMat);
+    leg1.position.set(fwX+dx, 1.75, fwZ-0.4); leg1.rotation.x = -0.12; leg1.rotation.z = dx*0.16;
+    leg1.castShadow = true; g.add(leg1);
+    const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.11,3.7,8), steelMat);
+    leg2.position.set(fwX+dx, 1.75, fwZ+0.4); leg2.rotation.x = 0.12; leg2.rotation.z = dx*0.16;
+    leg2.castShadow = true; g.add(leg2);
+  });
+  const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,1.3,6), steelMat);
+  brace.rotation.z = Math.PI/2; brace.position.set(fwX, 1.95, fwZ); g.add(brace);
+  const booth = new THREE.Mesh(new THREE.BoxGeometry(0.95,1.15,0.85), phong(0xFFFFFF,0xCCCCCC,18));
+  booth.position.set(fwX, 0.58, fwZ+1.5); booth.castShadow = true; g.add(booth);
+  const boothRoof = new THREE.Mesh(new THREE.ConeGeometry(0.8,0.42,4), phong(0xFF2D78,0x221100,18));
+  boothRoof.position.set(fwX, 1.37, fwZ+1.5); boothRoof.rotation.y = Math.PI/4; g.add(boothRoof);
+
+  // ── Rollercoaster (background, back-right corner) — bigger track + loop ──
+  const rcX = 7.2, rcZ = 7.4;
+  const trackMat   = phong(0x2D6BFF, 0x111144, 38);
+  const supportMat = phong(0x444444, 0x222222, 20);
+  const rcPts = [
+    new THREE.Vector3(rcX-1.8, 0.4, rcZ-0.4),
+    new THREE.Vector3(rcX-1.0, 3.0, rcZ-0.2),
+    new THREE.Vector3(rcX-0.1, 3.9, rcZ+0.2),
+    new THREE.Vector3(rcX+0.6, 2.5, rcZ-0.2),
+    new THREE.Vector3(rcX+1.1, 1.0, rcZ-0.5),
+    new THREE.Vector3(rcX+1.7, 2.4, rcZ-0.1),
+    new THREE.Vector3(rcX+2.0, 0.9, rcZ+0.4),
+  ];
+  const rcCurve = new THREE.CatmullRomCurve3(rcPts);
+  const rcTrack = new THREE.Mesh(new THREE.TubeGeometry(rcCurve, 56, 0.11, 8, false), trackMat);
+  rcTrack.castShadow = true; g.add(rcTrack);
+  const rcRailHi = new THREE.Mesh(new THREE.TubeGeometry(rcCurve, 56, 0.045, 6, false), phong(0xFFFFFF,0x222222,50));
+  rcRailHi.position.y = 0.16; g.add(rcRailHi);
+  for (let i = 1; i < rcPts.length - 1; i++) {
+    const p = rcPts[i];
+    const support = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.075,p.y,7), supportMat);
+    support.position.set(p.x, p.y/2, p.z); g.add(support);
+    if (i % 2 === 0) {
+      const brace2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,p.y*1.15,6), supportMat);
+      brace2.position.set(p.x, p.y/2, p.z); brace2.rotation.z = 0.5; g.add(brace2);
+    }
+  }
+  const loopY = 3.15;
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.09, 10, 26), trackMat);
+  loop.position.set(rcX-0.1, loopY, rcZ-0.55); loop.rotation.x = Math.PI/2; loop.castShadow = true; g.add(loop);
+  const loopSupport = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,loopY-0.72,7), supportMat);
+  loopSupport.position.set(rcX-0.1, (loopY-0.72)/2, rcZ-0.55); g.add(loopSupport);
+  const trainColors = [0xFFD23F, 0xFF2D78, 0x1FE6D8, 0x7ED957];
+  trainColors.forEach((col, ci) => {
+    const t = Math.min(0.5 + ci*0.04, 0.98);
+    const pos = rcCurve.getPointAt(t);
+    const cart = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.2,0.44), phong(col,0x221100,32));
+    cart.position.set(pos.x, pos.y+0.17, pos.z); cart.castShadow = true; g.add(cart);
+  });
+  const gateMat = phong(0xFF2D78, 0x221100, 18);
+  const gate = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.6,0.12), gateMat);
+  gate.position.set(rcX-1.8, 0.8, rcZ+1.2); gate.castShadow = true; g.add(gate);
+
+  g.position.set(x, 0.07, z);
+  return g;
+}
+
+
+
+
 //  A car pre-claims its target cell once it is ≥50% across.
 //  When the target is taken the car waits; after CAR_WAIT_LIMIT
 //  frames it re-routes to the best FREE adjacent cell instead.
@@ -1657,15 +2180,18 @@ function tickCars() {
 let cash = 900000000;
 
 const COSTS = {
-  road: 50, park: 75, bigpark: 7000,
+  road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
   erase: 0,
 };
 
-// Some buildings occupy more than one grid cell. Value = side length in cells
-// (e.g. 2 → a 2×2 = 4-cell footprint). Anything not listed defaults to 1×1.
-const FOOTPRINTS = { bigpark: 2 };
-function getFootprint(tool) { return FOOTPRINTS[tool] || 1; }
+// Some buildings occupy more than one grid cell.
+// Value = { w, h } footprint size in cells. Anything not listed defaults to 1×1.
+const FOOTPRINTS = {
+  bigpark:       { w: 2, h: 2 },   // 2×2 = 4 cells
+  amusementpark: { w: 3, h: 3 },   // 3×3 = 9 cells
+};
+function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
 
 const paidMap = {};   // key → original cost paid (for refunds)
 
@@ -1719,8 +2245,17 @@ function refreshAffordability() {
   const houseCostEl = document.getElementById('house-cat-cost');
   if (houseCostEl) houseCostEl.textContent = '$' + houseCost;
   if (houseBtn)   houseBtn.classList.toggle('cant-afford', cash < houseCost);
-  document.querySelectorAll('.htype').forEach(el => {
+  document.querySelectorAll('.htype[data-htype]').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.htype] ?? 0));
+  });
+  // Park category
+  const parkCost   = COSTS[selectedParkType] ?? COSTS.park;
+  const parkBtn     = document.getElementById('park-cat-btn');
+  const parkCostEl  = document.getElementById('park-cat-cost');
+  if (parkCostEl) parkCostEl.textContent = '$' + parkCost.toLocaleString();
+  if (parkBtn)   parkBtn.classList.toggle('cant-afford', cash < parkCost);
+  document.querySelectorAll('.htype[data-ptype]').forEach(el => {
+    el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.ptype] ?? 0));
   });
   // Land button
   const landBtn   = document.getElementById('buy-land-btn');
@@ -1756,24 +2291,25 @@ function placeItem(r, c) {
 
   const cost = getBuildCost(selectedTool);
   if (cash < cost) { flashBroke(); return; }
-  const size = getFootprint(selectedTool);
+  const fp = getFootprint(selectedTool);
 
-  // Multi-cell buildings (e.g. the Big Park, 2×2 = 4 blocks)
-  if (size > 1) {
+  // Multi-cell buildings (e.g. the Big Park 2×2, or the Amusement Park 3×3)
+  if (fp.w > 1 || fp.h > 1) {
     const cells = [];
-    for (let dr = 0; dr < size; dr++) {
-      for (let dc = 0; dc < size; dc++) {
+    for (let dr = 0; dr < fp.h; dr++) {
+      for (let dc = 0; dc < fp.w; dc++) {
         const rr = r + dr, cc = c + dc;
         if (rr < gridMinR() || rr > gridMaxR() || cc < gridMinC() || cc > gridMaxC()) {
           showToast('Needs more open land nearby 🏞️'); return;
         }
         const k = `${rr},${cc}`;
-        if (placedItems[k]) { showToast(`Needs a clear ${size}×${size} area`); return; }
+        if (placedItems[k]) { showToast(`Needs a clear ${fp.w}×${fp.h} area`); return; }
         cells.push(k);
       }
     }
     let mesh;
-    if (selectedTool === 'bigpark') mesh = buildBigPark(r, c);
+    if      (selectedTool === 'bigpark')       mesh = buildBigPark(r, c);
+    else if (selectedTool === 'amusementpark') mesh = buildAmusementPark(r, c);
     if (mesh) {
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
@@ -1954,13 +2490,23 @@ const HOUSE_TYPES = {
   apartment: { icon: '🏬', name: 'Apartment' },
 };
 
+const PARK_TYPES = {
+  park:          { icon: '🌲', name: 'Park'           },
+  bigpark:       { icon: '🎡', name: 'Big Park'        },
+  amusementpark: { icon: '🎢', name: 'Amusement Park' },
+};
+
 const menuMain    = document.getElementById('menu-main');
 const menuHouse   = document.getElementById('menu-house');
+const menuPark    = document.getElementById('menu-park');
 const houseCatBtn = document.getElementById('house-cat-btn');
+const parkCatBtn  = document.getElementById('park-cat-btn');
 const backToMain  = document.getElementById('back-to-main');
+const backToMainPark = document.getElementById('back-to-main-park');
 
-function showMainMenu()  { menuMain.classList.remove('hidden'); menuHouse.classList.add('hidden'); }
-function showHouseMenu() { menuMain.classList.add('hidden');   menuHouse.classList.remove('hidden'); }
+function showMainMenu()  { menuMain.classList.remove('hidden'); menuHouse.classList.add('hidden'); menuPark.classList.add('hidden'); }
+function showHouseMenu() { menuMain.classList.add('hidden');   menuHouse.classList.remove('hidden'); menuPark.classList.add('hidden'); }
+function showParkMenu()  { menuMain.classList.add('hidden');   menuHouse.classList.add('hidden'); menuPark.classList.remove('hidden'); }
 
 function updateBuildBtn() {
   // Show ✕ whenever menu is open OR a tool is selected
@@ -1987,12 +2533,20 @@ function closeBuildMenu() {
 
 function setTool(tool) {
   selectedTool = tool;
-  const icons = { road: '🛣️', park: '🌲', bigpark: '🎡', erase: '🗑️',
-                  house: (HOUSE_TYPES[selectedHouseType] || { icon: '🏠' }).icon };
-  const names = { road: 'Road', park: 'Park', bigpark: 'Big Park', erase: 'Erase',
-                  house: (HOUSE_TYPES[selectedHouseType] || { name: 'House' }).name };
-  badgeIcon.textContent = icons[tool] || '?';
-  badgeName.textContent = (names[tool] || tool) + ' — tap land';
+  const pt = PARK_TYPES[tool];   // covers park / bigpark / amusementpark generically
+  let icon, name;
+  if (pt) {
+    icon = pt.icon; name = pt.name;
+  } else if (tool === 'house') {
+    const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
+    icon = ht.icon; name = ht.name;
+  } else {
+    const fallback = { road: { icon: '🛣️', name: 'Road' }, erase: { icon: '🗑️', name: 'Erase' } };
+    const f = fallback[tool] || { icon: '?', name: tool };
+    icon = f.icon; name = f.name;
+  }
+  badgeIcon.textContent = icon;
+  badgeName.textContent = name + ' — tap land';
   toolBadge.classList.add('show');
   hoverMat.color.set(tool === 'erase' ? 0xFF6666 : 0x88FF88);
   updateBuildBtn();
@@ -2033,17 +2587,46 @@ houseCatBtn.addEventListener('click', function() {
 
 // Back to categories
 backToMain.addEventListener('click', function() { showMainMenu(); });
+backToMainPark.addEventListener('click', function() { showMainMenu(); });
 
 // House style selection
-document.querySelectorAll('.htype').forEach(function(el) {
+document.querySelectorAll('.htype[data-htype]').forEach(function(el) {
   el.addEventListener('click', function() {
     selectedHouseType = el.dataset.htype;
-    document.querySelectorAll('.htype').forEach(function(e) { e.classList.remove('active'); });
+    document.querySelectorAll('.htype[data-htype]').forEach(function(e) { e.classList.remove('active'); });
     el.classList.add('active');
     const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
     badgeIcon.textContent = ht.icon;
     badgeName.textContent = ht.name + ' — tap land';
     selectedTool = 'house';
+    toolBadge.classList.add('show');
+    refreshAffordability();
+    closeBuildMenu();
+  });
+});
+
+// Park category → drill into park-type submenu
+parkCatBtn.addEventListener('click', function() {
+  selectedTool = selectedParkType;
+  const pt = PARK_TYPES[selectedParkType] || { icon: '🌲', name: 'Park' };
+  badgeIcon.textContent = pt.icon;
+  badgeName.textContent = pt.name + ' — tap land';
+  toolBadge.classList.add('show');
+  hoverMat.color.set(0x88FF88);
+  showParkMenu();
+  updateBuildBtn();
+});
+
+// Park type selection
+document.querySelectorAll('.htype[data-ptype]').forEach(function(el) {
+  el.addEventListener('click', function() {
+    selectedParkType = el.dataset.ptype;
+    document.querySelectorAll('.htype[data-ptype]').forEach(function(e) { e.classList.remove('active'); });
+    el.classList.add('active');
+    const pt = PARK_TYPES[selectedParkType] || { icon: '🌲', name: 'Park' };
+    badgeIcon.textContent = pt.icon;
+    badgeName.textContent = pt.name + ' — tap land';
+    selectedTool = selectedParkType;
     toolBadge.classList.add('show');
     refreshAffordability();
     closeBuildMenu();
@@ -2107,11 +2690,11 @@ function animate() {
   if (selectedTool && lastMouseX > 0) {
     const cell = getGridCell(lastMouseX, lastMouseY);
     if (cell) {
-      const size = getFootprint(selectedTool);
+      const fp = getFootprint(selectedTool);
       const a = cellCenter(cell.r, cell.c);
-      const x = a.x + (size - 1) * CELL / 2, z = a.z + (size - 1) * CELL / 2;
-      hoverMesh.scale.set(size, 1, size);
-      hoverBorder.scale.set(size, 1, size);
+      const x = a.x + (fp.w - 1) * CELL / 2, z = a.z + (fp.h - 1) * CELL / 2;
+      hoverMesh.scale.set(fp.w, 1, fp.h);
+      hoverBorder.scale.set(fp.w, 1, fp.h);
       hoverMesh.position.set(x, 0.08, z);
       hoverBorder.position.set(x, 0.08, z);
       hoverMesh.visible = true; hoverBorder.visible = true;
