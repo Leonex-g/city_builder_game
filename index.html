@@ -361,6 +361,11 @@
       <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
       <span class="bcost">$75</span>
     </div>
+    <div class="bitem" data-tool="bigpark">
+      <span class="bi">🎡</span>
+      <span class="blabel"><span class="bname">Big Park</span><span class="bdesc">Slides, play zone &amp; more (2×2)</span></span>
+      <span class="bcost">$7,000</span>
+    </div>
     <div class="bitem" data-tool="erase">
       <span class="bi">🗑️</span>
       <span class="blabel"><span class="bname">Erase</span><span class="bdesc">50% refund</span></span>
@@ -1100,11 +1105,337 @@ function buildPark(r, c) {
   return g;
 }
 
-// ─────────────────────────────────────────────────
-//  VEHICLE SYSTEM
-// ─────────────────────────────────────────────────
-// ─────────────────────────────────────────────────
-//  VEHICLE SYSTEM  (cars only — cell-token based)
+// ── Big Park (2×2 — 4 blocks) ──────────────────────
+function buildBigPark(r, c) {
+  // r,c is the top-left anchor cell of the 2×2 footprint; center on the block.
+  const a = cellCenter(r, c);
+  const x = a.x + CELL / 2, z = a.z + CELL / 2;
+  const S = CELL * 2; // full footprint side length (12 units)
+  const g = new THREE.Group(); g.userData.type = 'bigpark';
+
+  const grassMat = new THREE.MeshLambertMaterial({ color: 0x2DB82D });
+  const grass = new THREE.Mesh(new THREE.BoxGeometry(S, 0.14, S), grassMat);
+  grass.receiveShadow = true; g.add(grass);
+
+  // Modern materials palette — steel, white composite, teal & lime accents
+  const steelMat  = phong(0x2B2F36, 0x111111, 30);
+  const whiteMat  = phong(0xF2F4F6, 0xCCCCCC, 40);
+  const tealMat   = phong(0x14B8A6, 0x0A3B36, 45);
+  const limeMat   = phong(0x8FC93B, 0x223300, 30);
+  const glassTeal = new THREE.MeshPhongMaterial({ color: 0x6FC8E8, specular: 0xFFFFFF, shininess: 90, transparent: true, opacity: 0.85 });
+
+  // Looping path ring around a central plaza
+  const pathMat = new THREE.MeshLambertMaterial({ color: 0xD4B896 });
+  [[0, -S/2+0.9, S-1.2, 0.9], [0, S/2-0.9, S-1.2, 0.9]].forEach(([_, pz, w, d]) => {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), pathMat);
+    seg.position.set(0, 0.08, pz); g.add(seg);
+  });
+  const pathH = new THREE.Mesh(new THREE.BoxGeometry(S - 1.2, 0.02, 1.1), pathMat);
+  pathH.position.set(0, 0.08, 0); g.add(pathH);
+  const pathV = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.02, S - 1.2), pathMat);
+  pathV.position.set(0, 0.08, 0); g.add(pathV);
+
+  // Modern lamp posts at the path intersections
+  [[-2.0,-2.0],[2.0,-2.0],[-2.0,2.0],[2.0,2.0]].forEach(([lx,lz]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.8,8), steelMat);
+    pole.position.set(lx, 0.98, lz); pole.castShadow = true; g.add(pole);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8),
+      new THREE.MeshPhongMaterial({ color: 0xFFF3C0, emissive: 0xFFD86B, emissiveIntensity: 0.6 }));
+    head.position.set(lx, 1.92, lz); g.add(head);
+  });
+
+  // Central plaza + modern triple-jet fountain
+  const plaza = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.05, 20), pathMat);
+  plaza.position.set(0, 0.08, 0); g.add(plaza);
+  const fountBase = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 0.4, 20), whiteMat);
+  fountBase.position.set(0, 0.28, 0); fountBase.castShadow = true; g.add(fountBase);
+  const fountRing = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.04, 8, 24), tealMat);
+  fountRing.rotation.x = Math.PI/2; fountRing.position.set(0, 0.49, 0); g.add(fountRing);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.06, 20), glassTeal);
+  water.position.set(0, 0.49, 0); g.add(water);
+  [[0,0],[0.32,0.32],[-0.32,-0.32]].forEach(([jx,jz]) => {
+    const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.5, 8), glassTeal);
+    jet.position.set(jx, 0.78, jz); g.add(jet);
+  });
+
+  // ── Modern play tower (corner toward -x,-z) ────────
+  const px = -S/2 + 2.6, pz = -S/2 + 2.6;
+  const padOuter = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.07, 10), phong(0xE2725B, 0x331100, 6));
+  padOuter.position.set(px, 0.035, pz); padOuter.receiveShadow = true; g.add(padOuter);
+  const padInner = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 0.08, 10), phong(0xF2C9A0, 0x331100, 6));
+  padInner.position.set(px, 0.04, pz); g.add(padInner);
+
+  [[-0.8,-0.8],[0.8,-0.8],[-0.8,0.8],[0.8,0.8]].forEach(([dx,dz]) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,2.3,8), steelMat);
+    post.position.set(px+dx, 1.15, pz+dz); post.castShadow = true; g.add(post);
+  });
+  const lowerDeck = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 1.8), whiteMat);
+  lowerDeck.position.set(px, 1.05, pz); lowerDeck.castShadow = true; g.add(lowerDeck);
+  [[-0.75,-0.75],[0.75,-0.75],[-0.75,0.75],[0.75,0.75]].forEach(([dx,dz]) => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.1,8), steelMat);
+    post.position.set(px+dx, 1.65, pz+dz); post.castShadow = true; g.add(post);
+  });
+  const upperDeck = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 1.5), whiteMat);
+  upperDeck.position.set(px, 2.2, pz); upperDeck.castShadow = true; g.add(upperDeck);
+  // Guard rails on the upper deck
+  [[-0.7,0,0],[0.7,0,0],[0,-0.7,Math.PI/2],[0,0.7,Math.PI/2]].forEach(([dx,dz,rot]) => {
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.5,6), limeMat);
+    rail.rotation.z = Math.PI/2; rail.rotation.y = rot;
+    rail.position.set(px+dx, 2.45, pz+dz); g.add(rail);
+  });
+  // Pyramid canopy roof for shade
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.8, 4), tealMat);
+  canopy.position.set(px, 3.1, pz); canopy.rotation.y = Math.PI/4; canopy.castShadow = true; g.add(canopy);
+  const canopyPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.85,8), steelMat);
+  canopyPole.position.set(px, 2.65, pz); g.add(canopyPole);
+
+  // Speed slide — from the upper deck down toward the plaza
+  const slideDir = { dx: 0.92, dz: 0.40 };
+  const slideLen = 3.2;
+  [[-0.45,limeMat],[0.45,whiteMat]].forEach(([off, mat]) => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, slideLen), mat);
+    rail.position.set(px + slideDir.dx*1.5, 1.3, pz + slideDir.dz*1.5 + 1.0);
+    rail.rotation.x = -0.62;
+    rail.translateX(off);
+    rail.castShadow = true; g.add(rail);
+  });
+  const chute = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.07, slideLen), limeMat);
+  chute.position.set(px + slideDir.dx*1.5, 1.1, pz + slideDir.dz*1.5 + 1.0);
+  chute.rotation.x = -0.62; chute.castShadow = true; g.add(chute);
+
+  // Wave slide — two angled segments from the lower deck, opposite side
+  const waveMat = tealMat;
+  const wave1 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.07, 1.7), waveMat);
+  wave1.position.set(px - 1.05, 0.78, pz - 1.0); wave1.rotation.x = -0.5; wave1.rotation.z = 0.12;
+  wave1.castShadow = true; g.add(wave1);
+  const wave2 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.07, 1.5), waveMat);
+  wave2.position.set(px - 1.55, 0.32, pz - 1.95); wave2.rotation.x = -0.42; wave2.rotation.z = -0.1;
+  wave2.castShadow = true; g.add(wave2);
+
+  // Climbing net up to the lower deck (back side)
+  const netMat = phong(0xE8543A, 0x331100, 10);
+  for (let i = -2; i <= 2; i++) {
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.3,4), netMat);
+    strut.position.set(px + i*0.22, 0.65, pz + 1.0); strut.rotation.z = i*0.12;
+    g.add(strut);
+  }
+  for (let i = -2; i <= 2; i++) {
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.3,4), netMat);
+    strut.position.set(px - i*0.05, 0.65, pz + 1.0 + i*0.16); strut.rotation.z = 1.5708; strut.rotation.x = i*0.12;
+    g.add(strut);
+  }
+
+  // Staircase up to the lower deck, facing the plaza
+  const stepMat = whiteMat;
+  for (let i = 0; i < 4; i++) {
+    const stepH = 0.26 * (i + 1);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.26, 0.32), stepMat);
+    step.position.set(px, stepH - 0.13, pz - 1.3 + i * 0.32);
+    step.castShadow = true; g.add(step);
+  }
+  [-0.5, 0.5].forEach(dx => {
+    const handrail = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.25,6), steelMat);
+    handrail.position.set(px+dx, 0.75, pz - 0.9); handrail.rotation.x = -0.62; g.add(handrail);
+  });
+
+  // Drinking fountain (bubbler) near the plaza
+  const bubblerBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,0.85,10), phong(0x9AA5AC,0x333333,30));
+  bubblerBase.position.set(1.0, 0.43, -2.0); bubblerBase.castShadow = true; g.add(bubblerBase);
+  const bubblerTop = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.08,10), phong(0x9AA5AC,0x333333,30));
+  bubblerTop.position.set(1.0, 0.89, -2.0); g.add(bubblerTop);
+  const bubblerSpout = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.1,6), phong(0xB7C0C6,0x333333,40));
+  bubblerSpout.position.set(1.0, 0.95, -1.92); bubblerSpout.rotation.x = 0.4; g.add(bubblerSpout);
+
+  // ── Active zone: swing set + monkey bars (corner toward +x,-z) ──
+  const sx = S/2 - 2.5, sz = -S/2 + 2.5;
+  const activePad = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.06, 2.6), phong(0x4A6572, 0x111111, 8));
+  activePad.position.set(sx, 0.03, sz); activePad.receiveShadow = true; g.add(activePad);
+
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.12), steelMat);
+  beam.position.set(sx - 0.9, 1.9, sz); beam.castShadow = true; g.add(beam);
+  [-1, 1].forEach(side => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.9,6), steelMat);
+    post.position.set(sx - 0.9 + side*0.95, 0.95, sz - 0.5); post.rotation.x = -0.16; post.castShadow = true; g.add(post);
+    const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.9,6), steelMat);
+    post2.position.set(sx - 0.9 + side*0.95, 0.95, sz + 0.5); post2.rotation.x = 0.16; post2.castShadow = true; g.add(post2);
+  });
+  [-0.55, 0.55].forEach(dx => {
+    [-0.16, 0.16].forEach(dz => {
+      for (let li = 0; li < 5; li++) {
+        const link = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.013, 6, 8), steelMat);
+        link.position.set(sx - 0.9 + dx, 1.75 - li * 0.22, sz + dz);
+        link.rotation.x = (li % 2 === 0) ? Math.PI / 2 : 0;
+        g.add(link);
+      }
+    });
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 0.42), tealMat);
+    seat.position.set(sx - 0.9 + dx, 0.68, sz); seat.castShadow = true; g.add(seat);
+  });
+
+  // Monkey bars
+  const mbx = sx + 1.3;
+  [-1.0, 1.0].forEach(dz => {
+    const frame1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.7,6), steelMat);
+    frame1.position.set(mbx, 0.85, sz+dz); frame1.castShadow = true; g.add(frame1);
+  });
+  const mbBeam = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 2.2), steelMat);
+  mbBeam.position.set(mbx, 1.7, sz); g.add(mbBeam);
+  for (let i = -4; i <= 4; i++) {
+    const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.45,6), limeMat);
+    rung.rotation.z = Math.PI/2;
+    rung.position.set(mbx, 1.68, sz + i*0.24); g.add(rung);
+  }
+
+  // ── Discovery zone: geometric climbing dome + balance beams (corner toward -x,+z) ──
+  const bx = -S/2 + 2.5, bz = S/2 - 2.5;
+  const discPad = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 0.06, 10), phong(0x4A6572, 0x111111, 8));
+  discPad.position.set(bx, 0.03, bz); discPad.receiveShadow = true; g.add(discPad);
+  const domeRadius = 1.15, domeHeight = 1.3;
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const bx2 = bx + Math.cos(ang) * domeRadius, bz2 = bz + Math.sin(ang) * domeRadius;
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, domeHeight + 0.45, 6),
+      i % 2 === 0 ? limeMat : tealMat);
+    strut.position.set((bx2+bx)/2, domeHeight/2, (bz2+bz)/2);
+    strut.lookAt(bx, domeHeight + 0.45, bz);
+    strut.rotateX(Math.PI/2);
+    g.add(strut);
+  }
+  [0.45, 0.85].forEach(rr => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.035, 6, 16), steelMat);
+    ring.rotation.x = Math.PI/2; ring.position.set(bx, rr * (domeHeight/domeRadius) * 0.55 + 0.15, bz);
+    g.add(ring);
+  });
+  // Winding balance-beam stepping pads
+  const beamMat = phong(0xF2C9A0, 0x221100, 8);
+  [[-0.6,1.9,0.15],[0.0,2.3,-0.1],[0.65,2.7,0.18],[1.25,3.1,-0.12]].forEach(([dx,dz,rot]) => {
+    const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.32,6), steelMat);
+    post1.position.set(bx+dx, 0.16, bz+dz); g.add(post1);
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.06,8), beamMat);
+    pad.position.set(bx+dx, 0.35, bz+dz); pad.rotation.z = rot; pad.castShadow = true; g.add(pad);
+  });
+
+  // ── Modern lounge: sleek seating + planter (corner toward +x,+z) ──
+  const tx = S/2 - 2.4, tz = S/2 - 2.4;
+  const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.75), whiteMat);
+  tableTop.position.set(tx, 0.58, tz); tableTop.castShadow = true; g.add(tableTop);
+  const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,0.55,8), steelMat);
+  tableLeg.position.set(tx, 0.30, tz); g.add(tableLeg);
+  [-0.7, 0.7].forEach(dz => {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.32), whiteMat);
+    seat.position.set(tx, 0.34, tz+dz); seat.castShadow = true; g.add(seat);
+    const seatLeg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.30,6), steelMat);
+    seatLeg1.position.set(tx-0.5, 0.17, tz+dz); g.add(seatLeg1);
+    const seatLeg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.30,6), steelMat);
+    seatLeg2.position.set(tx+0.5, 0.17, tz+dz); g.add(seatLeg2);
+  });
+  // Planter with ornamental greenery
+  const planterMat = phong(0x6B6B6B, 0x222222, 12);
+  const planter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.45, 1.0), planterMat);
+  planter.position.set(tx + 1.4, 0.225, tz - 1.4); planter.castShadow = true; g.add(planter);
+  const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshLambertMaterial({ color: 0x2F9E44 }));
+  shrub.position.set(tx + 1.4, 0.65, tz - 1.4); shrub.castShadow = true; g.add(shrub);
+  const shrub2 = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), new THREE.MeshLambertMaterial({ color: 0x3FB04F }));
+  shrub2.position.set(tx + 1.4, 1.05, tz - 1.4); shrub2.castShadow = true; g.add(shrub2);
+
+  // Perimeter trees (corners) + trimmed topiary (mid-edges, modern landscaping)
+  const trunkMat  = new THREE.MeshLambertMaterial({ color: 0x6B3E10 });
+  const canopyMat = new THREE.MeshLambertMaterial({ color: 0x1A7D1A });
+  const canopyMat2 = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+  const cornerTreeSpots = [
+    [-S/2+0.9,-S/2+0.9],[S/2-0.9,-S/2+0.9],[-S/2+0.9,S/2-0.9],[S/2-0.9,S/2-0.9]
+  ];
+  cornerTreeSpots.forEach(([tx2,tz2]) => {
+    const mulch = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.04,12), phong(0x4A3422,0x111111,4));
+    mulch.position.set(tx2, 0.02, tz2); g.add(mulch);
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,1.0,6), trunkMat);
+    trunk.position.set(tx2, 0.65, tz2); trunk.castShadow = true; g.add(trunk);
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.78,8,6), canopyMat);
+    canopy.position.set(tx2, 1.58, tz2); canopy.castShadow = true; g.add(canopy);
+    const canopy2 = new THREE.Mesh(new THREE.SphereGeometry(0.55,7,5), canopyMat2);
+    canopy2.position.set(tx2, 2.15, tz2); canopy2.castShadow = true; g.add(canopy2);
+  });
+  const topiaryMat = new THREE.MeshLambertMaterial({ color: 0x2F9E44 });
+  const planterMat2 = phong(0x6B6B6B, 0x222222, 12);
+  [[-S/2+0.9,0],[S/2-0.9,0],[0,-S/2+0.9],[0,S/2-0.9]].forEach(([tx2,tz2]) => {
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.4,10), planterMat2);
+    pot.position.set(tx2, 0.2, tz2); pot.castShadow = true; g.add(pot);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8), topiaryMat);
+    ball.position.set(tx2, 0.78, tz2); ball.castShadow = true; g.add(ball);
+  });
+
+  // Modern benches near the plaza — steel frame + light wood slats
+  const benchSteelMat = steelMat;
+  const benchWoodMat  = phong(0xC9A36B, 0x221100, 14);
+  [[-2.6, 0, 0], [2.6, 0, Math.PI]].forEach(([bx2, bz2, rotY]) => {
+    const bseat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.4), benchWoodMat);
+    bseat.position.set(bx2, 0.45, bz2); bseat.rotation.y = rotY; bseat.castShadow = true; g.add(bseat);
+    const bback = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.32, 0.05), benchWoodMat);
+    bback.position.set(bx2, 0.66, bz2); bback.rotation.y = rotY; bback.castShadow = true; g.add(bback);
+    [-0.5, 0.5].forEach(dx => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.4), benchSteelMat);
+      leg.position.set(bx2+dx, 0.21, bz2); leg.rotation.y = rotY; g.add(leg);
+    });
+  });
+
+  // ── Perimeter safety fence with two gated entrances (north & south) ──
+  const fenceMat = phong(0x33402E, 0x141A12, 14);
+  const fenceH = 0.85, half = S/2 - 0.15, gateHalf = 0.8;
+  function fencePost(px3, pz3) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,fenceH,6), fenceMat);
+    post.position.set(px3, fenceH/2, pz3); post.castShadow = true; g.add(post);
+  }
+  function fenceRail(cx, cz, w, d) {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), fenceMat);
+    top.position.set(cx, 0.72, cz); g.add(top);
+    const mid = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), fenceMat);
+    mid.position.set(cx, 0.38, cz); g.add(mid);
+  }
+  [-half, half].forEach(zSide => {
+    for (let xx = -half; xx <= half + 0.01; xx += 1.1) {
+      if (Math.abs(xx) > gateHalf) fencePost(xx, zSide);
+    }
+    const segLen = half - gateHalf;
+    fenceRail(-(gateHalf + segLen/2), zSide, segLen, 0.04);
+    fenceRail( (gateHalf + segLen/2), zSide, segLen, 0.04);
+  });
+  [-half, half].forEach(xSide => {
+    for (let zz = -half; zz <= half + 0.01; zz += 1.1) fencePost(xSide, zz);
+    fenceRail(xSide, 0, 0.04, S - 0.3);
+  });
+  [-gateHalf, gateHalf].forEach(gx => {
+    const gp = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.05,8), steelMat);
+    gp.position.set(gx, 0.525, half); gp.castShadow = true; g.add(gp);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6), steelMat);
+    cap.position.set(gx, 1.06, half); g.add(cap);
+  });
+
+  // Entrance sign
+  const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,1.6,8), phong(0x6B3E10,0x221100,10));
+  signPost.position.set(0, 0.8, half + 0.5); signPost.castShadow = true; g.add(signPost);
+  const signTrim = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.65, 0.04), whiteMat);
+  signTrim.position.set(0, 1.55, half + 0.46); g.add(signTrim);
+  const signBoard = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.55, 0.05), phong(0x2F9E44, 0x111100, 10));
+  signBoard.position.set(0, 1.55, half + 0.5); signBoard.castShadow = true; g.add(signBoard);
+
+  // Bike rack + bins near the entrance
+  for (let i = -1; i <= 1; i++) {
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.22,0.025,6,12,Math.PI), steelMat);
+    loop.rotation.x = Math.PI/2; loop.position.set(-1.6 + i*0.45, 0.22, half + 1.1);
+    g.add(loop);
+  }
+  [[1.6, 0x556B2F], [2.15, 0x2F6FA0]].forEach(([binX, col]) => {
+    const bin = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.18,0.5,10), phong(col,0x111111,10));
+    bin.position.set(binX, 0.25, half + 1.1); bin.castShadow = true; g.add(bin);
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.23,0.05,10), phong(0x222222,0x111111,10));
+    lid.position.set(binX, 0.52, half + 1.1); g.add(lid);
+  });
+
+  g.position.set(x, 0.07, z);
+  return g;
+}
+
+
 //
 //  Rule: every road cell holds AT MOST one car.
 //  A car pre-claims its target cell once it is ≥50% across.
@@ -1326,10 +1657,15 @@ function tickCars() {
 let cash = 900000000;
 
 const COSTS = {
-  road: 50, park: 75,
+  road: 50, park: 75, bigpark: 7000,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
   erase: 0,
 };
+
+// Some buildings occupy more than one grid cell. Value = side length in cells
+// (e.g. 2 → a 2×2 = 4-cell footprint). Anything not listed defaults to 1×1.
+const FOOTPRINTS = { bigpark: 2 };
+function getFootprint(tool) { return FOOTPRINTS[tool] || 1; }
 
 const paidMap = {};   // key → original cost paid (for refunds)
 
@@ -1405,10 +1741,13 @@ function placeItem(r, c) {
   const key = `${r},${c}`;
 
   if (selectedTool === 'erase') {
-    if (placedItems[key]) {
-      const wasRoad = placedItems[key].userData.type === 'road';
-      const refund  = Math.floor((paidMap[key] ?? 0) * 0.5);
-      world.remove(placedItems[key]); delete placedItems[key]; delete paidMap[key];
+    const item = placedItems[key];
+    if (item) {
+      const cells   = item.userData.cells || [key];
+      const wasRoad = item.userData.type === 'road';
+      const refund  = Math.floor((item.userData.cost ?? paidMap[key] ?? 0) * 0.5);
+      world.remove(item);
+      cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; });
       if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
     }
@@ -1417,12 +1756,41 @@ function placeItem(r, c) {
 
   const cost = getBuildCost(selectedTool);
   if (cash < cost) { flashBroke(); return; }
+  const size = getFootprint(selectedTool);
+
+  // Multi-cell buildings (e.g. the Big Park, 2×2 = 4 blocks)
+  if (size > 1) {
+    const cells = [];
+    for (let dr = 0; dr < size; dr++) {
+      for (let dc = 0; dc < size; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < gridMinR() || rr > gridMaxR() || cc < gridMinC() || cc > gridMaxC()) {
+          showToast('Needs more open land nearby 🏞️'); return;
+        }
+        const k = `${rr},${cc}`;
+        if (placedItems[k]) { showToast(`Needs a clear ${size}×${size} area`); return; }
+        cells.push(k);
+      }
+    }
+    let mesh;
+    if (selectedTool === 'bigpark') mesh = buildBigPark(r, c);
+    if (mesh) {
+      mesh.userData.cells = cells;
+      mesh.userData.cost  = cost;
+      world.add(mesh);
+      cells.forEach(k => { placedItems[k] = mesh; paidMap[k] = 0; });
+      cash -= cost;
+      updateCashUI(-cost);
+    }
+    return;
+  }
 
   const wasRoad = placedItems[key] && placedItems[key].userData.type === 'road';
   if (placedItems[key]) {
-    const refund = Math.floor((paidMap[key] ?? 0) * 0.5);
+    const old    = placedItems[key];
+    const refund = Math.floor((old.userData.cost ?? paidMap[key] ?? 0) * 0.5);
     cash += refund;
-    world.remove(placedItems[key]); delete placedItems[key]; delete paidMap[key];
+    world.remove(old); delete placedItems[key]; delete paidMap[key];
   }
 
   let mesh;
@@ -1430,12 +1798,14 @@ function placeItem(r, c) {
   else if (selectedTool === 'house') mesh = buildHouse(r, c);
   else if (selectedTool === 'park')  mesh = buildPark(r, c);
   if (mesh) {
+    mesh.userData.cost = cost;
     world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
     cash -= cost;
     updateCashUI(-cost);
     if (selectedTool === 'road' || wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
   }
 }
+
 
 // ─────────────────────────────────────────────────
 //  CLOUDS
@@ -1617,9 +1987,9 @@ function closeBuildMenu() {
 
 function setTool(tool) {
   selectedTool = tool;
-  const icons = { road: '🛣️', park: '🌲', erase: '🗑️',
+  const icons = { road: '🛣️', park: '🌲', bigpark: '🎡', erase: '🗑️',
                   house: (HOUSE_TYPES[selectedHouseType] || { icon: '🏠' }).icon };
-  const names = { road: 'Road', park: 'Park', erase: 'Erase',
+  const names = { road: 'Road', park: 'Park', bigpark: 'Big Park', erase: 'Erase',
                   house: (HOUSE_TYPES[selectedHouseType] || { name: 'House' }).name };
   badgeIcon.textContent = icons[tool] || '?';
   badgeName.textContent = (names[tool] || tool) + ' — tap land';
@@ -1737,7 +2107,11 @@ function animate() {
   if (selectedTool && lastMouseX > 0) {
     const cell = getGridCell(lastMouseX, lastMouseY);
     if (cell) {
-      const { x, z } = cellCenter(cell.r, cell.c);
+      const size = getFootprint(selectedTool);
+      const a = cellCenter(cell.r, cell.c);
+      const x = a.x + (size - 1) * CELL / 2, z = a.z + (size - 1) * CELL / 2;
+      hoverMesh.scale.set(size, 1, size);
+      hoverBorder.scale.set(size, 1, size);
       hoverMesh.position.set(x, 0.08, z);
       hoverBorder.position.set(x, 0.08, z);
       hoverMesh.visible = true; hoverBorder.visible = true;
