@@ -53,166 +53,143 @@
       border-radius: 4px; overflow: hidden; }
     #zoom-bar-fill { width: 100%; background: rgba(255,255,255,0.75); border-radius: 4px; transition: height 0.2s; }
 
-    /* ── BUILD BUTTON  — fluid, works on every screen ── */
-    #build-btn {
+    /* ── BUILD TOOLBAR — 3×3 grid, bottom-left ──── */
+    #build-toolbar {
       position: fixed;
-      bottom: clamp(14px, 3.8vw, 28px);
-      left:   clamp(12px, 3.2vw, 18px);
-      width:  clamp(50px, 13.5vw, 62px);
-      height: clamp(50px, 13.5vw, 62px);
-      border-radius: 50%;
-      background: linear-gradient(145deg, #2d6a4f, #40916c);
-      border: 2px solid rgba(255,255,255,0.28);
-      color: #fff;
-      font-size: clamp(20px, 5.5vw, 28px);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-      transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), background 0.2s;
-      touch-action: manipulation; z-index: 20;
-      /* iOS safe area */
-      bottom: max(clamp(14px, 3.8vw, 28px), env(safe-area-inset-bottom, 0px));
-    }
-    #build-btn.open {
-      background: linear-gradient(145deg, #c1121f, #e63946);
-      font-size: clamp(16px, 4.5vw, 22px);
-    }
-    #build-btn:active { transform: scale(0.88); }
-
-    /* ── BUILD MENU  — fluid width, scrollable, every screen ── */
-    #build-menu {
-      position: fixed;
-      /* sits above the build button — accounts for button size + gap */
-      bottom: clamp(76px, 20vw, 104px);
-      left:   clamp(12px, 3.2vw, 18px);
-      opacity: 0; transform: translateY(14px) scale(0.97);
-      pointer-events: none;
-      transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
-      z-index: 20;
-      background: rgba(10,14,22,0.93);
+      bottom: max(20px, env(safe-area-inset-bottom, 20px));
+      left: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: rgba(20,20,20,0.30);       /* black-grey, 30% opaque */
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border: 1.5px solid rgba(255,255,255,0.14);
-      border-radius: clamp(14px, 4vw, 22px);
-      overflow: hidden;
-      /* fluid width: fills small screens, capped on large ones */
-      width: clamp(190px, 70vw, 252px);
-      /* never taller than the viewport minus header + button row */
-      max-height: calc(100dvh - clamp(100px, 24vw, 130px));
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      box-shadow: 0 10px 36px rgba(0,0,0,0.55);
-      /* hide scrollbar track */
-      scrollbar-width: none;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 20px;
+      padding: 10px;
+      z-index: 20;
+      width: 216px;
+      box-shadow: 0 10px 42px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.28);
     }
-    #build-menu::-webkit-scrollbar { display: none; }
-    #build-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
-    /* pages */
-    .menu-page { display: flex; flex-direction: column; }
-    .menu-page.hidden { display: none; }
+    /* each icon cell */
+    .tb-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 10px 4px;
+      border-radius: 13px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.70);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s, color 0.15s, transform 0.12s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      font-family: inherit;
+      position: relative;
+    }
 
-    /* section title */
-    .menu-section-title {
-      padding: clamp(7px, 2vw, 10px) clamp(12px, 3.5vw, 17px) clamp(5px, 1.5vw, 7px);
-      font-size: clamp(9px, 2.4vw, 11px);
-      font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
-      color: rgba(255,255,255,0.36);
+    /* img icons — 100% opaque */
+    .tb-icon {
+      width: 22px; height: 22px;
+      display: block; object-fit: contain;
+      transition: filter 0.15s;
+      filter: brightness(0) invert(0.75);
+      opacity: 1;
+    }
+    /* SVG icons — 100% opaque */
+    .tb-icon-svg {
+      width: 22px; height: 22px;
+      display: block; flex-shrink: 0;
+      transition: fill 0.15s;
+      opacity: 1;
+    }
+
+    /* active state */
+    .tb-btn:active { transform: scale(0.91); }
+    .tb-btn.active { color: #88ffbb; background: rgba(40,120,80,0.32); }
+    .tb-btn.active .tb-icon       { filter: none; opacity: 1; }
+    .tb-btn.active .tb-icon-svg   { opacity: 1; }
+
+    /* individual icon colours (inactive) */
+    #tb-road  .tb-icon-svg { fill: #78B4FF; }
+    #tb-house .tb-icon-svg { fill: #FFB347; }
+    #tb-park  .tb-icon-svg { fill: #5CDB5C; }
+    #tb-land  .tb-icon-svg { fill: #FFD700; }
+    #tb-governor .tb-icon-svg { fill: #C88AFF; }
+    #tb-erase .tb-icon-svg { fill: #FF7070; }
+
+    /* road PNG tinted to match */
+    #tb-road  .tb-icon { filter: invert(65%) sepia(60%) saturate(500%) hue-rotate(190deg); opacity:1; }
+
+    /* active colours */
+    .tb-btn.active .tb-icon-svg { fill: #88ffbb; }
+    #tb-road.active  .tb-icon { filter: invert(75%) sepia(80%) saturate(400%) hue-rotate(95deg); opacity:1; }
+
+    .tb-btn.cant-afford { color: rgba(255,100,100,0.7); }
+    .tb-btn.cant-afford .tb-icon-svg { fill: rgba(255,100,100,0.65); }
+    .tb-btn.cant-afford .tb-icon { filter: invert(40%) sepia(80%) saturate(400%) hue-rotate(0deg); }
+
+    /* dividers are not used in grid layout */
+    .tb-divider { display: none; }
+
+    /* ── BUILD SUB-PANEL — pops above the toolbar ── */
+    #build-subpanel {
+      position: fixed;
+      bottom: max(20px, env(safe-area-inset-bottom, 20px));
+      /* sits immediately to the RIGHT of the 216px toolbar */
+      left: calc(16px + 216px + 10px);
+      transform: translateX(-6px);
+      background: rgba(12,16,26,0.97);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 22px;
+      min-width: 230px; max-width: min(300px, calc(100vw - 130px));
+      z-index: 19;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
+      overflow: hidden;
+      box-shadow: 0 14px 44px rgba(0,0,0,0.7);
+      max-height: calc(100dvh - 40px);
+      overflow-y: auto;
+    }
+    #build-subpanel.show {
+      opacity: 1; transform: translateX(0);
+      pointer-events: auto;
+    }
+    .sp-page { display: flex; flex-direction: column; }
+    .sp-page.hidden { display: none; }
+    .sp-title {
+      padding: 11px 16px 7px;
+      font-size: 9.5px; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase;
+      color: rgba(255,255,255,0.32);
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-
-    /* back row */
-    .menu-back {
-      display: flex; align-items: center; gap: 7px;
-      min-height: clamp(44px, 12vw, 52px);
-      padding: 0 clamp(12px, 3.5vw, 17px);
-      cursor: pointer;
-      font-size: clamp(10px, 2.8vw, 12px); font-weight: 700; letter-spacing: 0.5px;
-      color: rgba(255,255,255,0.52);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      transition: color 0.12s, background 0.12s;
-      touch-action: manipulation;
-    }
-    .menu-back:active { background: rgba(255,255,255,0.07); color: #fff; }
-
-    /* build item row */
-    .bitem {
-      display: flex; align-items: center;
-      gap: clamp(9px, 2.8vw, 13px);
-      padding: 0 clamp(12px, 3.5vw, 17px);
-      min-height: clamp(46px, 13vw, 56px);
-      cursor: pointer;
-      color: rgba(255,255,255,0.9);
-      transition: background 0.13s; touch-action: manipulation;
+    .sp-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .bitem:last-child { border-bottom: none; }
-    .bitem .bi    { font-size: clamp(18px, 5vw, 23px); line-height: 1; flex-shrink: 0; }
-    .bitem .blabel{ display: flex; flex-direction: column; }
-    .bitem .bname { font-size: clamp(12px, 3.3vw, 14px); font-weight: 700; line-height: 1.1; }
-    .bitem .bdesc { font-size: clamp(9px, 2.3vw, 11px); color: rgba(255,255,255,0.4); margin-top: 2px; }
-    .bitem:active  { background: rgba(255,255,255,0.08); }
-    .bitem.selected { background: rgba(45,106,79,0.52); }
-    .bitem.selected .bname { color: #88ffbb; }
-    #house-cat-btn::after, #park-cat-btn::after {
-      content: '›'; margin-left: auto;
-      font-size: clamp(16px, 4.5vw, 20px); color: rgba(255,255,255,0.32);
-    }
-
-    /* house style rows */
-    .htype {
-      display: flex; align-items: center;
-      gap: clamp(9px, 2.8vw, 13px);
-      padding: 0 clamp(12px, 3.5vw, 17px);
-      min-height: clamp(46px, 13vw, 54px);
       cursor: pointer;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
       transition: background 0.13s; touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
-    .htype:last-child { border-bottom: none; }
-    .htype:active { background: rgba(255,255,255,0.08); }
-    .htype.active { background: rgba(45,106,79,0.48); }
-    .htype-icon { font-size: clamp(18px, 5vw, 22px); line-height: 1; flex-shrink: 0; }
-    .htype-name {
-      font-size: clamp(11px, 3.1vw, 13px); font-weight: 700;
-      color: rgba(255,255,255,0.9); line-height: 1.1;
-    }
-    .htype-desc { font-size: clamp(9px, 2.2vw, 11px); color: rgba(255,255,255,0.38); margin-top: 2px; }
-    .htype.active .htype-name { color: #88ffbb; }
-
-    /* ── Tablet (≥ 640px) ────────────────────────── */
-    @media (min-width: 640px) {
-      #build-btn { width: 58px; height: 58px; bottom: 28px; left: 18px; font-size: 25px; }
-      #build-btn.open { font-size: 20px; }
-      #build-menu { width: 228px; bottom: 100px; left: 18px; border-radius: 20px; }
-      .bitem, .htype { min-height: 50px; }
-    }
-
-    /* ── Desktop (≥ 1024px) ──────────────────────── */
-    @media (min-width: 1024px) {
-      #build-btn { width: 60px; height: 60px; font-size: 27px; }
-      #build-btn.open { font-size: 21px; }
-      #build-menu { width: 240px; bottom: 104px; }
-      .bitem, .htype { min-height: 52px; }
-      .bitem .bi, .htype-icon { font-size: 22px; }
-      .bitem .bname { font-size: 13px; }
-      .bitem .bdesc, .htype-desc { font-size: 10px; }
-    }
-
-    /* ── Very small phones (≤ 360px wide) ───────── */
-    @media (max-width: 360px) {
-      #build-menu { width: 83vw; }
-      .bitem .bdesc, .htype-desc { display: none; }
-    }
-
-    /* ── Landscape phone — limit menu height ─────── */
-    @media (max-height: 500px) {
-      #build-menu {
-        max-height: calc(100dvh - 80px);
-        bottom: 72px;
-      }
-      .bitem, .htype { min-height: 40px; }
-      .bitem .bdesc, .htype-desc { display: none; }
-    }
+    .sp-item:last-child { border-bottom: none; }
+    .sp-item:active { background: rgba(255,255,255,0.07); }
+    .sp-item.active { background: rgba(40,120,80,0.42); }
+    .sp-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .sp-info { flex: 1; min-width: 0; }
+    .sp-name { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1.15; }
+    .sp-desc { font-size: 10px; color: rgba(255,255,255,0.36); margin-top: 2px; }
+    .sp-item.active .sp-name { color: #88ffbb; }
+    .sp-item.cant-afford .sp-name { color: rgba(255,255,255,0.3); }
+    .sp-item.cant-afford .bcost   { color: #ff6b6b; }
 
     /* ── ACTIVE TOOL BADGE ────────────────────────── */
     #tool-badge {
@@ -332,91 +309,124 @@
   <button class="zbtn" id="btn-out" aria-label="Zoom out">−</button>
 </div>
 
-<!-- Build button -->
-<button id="build-btn" aria-label="Toggle build menu">🏗️</button>
+<!-- ── BUILD TOOLBAR — 3×3 grid ──────────────────── -->
+<div id="build-toolbar">
 
-<!-- Build menu (drill-down: categories → house styles) -->
-<div id="build-menu">
-  <!-- Page 1: Main categories -->
-  <div id="menu-main" class="menu-page">
-    <div class="menu-section-title">Land</div>
-    <div class="bitem" id="buy-land-btn">
-      <span class="bi">🏞️</span>
-      <span class="blabel"><span class="bname">Buy Land</span><span class="bdesc">Spawn new territory</span></span>
-      <span class="bcost" id="land-cost-badge">$5,000</span>
+  <button class="tb-btn" id="tb-road" aria-label="Road">
+    <img class="tb-icon" src="https://cdn-icons-png.flaticon.com/512/2554/2554922.png" alt="Road">
+    <span>Road</span>
+  </button>
+
+  <button class="tb-btn" id="tb-house" aria-label="House">
+    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h5v-5h4v5h5v-8h3L12 3z"/></svg>
+    <span>House</span>
+  </button>
+
+  <button class="tb-btn" id="tb-park" aria-label="Park">
+    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M12 2L7 10h3.5L7 16h4.5v2H9v2h6v-2h-2.5v-2H17L13.5 10H17L12 2z"/></svg>
+    <span>Park</span>
+  </button>
+
+  <button class="tb-btn" id="tb-land" aria-label="Land">
+    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M15 3v2h2.59l-4.3 4.29 1.42 1.42L19 6.41V9h2V3h-6zM3 9h2V6.41l4.29 4.3 1.42-1.42L6.41 5H9V3H3v6zm13.29 5.29-1.42 1.42L19 20.59V18h2v6h-6v-2h2.59l-4.3-4.29zM5 15v-2H3v6h6v-2H6.41l4.3-4.29-1.42-1.42L5 15z"/></svg>
+    <span>Land</span>
+  </button>
+
+  <button class="tb-btn" id="tb-governor" aria-label="Governor">
+    <svg class="tb-icon-svg" viewBox="0 0 24 24">
+      <!-- Capitol / Governor building -->
+      <path d="M12 2l1 2h2l-1.5 1.5.5 2L12 6.5 10 7.5l.5-2L9 4h2l1-2zM4 21v-2h16v2H4zm2-3V11h2v7H6zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zM3 10V8h18v2H3z"/>
+    </svg>
+    <span>Governor</span>
+  </button>
+
+  <button class="tb-btn" id="tb-erase" aria-label="Erase">
+    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83L8.88 22.05A2 2 0 017.47 22.6H3c-.55 0-1-.45-1-1v-4.46a2 2 0 01.59-1.42L14.17 3.56c.79-.78 2.07-.78 2.07 0zM15 6.77L5 16.77V20h3.23L18.23 10 15 6.77z"/></svg>
+    <span>Erase</span>
+  </button>
+
+</div>
+
+<!-- ── BUILD SUB-PANEL — floats above toolbar ────── -->
+<div id="build-subpanel">
+
+  <!-- Governor panel -->
+  <div id="sp-governor" class="sp-page hidden">
+    <div class="sp-title">Governor</div>
+    <div class="sp-item" id="sp-gov-tax">
+      <span class="sp-icon">🏛️</span>
+      <div class="sp-info"><div class="sp-name">City Hall</div><div class="sp-desc">Manage your city</div></div>
     </div>
-    <div class="menu-section-title">Build</div>
-    <div class="bitem" data-tool="road">
-      <span class="bi">🛣️</span>
-      <span class="blabel"><span class="bname">Road</span><span class="bdesc">Connect your city</span></span>
-      <span class="bcost">$50</span>
+    <div class="sp-item" id="sp-gov-policy">
+      <span class="sp-icon">📜</span>
+      <div class="sp-info"><div class="sp-name">Policies</div><div class="sp-desc">Set city rules</div></div>
     </div>
-    <div class="bitem" id="house-cat-btn">
-      <span class="bi">🏠</span>
-      <span class="blabel"><span class="bname">House</span><span class="bdesc">Residential zone</span></span>
-      <span class="bcost" id="house-cat-cost">$150</span>
-    </div>
-    <div class="bitem" id="park-cat-btn">
-      <span class="bi">🌲</span>
-      <span class="blabel"><span class="bname">Park</span><span class="bdesc">Green space</span></span>
-      <span class="bcost" id="park-cat-cost">$75</span>
-    </div>
-    <div class="bitem" data-tool="erase">
-      <span class="bi">🗑️</span>
-      <span class="blabel"><span class="bname">Erase</span><span class="bdesc">50% refund</span></span>
-      <span class="bcost free">Free</span>
+    <div class="sp-item" id="sp-gov-services">
+      <span class="sp-icon">🚒</span>
+      <div class="sp-info"><div class="sp-name">Services</div><div class="sp-desc">Fire, police &amp; more</div></div>
     </div>
   </div>
-  <!-- Page 3: Park styles -->
-  <div id="menu-park" class="menu-page hidden">
-    <div class="menu-back" id="back-to-main-park">← Categories</div>
-    <div class="menu-section-title">Park Type</div>
-    <div class="htype active" data-ptype="park">
-      <span class="htype-icon">🌲</span>
-      <div><div class="htype-name">Park</div><div class="htype-desc">Trees, paths &amp; bench</div></div>
-      <span class="bcost">$75</span>
-    </div>
-    <div class="htype" data-ptype="bigpark">
-      <span class="htype-icon">🎡</span>
-      <div><div class="htype-name">Big Park</div><div class="htype-desc">Slides, play zone &amp; more (2×2)</div></div>
-      <span class="bcost">$7,000</span>
-    </div>
-    <div class="htype" data-ptype="amusementpark">
-      <span class="htype-icon">🎢</span>
-      <div><div class="htype-name">Amusement Park</div><div class="htype-desc">Waterfall Wonders — slides, pool &amp; rides (3×3)</div></div>
-      <span class="bcost">$15,000</span>
-    </div>
-  </div>
-  <!-- Page 2: House styles -->
-  <div id="menu-house" class="menu-page hidden">
-    <div class="menu-back" id="back-to-main">← Categories</div>
-    <div class="menu-section-title">House Style</div>
-    <div class="htype active" data-htype="cottage">
-      <span class="htype-icon">🏡</span>
-      <div><div class="htype-name">Cottage</div><div class="htype-desc">Cozy &amp; charming</div></div>
+    <div class="sp-title">House Style</div>
+    <div class="sp-item sp-house-type active" data-htype="cottage">
+      <span class="sp-icon">🏡</span>
+      <div class="sp-info"><div class="sp-name">Cottage</div><div class="sp-desc">Cosy &amp; charming</div></div>
       <span class="bcost">$150</span>
     </div>
-    <div class="htype" data-htype="modern">
-      <span class="htype-icon">🏢</span>
-      <div><div class="htype-name">Modern</div><div class="htype-desc">Sleek flat-roof</div></div>
+    <div class="sp-item sp-house-type" data-htype="modern">
+      <span class="sp-icon">🏢</span>
+      <div class="sp-info"><div class="sp-name">Modern</div><div class="sp-desc">Sleek flat-roof</div></div>
       <span class="bcost">$220</span>
     </div>
-    <div class="htype" data-htype="villa">
-      <span class="htype-icon">🏛️</span>
-      <div><div class="htype-name">Villa</div><div class="htype-desc">Grand &amp; elegant</div></div>
+    <div class="sp-item sp-house-type" data-htype="villa">
+      <span class="sp-icon">🏛️</span>
+      <div class="sp-info"><div class="sp-name">Villa</div><div class="sp-desc">Grand &amp; elegant</div></div>
       <span class="bcost">$380</span>
     </div>
-    <div class="htype" data-htype="cabin">
-      <span class="htype-icon">🛖</span>
-      <div><div class="htype-name">Log Cabin</div><div class="htype-desc">Rustic A-frame</div></div>
+    <div class="sp-item sp-house-type" data-htype="cabin">
+      <span class="sp-icon">🛖</span>
+      <div class="sp-info"><div class="sp-name">Log Cabin</div><div class="sp-desc">Rustic A-frame</div></div>
       <span class="bcost">$130</span>
     </div>
-    <div class="htype" data-htype="apartment">
-      <span class="htype-icon">🏬</span>
-      <div><div class="htype-name">Apartment</div><div class="htype-desc">Multi-level living</div></div>
+    <div class="sp-item sp-house-type" data-htype="apartment">
+      <span class="sp-icon">🏬</span>
+      <div class="sp-info"><div class="sp-name">Apartment</div><div class="sp-desc">Multi-level living</div></div>
       <span class="bcost">$260</span>
     </div>
   </div>
+
+  <!-- Park types -->
+  <div id="sp-park" class="sp-page hidden">
+    <div class="sp-title">Park Type</div>
+    <div class="sp-item sp-park-type active" data-ptype="park">
+      <span class="sp-icon">🌲</span>
+      <div class="sp-info"><div class="sp-name">Park</div><div class="sp-desc">Trees, paths &amp; bench</div></div>
+      <span class="bcost">$75</span>
+    </div>
+    <div class="sp-item sp-park-type" data-ptype="bigpark">
+      <span class="sp-icon">🎡</span>
+      <div class="sp-info"><div class="sp-name">Big Park</div><div class="sp-desc">Play zone (2×2)</div></div>
+      <span class="bcost">$7,000</span>
+    </div>
+    <div class="sp-item sp-park-type" data-ptype="amusementpark">
+      <span class="sp-icon">🎢</span>
+      <div class="sp-info"><div class="sp-name">Amusement Park</div><div class="sp-desc">Waterfall Wonders (3×3)</div></div>
+      <span class="bcost">$15,000</span>
+    </div>
+  </div>
+
+  <!-- Land purchase -->
+  <div id="sp-land" class="sp-page hidden">
+    <div class="sp-title">Territory</div>
+    <div class="sp-item" id="sp-land-buy-btn">
+      <span class="sp-icon">🏞️</span>
+      <div class="sp-info">
+        <div class="sp-name">Buy Land</div>
+        <div class="sp-desc" id="sp-land-desc">Expand your territory</div>
+      </div>
+      <span class="bcost" id="sp-land-cost">$5,000</span>
+    </div>
+  </div>
+
 </div>
 
 <!-- Pan controls (front / back) -->
@@ -706,7 +716,6 @@ const raycaster = new THREE.Raycaster();
 //  BUILD STATE
 // ─────────────────────────────────────────────────
 let selectedTool  = null;
-let buildMenuOpen = false;
 const placedItems = {};   // key "r,c" → THREE.Group
 let selectedHouseType = 'cottage';
 let selectedParkType  = 'park';
@@ -2236,35 +2245,29 @@ function getBuildCost(tool) {
 }
 
 function refreshAffordability() {
-  document.querySelectorAll('#menu-main .bitem[data-tool]').forEach(el => {
-    if (el.dataset.tool === 'erase') return;
-    el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.tool] ?? 0));
-  });
+  // Toolbar buttons
+  const tbRoadEl = document.getElementById('tb-road');
+  if (tbRoadEl) tbRoadEl.classList.toggle('cant-afford', cash < (COSTS.road ?? 0));
+  // House types in sub-panel
   const houseCost = COSTS[selectedHouseType] ?? COSTS.cottage;
-  const houseBtn  = document.getElementById('house-cat-btn');
-  const houseCostEl = document.getElementById('house-cat-cost');
-  if (houseCostEl) houseCostEl.textContent = '$' + houseCost;
-  if (houseBtn)   houseBtn.classList.toggle('cant-afford', cash < houseCost);
-  document.querySelectorAll('.htype[data-htype]').forEach(el => {
+  const tbHouseEl = document.getElementById('tb-house');
+  if (tbHouseEl) tbHouseEl.classList.toggle('cant-afford', cash < houseCost);
+  document.querySelectorAll('.sp-house-type').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.htype] ?? 0));
   });
-  // Park category
-  const parkCost   = COSTS[selectedParkType] ?? COSTS.park;
-  const parkBtn     = document.getElementById('park-cat-btn');
-  const parkCostEl  = document.getElementById('park-cat-cost');
-  if (parkCostEl) parkCostEl.textContent = '$' + parkCost.toLocaleString();
-  if (parkBtn)   parkBtn.classList.toggle('cant-afford', cash < parkCost);
-  document.querySelectorAll('.htype[data-ptype]').forEach(el => {
+  // Park types in sub-panel
+  const parkCost  = COSTS[selectedParkType] ?? COSTS.park;
+  const tbParkEl  = document.getElementById('tb-park');
+  if (tbParkEl) tbParkEl.classList.toggle('cant-afford', cash < parkCost);
+  document.querySelectorAll('.sp-park-type').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.ptype] ?? 0));
   });
-  // Land button
-  const landBtn   = document.getElementById('buy-land-btn');
-  const landBadge = document.getElementById('land-cost-badge');
-  if (landBtn && landBadge) {
-    const lc = getLandCost();
-    landBadge.textContent = '$' + lc.toLocaleString();
-    landBtn.classList.toggle('cant-afford', cash < lc);
-  }
+  // Land in sub-panel
+  const lc = getLandCost();
+  const spLandCost = document.getElementById('sp-land-cost');
+  const spLandBtn  = document.getElementById('sp-land-buy-btn');
+  if (spLandCost) spLandCost.textContent = '$' + lc.toLocaleString();
+  if (spLandBtn)  spLandBtn.classList.toggle('cant-afford', cash < lc);
 }
 
 // Init display
@@ -2402,7 +2405,8 @@ function moveDrag(x, y) {
   lastX = x; lastY = y;
 }
 function endDrag(ex, ey) {
-  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool) {
+  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
+      !document.getElementById('build-subpanel').classList.contains('show')) {
     const cell = getGridCell(ex, ey);
     if (cell) placeItem(cell.r, cell.c);
   }
@@ -2476,8 +2480,6 @@ document.getElementById('btn-out').addEventListener('click', () => { targetZoom 
   el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
   el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
 });
-const buildBtn  = document.getElementById('build-btn');
-const buildMenu = document.getElementById('build-menu');
 const toolBadge = document.getElementById('tool-badge');
 const badgeIcon = document.getElementById('badge-icon');
 const badgeName = document.getElementById('badge-name');
@@ -2489,51 +2491,62 @@ const HOUSE_TYPES = {
   cabin:     { icon: '🛖', name: 'Log Cabin' },
   apartment: { icon: '🏬', name: 'Apartment' },
 };
-
 const PARK_TYPES = {
   park:          { icon: '🌲', name: 'Park'           },
   bigpark:       { icon: '🎡', name: 'Big Park'        },
   amusementpark: { icon: '🎢', name: 'Amusement Park' },
 };
 
-const menuMain    = document.getElementById('menu-main');
-const menuHouse   = document.getElementById('menu-house');
-const menuPark    = document.getElementById('menu-park');
-const houseCatBtn = document.getElementById('house-cat-btn');
-const parkCatBtn  = document.getElementById('park-cat-btn');
-const backToMain  = document.getElementById('back-to-main');
-const backToMainPark = document.getElementById('back-to-main-park');
+// ── Toolbar elements ────────────────────────────────
+const tbRoad     = document.getElementById('tb-road');
+const tbHouse    = document.getElementById('tb-house');
+const tbPark     = document.getElementById('tb-park');
+const tbLand     = document.getElementById('tb-land');
+const tbGovernor = document.getElementById('tb-governor');
+const tbErase    = document.getElementById('tb-erase');
+const buildSubpanel = document.getElementById('build-subpanel');
+const spHouse    = document.getElementById('sp-house');
+const spPark     = document.getElementById('sp-park');
+const spLand     = document.getElementById('sp-land');
+const spGovernor = document.getElementById('sp-governor');
 
-function showMainMenu()  { menuMain.classList.remove('hidden'); menuHouse.classList.add('hidden'); menuPark.classList.add('hidden'); }
-function showHouseMenu() { menuMain.classList.add('hidden');   menuHouse.classList.remove('hidden'); menuPark.classList.add('hidden'); }
-function showParkMenu()  { menuMain.classList.add('hidden');   menuHouse.classList.add('hidden'); menuPark.classList.remove('hidden'); }
+let activeTbBtn    = null;
+let activeSubPage  = null;
 
-function updateBuildBtn() {
-  // Show ✕ whenever menu is open OR a tool is selected
-  const showCross = buildMenuOpen || !!selectedTool;
-  buildBtn.classList.toggle('open', showCross);
-  buildBtn.textContent = showCross ? '✕' : '🏗️';
+// ── Sub-panel show / hide ───────────────────────────
+function closeSubpanel() {
+  if (activeSubPage) { activeSubPage.classList.add('hidden'); activeSubPage = null; }
+  buildSubpanel.classList.remove('show');
+}
+// alias so placeItem / endDrag that call closeBuildMenu() still work
+function closeBuildMenu() { closeSubpanel(); }
+
+function openSubpanel(page) {
+  if (activeSubPage) activeSubPage.classList.add('hidden');
+  page.classList.remove('hidden');
+  activeSubPage = page;
+  buildSubpanel.classList.add('show');
+  refreshAffordability();
+}
+
+function setActiveTb(btn) {
+  if (activeTbBtn) activeTbBtn.classList.remove('active');
+  activeTbBtn = btn;
+  if (btn) btn.classList.add('active');
 }
 
 function clearTool() {
   selectedTool = null;
-  document.querySelectorAll('.bitem').forEach(e => e.classList.remove('selected'));
+  setActiveTb(null);
+  closeSubpanel();
   toolBadge.classList.remove('show');
   hoverMesh.visible = false;
   hoverBorder.visible = false;
-  updateBuildBtn();
-}
-
-function closeBuildMenu() {
-  buildMenuOpen = false;
-  buildMenu.classList.remove('open');
-  showMainMenu();
-  updateBuildBtn();
 }
 
 function setTool(tool) {
   selectedTool = tool;
-  const pt = PARK_TYPES[tool];   // covers park / bigpark / amusementpark generically
+  const pt = PARK_TYPES[tool];
   let icon, name;
   if (pt) {
     icon = pt.icon; name = pt.name;
@@ -2541,109 +2554,111 @@ function setTool(tool) {
     const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
     icon = ht.icon; name = ht.name;
   } else {
-    const fallback = { road: { icon: '🛣️', name: 'Road' }, erase: { icon: '🗑️', name: 'Erase' } };
-    const f = fallback[tool] || { icon: '?', name: tool };
+    const fb = { road:{ icon:'🛣️', name:'Road' }, erase:{ icon:'🗑️', name:'Erase' } };
+    const f = fb[tool] || { icon:'?', name: tool };
     icon = f.icon; name = f.name;
   }
   badgeIcon.textContent = icon;
   badgeName.textContent = name + ' — tap land';
   toolBadge.classList.add('show');
   hoverMat.color.set(tool === 'erase' ? 0xFF6666 : 0x88FF88);
-  updateBuildBtn();
 }
 
-buildBtn.addEventListener('click', () => {
-  if (buildMenuOpen) {
-    closeBuildMenu();
-  } else if (selectedTool) {
-    clearTool();
-  } else {
-    buildMenuOpen = true;
-    buildMenu.classList.add('open');
-    refreshAffordability();
-    updateBuildBtn();
+// ── ROAD button ─────────────────────────────────────
+tbRoad.addEventListener('click', function() {
+  closeSubpanel();
+  if (selectedTool === 'road') { clearTool(); return; }
+  setTool('road'); setActiveTb(tbRoad);
+});
+
+// ── HOUSE button — toggle house sub-panel ───────────
+tbHouse.addEventListener('click', function() {
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spHouse) {
+    closeSubpanel(); return;
   }
+  setActiveTb(tbHouse);
+  setTool('house');
+  openSubpanel(spHouse);
 });
 
-// Road / Park / Erase tools
-document.querySelectorAll('#menu-main .bitem[data-tool]').forEach(function(el) {
-  el.addEventListener('click', function() {
-    setTool(el.dataset.tool);
-    closeBuildMenu();
-  });
+// ── PARK button — toggle park sub-panel ─────────────
+tbPark.addEventListener('click', function() {
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spPark) {
+    closeSubpanel(); return;
+  }
+  setActiveTb(tbPark);
+  setTool(selectedParkType);
+  openSubpanel(spPark);
 });
 
-// House category → drill into style submenu
-houseCatBtn.addEventListener('click', function() {
-  selectedTool = 'house';
-  const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
-  badgeIcon.textContent = ht.icon;
-  badgeName.textContent = ht.name + ' — tap land';
-  toolBadge.classList.add('show');
-  hoverMat.color.set(0x88FF88);
-  showHouseMenu();
-  updateBuildBtn();
+// ── LAND button — toggle land sub-panel ─────────────
+tbLand.addEventListener('click', function() {
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spLand) {
+    closeSubpanel(); return;
+  }
+  // Land purchase is not a build tool; close any active tool
+  if (selectedTool && selectedTool !== 'house' && !PARK_TYPES[selectedTool]) {
+    clearTool();
+  }
+  setActiveTb(tbLand);
+  openSubpanel(spLand);
 });
 
-// Back to categories
-backToMain.addEventListener('click', function() { showMainMenu(); });
-backToMainPark.addEventListener('click', function() { showMainMenu(); });
+// ── ERASE button ────────────────────────────────────
+tbErase.addEventListener('click', function() {
+  closeSubpanel();
+  if (selectedTool === 'erase') { clearTool(); return; }
+  setTool('erase'); setActiveTb(tbErase);
+});
 
-// House style selection
-document.querySelectorAll('.htype[data-htype]').forEach(function(el) {
+// ── GOVERNOR button — toggle governor sub-panel ─────
+tbGovernor.addEventListener('click', function() {
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
+    closeSubpanel(); setActiveTb(null); return;
+  }
+  closeSubpanel();
+  setActiveTb(tbGovernor);
+  openSubpanel(spGovernor);
+});
+
+// ── House style selection ───────────────────────────
+document.querySelectorAll('.sp-house-type').forEach(function(el) {
   el.addEventListener('click', function() {
     selectedHouseType = el.dataset.htype;
-    document.querySelectorAll('.htype[data-htype]').forEach(function(e) { e.classList.remove('active'); });
+    document.querySelectorAll('.sp-house-type').forEach(function(e) { e.classList.remove('active'); });
     el.classList.add('active');
-    const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
-    badgeIcon.textContent = ht.icon;
-    badgeName.textContent = ht.name + ' — tap land';
-    selectedTool = 'house';
-    toolBadge.classList.add('show');
-    refreshAffordability();
-    closeBuildMenu();
+    setTool('house');
+    setActiveTb(tbHouse);
+    closeSubpanel();
   });
 });
 
-// Park category → drill into park-type submenu
-parkCatBtn.addEventListener('click', function() {
-  selectedTool = selectedParkType;
-  const pt = PARK_TYPES[selectedParkType] || { icon: '🌲', name: 'Park' };
-  badgeIcon.textContent = pt.icon;
-  badgeName.textContent = pt.name + ' — tap land';
-  toolBadge.classList.add('show');
-  hoverMat.color.set(0x88FF88);
-  showParkMenu();
-  updateBuildBtn();
-});
-
-// Park type selection
-document.querySelectorAll('.htype[data-ptype]').forEach(function(el) {
+// ── Park type selection ─────────────────────────────
+document.querySelectorAll('.sp-park-type').forEach(function(el) {
   el.addEventListener('click', function() {
     selectedParkType = el.dataset.ptype;
-    document.querySelectorAll('.htype[data-ptype]').forEach(function(e) { e.classList.remove('active'); });
+    document.querySelectorAll('.sp-park-type').forEach(function(e) { e.classList.remove('active'); });
     el.classList.add('active');
-    const pt = PARK_TYPES[selectedParkType] || { icon: '🌲', name: 'Park' };
-    badgeIcon.textContent = pt.icon;
-    badgeName.textContent = pt.name + ' — tap land';
-    selectedTool = selectedParkType;
-    toolBadge.classList.add('show');
-    refreshAffordability();
-    closeBuildMenu();
+    setTool(selectedParkType);
+    setActiveTb(tbPark);
+    closeSubpanel();
   });
 });
 
-// Tap outside build menu to close (does NOT clear the tool)
-document.addEventListener('click', function(e) {
-  if (buildMenuOpen && !buildMenu.contains(e.target) && e.target !== buildBtn) {
-    closeBuildMenu();
-  }
+// ── Land buy button in sub-panel ────────────────────
+document.getElementById('sp-land-buy-btn').addEventListener('click', function() {
+  buyLand();
+  closeSubpanel();
+  setActiveTb(null);
 });
 
-// Buy Land — immediate action, not a placement tool
-document.getElementById('buy-land-btn').addEventListener('click', function() {
-  buyLand();
-  closeBuildMenu();
+// ── Tap outside sub-panel to close ─────────────────
+document.addEventListener('click', function(e) {
+  if (!buildSubpanel.classList.contains('show')) return;
+  const toolbar = document.getElementById('build-toolbar');
+  if (!buildSubpanel.contains(e.target) && !toolbar.contains(e.target)) {
+    closeSubpanel();
+  }
 });
 
 // ─────────────────────────────────────────────────
