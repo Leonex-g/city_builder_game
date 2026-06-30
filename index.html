@@ -122,6 +122,7 @@
     #tb-road  .tb-icon-svg { fill: #78B4FF; }
     #tb-house .tb-icon-svg { fill: #FFB347; }
     #tb-park  .tb-icon-svg { fill: #5CDB5C; }
+    #tb-governor .tb-icon-svg { fill: #C88AFF; }
     #tb-land  .tb-icon-svg { fill: #FFD700; }
     #tb-governor .tb-icon-svg { fill: #C88AFF; }
     #tb-erase .tb-icon-svg { fill: #FF7070; }
@@ -334,7 +335,6 @@
 
   <button class="tb-btn" id="tb-governor" aria-label="Governor">
     <svg class="tb-icon-svg" viewBox="0 0 24 24">
-      <!-- Capitol / Governor building -->
       <path d="M12 2l1 2h2l-1.5 1.5.5 2L12 6.5 10 7.5l.5-2L9 4h2l1-2zM4 21v-2h16v2H4zm2-3V11h2v7H6zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zM3 10V8h18v2H3z"/>
     </svg>
     <span>Governor</span>
@@ -350,22 +350,8 @@
 <!-- ── BUILD SUB-PANEL — floats above toolbar ────── -->
 <div id="build-subpanel">
 
-  <!-- Governor panel -->
-  <div id="sp-governor" class="sp-page hidden">
-    <div class="sp-title">Governor</div>
-    <div class="sp-item" id="sp-gov-tax">
-      <span class="sp-icon">🏛️</span>
-      <div class="sp-info"><div class="sp-name">City Hall</div><div class="sp-desc">Manage your city</div></div>
-    </div>
-    <div class="sp-item" id="sp-gov-policy">
-      <span class="sp-icon">📜</span>
-      <div class="sp-info"><div class="sp-name">Policies</div><div class="sp-desc">Set city rules</div></div>
-    </div>
-    <div class="sp-item" id="sp-gov-services">
-      <span class="sp-icon">🚒</span>
-      <div class="sp-info"><div class="sp-name">Services</div><div class="sp-desc">Fire, police &amp; more</div></div>
-    </div>
-  </div>
+  <!-- House styles -->
+  <div id="sp-house" class="sp-page hidden">
     <div class="sp-title">House Style</div>
     <div class="sp-item sp-house-type active" data-htype="cottage">
       <span class="sp-icon">🏡</span>
@@ -424,6 +410,19 @@
         <div class="sp-desc" id="sp-land-desc">Expand your territory</div>
       </div>
       <span class="bcost" id="sp-land-cost">$5,000</span>
+    </div>
+  </div>
+
+  <!-- Governor panel — City Hall lives here -->
+  <div id="sp-governor" class="sp-page hidden">
+    <div class="sp-title">Governor</div>
+    <div class="sp-item sp-cityhall-type active" data-chtype="cityhall">
+      <span class="sp-icon">🏛️</span>
+      <div class="sp-info">
+        <div class="sp-name">City Hall</div>
+        <div class="sp-desc">Pillared dome, gold trim (2×2)</div>
+      </div>
+      <span class="bcost">$1,000</span>
     </div>
   </div>
 
@@ -1146,7 +1145,295 @@ function buildPark(r, c) {
   return g;
 }
 
-// ── Big Park (2×2 — 4 blocks) ──────────────────────
+// ── City Hall (2×2 — premium governor's hall) ──────────────────────────────
+function buildCityHall(r, c) {
+  const a = cellCenter(r, c);
+  const cx = a.x + CELL / 2, cz = a.z + CELL / 2;
+  const S = CELL * 2;         // full footprint = 12 units wide
+  const g = new THREE.Group(); g.userData.type = 'cityhall';
+
+  // ── Materials ──────────────────────────────────────────────────────────────
+  const stoneMat   = phong(0xD8CFC0, 0x555555, 18);      // pale limestone
+  const stoneLight = phong(0xEDE8E0, 0x777777, 24);      // lighter trim / cornice
+  const stoneDark  = phong(0xB0A898, 0x333333, 10);      // shadow / step nosing
+  const pillMat    = phong(0xEAE6DC, 0x888888, 30);      // polished column marble
+  const goldMat    = phong(0xD4A017, 0xFFEE88, 80);      // gold accents
+  const slateRoof  = phong(0x4A5260, 0x111111, 14);      // slate dome / roof
+  const glassMat   = new THREE.MeshPhongMaterial({ color: 0x9ACDDA, specular: 0xFFFFFF, shininess: 110, transparent: true, opacity: 0.72 });
+  const bronzeMat  = phong(0x7C6027, 0xAA8844, 40);
+  const doorMat    = phong(0x3A2710, 0x221100, 20);
+  const redFlagMat = phong(0xC8102E, 0x330000, 10);
+  const whiteMat   = phong(0xF5F5F5, 0xCCCCCC, 20);
+
+  // ── Ground plaza & perimeter kerbing ──────────────────────────────────────
+  const plaza = new THREE.Mesh(new THREE.BoxGeometry(S, 0.12, S), phong(0xCFCCC4, 0x444444, 8));
+  plaza.receiveShadow = true; g.add(plaza);
+
+  const kerbMat = stoneDark;
+  [[0, -S/2+0.12, S, 0.22], [0, S/2-0.12, S, 0.22]].forEach(([x2,z2,w,d]) => {
+    const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d), kerbMat);
+    k.position.set(x2, 0.15, z2); g.add(k);
+  });
+  [[-S/2+0.12, 0, 0.22, S], [S/2-0.12, 0, 0.22, S]].forEach(([x2,z2,w,d]) => {
+    const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d), kerbMat);
+    k.position.set(x2, 0.15, z2); g.add(k);
+  });
+
+  // ── Main entrance stairs (front face: +z) ─────────────────────────────────
+  for (let i = 0; i < 5; i++) {
+    const sw = 4.0 - i * 0.3, sh = 0.2, sd = 0.52;
+    const step = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, sd), stoneMat);
+    step.position.set(0, 0.07 + i * sh, S/2 - 0.28 - i * sd);
+    step.castShadow = true; step.receiveShadow = true; g.add(step);
+  }
+  // Step nosing strips (dark shadow lines)
+  for (let i = 0; i < 5; i++) {
+    const ns = new THREE.Mesh(new THREE.BoxGeometry(4.0 - i * 0.3, 0.04, 0.06), stoneDark);
+    ns.position.set(0, 0.05 + i * 0.2, S/2 - 0.04 - i * 0.52);
+    g.add(ns);
+  }
+
+  // ── Podium / stylobate (raised base) ──────────────────────────────────────
+  const podW = 8.2, podD = 7.8, podH = 1.12;
+  const podium = new THREE.Mesh(new THREE.BoxGeometry(podW, podH, podD), stoneMat);
+  podium.position.set(0, 0.62, -0.3); podium.castShadow = true; g.add(podium);
+  // Cornice / capital band around top of podium
+  const cornice = new THREE.Mesh(new THREE.BoxGeometry(podW + 0.18, 0.14, podD + 0.18), stoneLight);
+  cornice.position.set(0, 1.24, -0.3); g.add(cornice);
+
+  // ── Main building body ─────────────────────────────────────────────────────
+  const bW = 7.2, bD = 6.6, bH = 2.8;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(bW, bH, bD), stoneMat);
+  body.position.set(0, 1.18 + bH/2, -0.3); body.castShadow = true; g.add(body);
+
+  // Rusticated horizontal band at ground level of the body
+  const band = new THREE.Mesh(new THREE.BoxGeometry(bW, 0.28, bD + 0.04), stoneDark);
+  band.position.set(0, 1.32, -0.3); g.add(band);
+
+  // Window recesses (arched look, front face only) — 3 tall windows
+  [-2.2, 0, 2.2].forEach(wx => {
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.55, 0.15), glassMat);
+    arch.position.set(wx, 2.35, 2.9); arch.castShadow = true; g.add(arch);
+    // Keystoned arch header (trapezoidal block above each window)
+    const hdr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.18, 0.16), stoneLight);
+    hdr.position.set(wx, 3.17, 2.9); g.add(hdr);
+    // Sill
+    const sill = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.18), stoneDark);
+    sill.position.set(wx, 1.56, 2.9); g.add(sill);
+  });
+  // Side windows (2 each side)
+  [-1.4, 1.4].forEach(wz => {
+    [-1.85, 1.85].forEach(wx => {
+      const sw2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.2, 0.8), glassMat);
+      sw2.position.set(wx > 0 ? bW/2 - 0.02 : -bW/2 + 0.02, 2.4, wz - 0.3);
+      sw2.castShadow = true; g.add(sw2);
+    });
+  });
+
+  // ── Front portico (6 tall fluted Corinthian columns) ──────────────────────
+  const colH = 3.2, colR = 0.22;
+  const colPositions = [-3.1, -1.85, -0.62, 0.62, 1.85, 3.1];
+  colPositions.forEach(cx2 => {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(colR, colR * 1.08, colH, 14), pillMat);
+    col.position.set(cx2, 1.18 + colH/2, S/2 - 1.55);
+    col.castShadow = true; g.add(col);
+    // Fluted grooves (thin dark strips along column height)
+    for (let f = 0; f < 12; f++) {
+      const ang = (f / 12) * Math.PI * 2;
+      const groove = new THREE.Mesh(new THREE.BoxGeometry(0.03, colH * 0.96, 0.03), stoneDark);
+      groove.position.set(cx2 + Math.cos(ang) * colR * 0.95, 1.18 + colH/2, S/2 - 1.55 + Math.sin(ang) * colR * 0.95);
+      g.add(groove);
+    }
+    // Capital (ionic block at top)
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(colR * 3.2, 0.22, colR * 3.2), stoneLight);
+    cap.position.set(cx2, 1.18 + colH + 0.11, S/2 - 1.55); g.add(cap);
+    // Base (torus fillet)
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(colR * 1.25, colR * 1.35, 0.16, 14), stoneDark);
+    base.position.set(cx2, 1.25, S/2 - 1.55); g.add(base);
+  });
+
+  // ── Entablature: architrave → frieze → cornice over portico ───────────────
+  const porticoW = 7.0;
+  const architrave = new THREE.Mesh(new THREE.BoxGeometry(porticoW, 0.3, 0.58), stoneMat);
+  architrave.position.set(0, 1.18 + colH + 0.25, S/2 - 1.55); g.add(architrave);
+  // Frieze with alternating triglyph blocks
+  const frieze = new THREE.Mesh(new THREE.BoxGeometry(porticoW, 0.38, 0.52), stoneLight);
+  frieze.position.set(0, 1.18 + colH + 0.62, S/2 - 1.55); g.add(frieze);
+  for (let t = -3; t <= 3; t++) {
+    const trig = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.06), stoneDark);
+    trig.position.set(t * 1.0, 1.18 + colH + 0.62, S/2 - 1.31); g.add(trig);
+  }
+  // Raking cornice (slanted edges of pediment)
+  const porticoCornice = new THREE.Mesh(new THREE.BoxGeometry(porticoW + 0.2, 0.2, 0.66), stoneDark);
+  porticoCornice.position.set(0, 1.18 + colH + 0.92, S/2 - 1.55); g.add(porticoCornice);
+
+  // ── Triangular pediment ───────────────────────────────────────────────────
+  const pediment = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.01, 3.6, 1.35, 3, 1),
+    stoneMat
+  );
+  pediment.position.set(0, 1.18 + colH + 1.7, S/2 - 1.55);
+  pediment.rotation.y = Math.PI / 6;
+  pediment.castShadow = true; g.add(pediment);
+  // Pediment outline (raking moulding)
+  [[0, 1.18+colH+0.98, 7.1, 0.12, 0.42],
+   [-3.5, 1.18+colH+0.98, 0.12, 0.12, 2.1],
+   [3.5, 1.18+colH+0.98, 0.12, 0.12, 2.1]].forEach(([px2, py, pw, ph, pd]) => {
+    const mol = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), stoneLight);
+    mol.position.set(px2, py, S/2 - 1.55); g.add(mol);
+  });
+
+  // ── Roofline cornice (main building top) ──────────────────────────────────
+  const mainCornice = new THREE.Mesh(new THREE.BoxGeometry(bW + 0.32, 0.24, bD + 0.32), stoneDark);
+  mainCornice.position.set(0, 1.18 + bH + 0.12, -0.3); g.add(mainCornice);
+
+  // ── Central dome ──────────────────────────────────────────────────────────
+  const drumH = 0.9, drumR = 1.28;
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR * 1.06, drumH, 18), stoneMat);
+  drum.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3); drum.castShadow = true; g.add(drum);
+  // Drum windows (evenly spaced circular oculi)
+  for (let w2 = 0; w2 < 8; w2++) {
+    const wa = (w2 / 8) * Math.PI * 2;
+    const oculus = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 10), glassMat);
+    oculus.rotation.x = Math.PI / 2; oculus.rotation.z = wa;
+    oculus.position.set(Math.cos(wa) * drumR * 0.95, 1.18 + bH + 0.24 + drumH/2, -0.3 + Math.sin(wa) * drumR * 0.95);
+    g.add(oculus);
+  }
+  // Dome shell (hemisphere)
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(drumR * 0.98, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), slateRoof);
+  dome.position.set(0, 1.18 + bH + 0.24 + drumH, -0.3);
+  dome.castShadow = true; g.add(dome);
+  // Lantern atop dome
+  const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.52, 10), stoneMat);
+  lantern.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 - 0.1, -0.3);
+  lantern.castShadow = true; g.add(lantern);
+  const lanternRoof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.44, 10), slateRoof);
+  lanternRoof.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 0.36, -0.3);
+  lanternRoof.castShadow = true; g.add(lanternRoof);
+  // Flag mast
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.8, 7), goldMat);
+  mast.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 0.84, -0.3);
+  g.add(mast);
+  // Flag
+  const flag = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.42, 0.02), redFlagMat);
+  flag.position.set(0.4, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 1.48, -0.3 + 0.01);
+  g.add(flag);
+  // Gold ball finial
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), goldMat);
+  finial.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 1.82, -0.3);
+  g.add(finial);
+
+  // ── Clock face on drum (front side) ───────────────────────────────────────
+  const clockFace = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), phong(0xFAF8F0, 0xCCCCCC, 20));
+  clockFace.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR * 0.99);
+  g.add(clockFace);
+  const clockRim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.045, 8, 24), goldMat);
+  clockRim.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR * 0.99 + 0.01);
+  g.add(clockRim);
+  // Clock hands
+  const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.03), stoneDark);
+  hourHand.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR + 0.02);
+  hourHand.rotation.z = 1.1; g.add(hourHand);
+  const minHand = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.42, 0.03), stoneDark);
+  minHand.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR + 0.03);
+  minHand.rotation.z = -0.5; g.add(minHand);
+
+  // ── Rear wings (flanking side pavilions) ──────────────────────────────────
+  [-1, 1].forEach(side => {
+    const wgX = side * 2.7;
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.2, bH - 0.4, 2.8), stoneMat);
+    wing.position.set(wgX, 1.18 + (bH - 0.4)/2, -2.9); wing.castShadow = true; g.add(wing);
+    // Wing roofline cornice
+    const wc = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.2, 3.0), stoneDark);
+    wc.position.set(wgX, 1.18 + bH - 0.25, -2.9); g.add(wc);
+    // Wing pilasters (flat half-column against wall)
+    [wgX - 0.85, wgX + 0.85].forEach(px3 => {
+      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.26, bH - 0.4, 0.18), pillMat);
+      pil.position.set(px3, 1.18 + (bH - 0.4)/2, -1.5); pil.castShadow = true; g.add(pil);
+      const pilCap = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.18, 0.28), stoneLight);
+      pilCap.position.set(px3, 1.18 + bH - 0.53, -1.5); g.add(pilCap);
+    });
+    // Wing window
+    const wwin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.72), glassMat);
+    wwin.position.set(side > 0 ? wgX + 1.1 + 0.01 : wgX - 1.1 - 0.01, 2.25, -2.9);
+    g.add(wwin);
+    const wsill = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.84), stoneDark);
+    wsill.position.set(side > 0 ? wgX + 1.11 : wgX - 1.11, 1.78, -2.9); g.add(wsill);
+    // Connecting hyphen corridor between wing and main body
+    const hyph = new THREE.Mesh(new THREE.BoxGeometry(1.2, bH * 0.75, 2.0), stoneDark);
+    hyph.position.set(side * (bW/2 + 0.6), 1.18 + bH * 0.375, -2.0); g.add(hyph);
+  });
+
+  // ── Entrance portal: double arched door with surround ─────────────────────
+  const doorPortal = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.5, 0.2), stoneDark);
+  doorPortal.position.set(0, 2.22, 2.96); g.add(doorPortal);
+  // Door panels
+  [-0.35, 0.35].forEach(dx => {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.68, 2.1, 0.1), doorMat);
+    panel.position.set(dx, 2.1, 3.08); panel.castShadow = true; g.add(panel);
+    // Door moulding inset
+    const inset = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.7, 0.04), phong(0x2A1C0A, 0x110800, 8));
+    inset.position.set(dx, 2.2, 3.14); g.add(inset);
+    const inset2 = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.7, 0.04), phong(0x2A1C0A, 0x110800, 8));
+    inset2.position.set(dx, 1.52, 3.14); g.add(inset2);
+    // Brass door handle
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 8), bronzeMat);
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(dx * 0.45, 1.88, 3.14); g.add(handle);
+  });
+  // Fanlight above door (semicircle transom window)
+  const fanlight = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 8, 0, Math.PI, 0, Math.PI / 2), glassMat);
+  fanlight.rotation.z = Math.PI; fanlight.rotation.x = Math.PI / 2;
+  fanlight.position.set(0, 3.22, 3.03); g.add(fanlight);
+  const fanlightRim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.045, 6, 16, Math.PI), stoneDark);
+  fanlightRim.rotation.z = Math.PI;
+  fanlightRim.position.set(0, 3.22, 3.04); g.add(fanlightRim);
+
+  // ── Gold-capped bollards flanking front steps ──────────────────────────────
+  [-2.0, -1.4, 1.4, 2.0].forEach(bx2 => {
+    const boll = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.65, 10), stoneDark);
+    boll.position.set(bx2, 0.37, S/2 - 0.18); boll.castShadow = true; g.add(boll);
+    const cap2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), goldMat);
+    cap2.position.set(bx2, 0.74, S/2 - 0.18); g.add(cap2);
+  });
+
+  // ── Decorative gold eagles on parapet corners ──────────────────────────────
+  [[-3.5, S/2-1.62], [3.5, S/2-1.62]].forEach(([ex, ez]) => {
+    const pedest = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.45, 0.32), stoneLight);
+    pedest.position.set(ex, 1.18 + bH + 0.24 + 0.22, ez); g.add(pedest);
+    const eagle = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), goldMat);
+    eagle.scale.set(1, 1.5, 0.8);
+    eagle.position.set(ex, 1.18 + bH + 0.24 + 0.62, ez); eagle.castShadow = true; g.add(eagle);
+    const wing1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.22), goldMat);
+    wing1.position.set(ex - 0.28, 1.18 + bH + 0.24 + 0.64, ez); wing1.rotation.z = 0.4; g.add(wing1);
+    const wing2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.22), goldMat);
+    wing2.position.set(ex + 0.28, 1.18 + bH + 0.24 + 0.64, ez); wing2.rotation.z = -0.4; g.add(wing2);
+  });
+
+  // ── Lamp posts on the front plaza approach ─────────────────────────────────
+  [-3.6, 3.6].forEach(lx => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 3.2, 10), bronzeMat);
+    pole.position.set(lx, 1.65, S/2 - 0.7); pole.castShadow = true; g.add(pole);
+    // Arm
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.8, 6), bronzeMat);
+    arm.rotation.z = Math.PI / 2; arm.position.set(lx + (lx < 0 ? 0.4 : -0.4), 3.22, S/2 - 0.7); g.add(arm);
+    // Globe lantern
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10),
+      new THREE.MeshPhongMaterial({ color: 0xFFF3C0, emissive: 0xFFD86B, emissiveIntensity: 0.85, transparent: true, opacity: 0.88 }));
+    globe.position.set(lx + (lx < 0 ? 0.82 : -0.82), 3.22, S/2 - 0.7); g.add(globe);
+    // Lantern cage rings
+    [0, 0.14, -0.14].forEach(dy => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.018, 6, 16), bronzeMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(lx + (lx < 0 ? 0.82 : -0.82), 3.22 + dy, S/2 - 0.7); g.add(ring);
+    });
+  });
+
+  g.position.set(cx, 0.07, cz);
+  return g;
+}
+
+
 function buildBigPark(r, c) {
   // r,c is the top-left anchor cell of the 2×2 footprint; center on the block.
   const a = cellCenter(r, c);
@@ -2190,6 +2477,7 @@ let cash = 900000000;
 
 const COSTS = {
   road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
+  cityhall: 1000,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
   erase: 0,
 };
@@ -2199,6 +2487,7 @@ const COSTS = {
 const FOOTPRINTS = {
   bigpark:       { w: 2, h: 2 },   // 2×2 = 4 cells
   amusementpark: { w: 3, h: 3 },   // 3×3 = 9 cells
+  cityhall:      { w: 2, h: 2 },   // 2×2 = 4 cells
 };
 function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
 
@@ -2245,24 +2534,30 @@ function getBuildCost(tool) {
 }
 
 function refreshAffordability() {
-  // Toolbar buttons
+  // Road
   const tbRoadEl = document.getElementById('tb-road');
   if (tbRoadEl) tbRoadEl.classList.toggle('cant-afford', cash < (COSTS.road ?? 0));
-  // House types in sub-panel
+  // House types
   const houseCost = COSTS[selectedHouseType] ?? COSTS.cottage;
   const tbHouseEl = document.getElementById('tb-house');
   if (tbHouseEl) tbHouseEl.classList.toggle('cant-afford', cash < houseCost);
   document.querySelectorAll('.sp-house-type').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.htype] ?? 0));
   });
-  // Park types in sub-panel
-  const parkCost  = COSTS[selectedParkType] ?? COSTS.park;
-  const tbParkEl  = document.getElementById('tb-park');
+  // Park types
+  const parkCost = COSTS[selectedParkType] ?? COSTS.park;
+  const tbParkEl = document.getElementById('tb-park');
   if (tbParkEl) tbParkEl.classList.toggle('cant-afford', cash < parkCost);
   document.querySelectorAll('.sp-park-type').forEach(el => {
     el.classList.toggle('cant-afford', cash < (COSTS[el.dataset.ptype] ?? 0));
   });
-  // Land in sub-panel
+  // Governor / City Hall
+  const tbGovEl = document.getElementById('tb-governor');
+  if (tbGovEl) tbGovEl.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
+  document.querySelectorAll('.sp-cityhall-type').forEach(el => {
+    el.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
+  });
+  // Land
   const lc = getLandCost();
   const spLandCost = document.getElementById('sp-land-cost');
   const spLandBtn  = document.getElementById('sp-land-buy-btn');
@@ -2313,6 +2608,7 @@ function placeItem(r, c) {
     let mesh;
     if      (selectedTool === 'bigpark')       mesh = buildBigPark(r, c);
     else if (selectedTool === 'amusementpark') mesh = buildAmusementPark(r, c);
+    else if (selectedTool === 'cityhall')      mesh = buildCityHall(r, c);
     if (mesh) {
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
@@ -2518,7 +2814,6 @@ function closeSubpanel() {
   if (activeSubPage) { activeSubPage.classList.add('hidden'); activeSubPage = null; }
   buildSubpanel.classList.remove('show');
 }
-// alias so placeItem / endDrag that call closeBuildMenu() still work
 function closeBuildMenu() { closeSubpanel(); }
 
 function openSubpanel(page) {
@@ -2554,8 +2849,12 @@ function setTool(tool) {
     const ht = HOUSE_TYPES[selectedHouseType] || { icon: '🏠', name: 'House' };
     icon = ht.icon; name = ht.name;
   } else {
-    const fb = { road:{ icon:'🛣️', name:'Road' }, erase:{ icon:'🗑️', name:'Erase' } };
-    const f = fb[tool] || { icon:'?', name: tool };
+    const fb = {
+      road:     { icon: '🛣️', name: 'Road' },
+      erase:    { icon: '🗑️', name: 'Erase' },
+      cityhall: { icon: '🏛️', name: 'City Hall' },
+    };
+    const f = fb[tool] || { icon: '?', name: tool };
     icon = f.icon; name = f.name;
   }
   badgeIcon.textContent = icon;
@@ -2571,7 +2870,7 @@ tbRoad.addEventListener('click', function() {
   setTool('road'); setActiveTb(tbRoad);
 });
 
-// ── HOUSE button — toggle house sub-panel ───────────
+// ── HOUSE button ────────────────────────────────────
 tbHouse.addEventListener('click', function() {
   if (buildSubpanel.classList.contains('show') && activeSubPage === spHouse) {
     closeSubpanel(); return;
@@ -2581,7 +2880,7 @@ tbHouse.addEventListener('click', function() {
   openSubpanel(spHouse);
 });
 
-// ── PARK button — toggle park sub-panel ─────────────
+// ── PARK button ─────────────────────────────────────
 tbPark.addEventListener('click', function() {
   if (buildSubpanel.classList.contains('show') && activeSubPage === spPark) {
     closeSubpanel(); return;
@@ -2591,17 +2890,24 @@ tbPark.addEventListener('click', function() {
   openSubpanel(spPark);
 });
 
-// ── LAND button — toggle land sub-panel ─────────────
+// ── LAND button ─────────────────────────────────────
 tbLand.addEventListener('click', function() {
   if (buildSubpanel.classList.contains('show') && activeSubPage === spLand) {
     closeSubpanel(); return;
   }
-  // Land purchase is not a build tool; close any active tool
-  if (selectedTool && selectedTool !== 'house' && !PARK_TYPES[selectedTool]) {
-    clearTool();
-  }
+  clearTool();
   setActiveTb(tbLand);
   openSubpanel(spLand);
+});
+
+// ── GOVERNOR button — City Hall lives here ───────────
+tbGovernor.addEventListener('click', function() {
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
+    closeSubpanel(); setActiveTb(null); return;
+  }
+  setActiveTb(tbGovernor);
+  setTool('cityhall');
+  openSubpanel(spGovernor);
 });
 
 // ── ERASE button ────────────────────────────────────
@@ -2609,16 +2915,6 @@ tbErase.addEventListener('click', function() {
   closeSubpanel();
   if (selectedTool === 'erase') { clearTool(); return; }
   setTool('erase'); setActiveTb(tbErase);
-});
-
-// ── GOVERNOR button — toggle governor sub-panel ─────
-tbGovernor.addEventListener('click', function() {
-  if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
-    closeSubpanel(); setActiveTb(null); return;
-  }
-  closeSubpanel();
-  setActiveTb(tbGovernor);
-  openSubpanel(spGovernor);
 });
 
 // ── House style selection ───────────────────────────
@@ -2641,6 +2937,17 @@ document.querySelectorAll('.sp-park-type').forEach(function(el) {
     el.classList.add('active');
     setTool(selectedParkType);
     setActiveTb(tbPark);
+    closeSubpanel();
+  });
+});
+
+// ── City Hall selection (inside Governor panel) ──────
+document.querySelectorAll('.sp-cityhall-type').forEach(function(el) {
+  el.addEventListener('click', function() {
+    document.querySelectorAll('.sp-cityhall-type').forEach(function(e) { e.classList.remove('active'); });
+    el.classList.add('active');
+    setTool('cityhall');
+    setActiveTb(tbGovernor);
     closeSubpanel();
   });
 });
