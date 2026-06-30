@@ -317,7 +317,7 @@
 <!-- Cash panel — left of the compass -->
 <div id="cash-panel">
   <span id="cash-icon">💵</span>
-  <span id="cash-amount">$100,000</span>
+  <span id="cash-amount">$900,000,000</span>
 </div>
 
 <!-- Not-enough-cash toast -->
@@ -432,10 +432,11 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
 
 // ─────────────────────────────────────────────────
-//  CAMERA  (fixed direction, 20–100 m range)
+//  CAMERA  (fixed direction, 20 m min, max grows +10 m per land purchase, starts at 100 m)
 // ─────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
-const ZOOM_MIN = 20, ZOOM_MAX = 100, ZOOM_DEF = 60;
+const ZOOM_MIN = 20, ZOOM_DEF = 60;
+let   ZOOM_MAX = 100;
 const CAM_DIR  = new THREE.Vector3(0, 30, 55).normalize();
 let   zoomDist = ZOOM_DEF, targetZoom = ZOOM_DEF;
 let   panOffX = 0, panOffZ = 0, targetPanX = 0, targetPanZ = 0;
@@ -648,7 +649,8 @@ function buyLand() {
   landPurchaseCount++;
   expandLand();
   refreshAffordability();
-  targetZoom = Math.min(targetZoom + 10, ZOOM_MAX);   // zoom out 10 m to show new land
+  ZOOM_MAX += 10;        // each purchase extends the max zoom-out range by 10 m
+  targetZoom = ZOOM_MAX; // zoom out to the new max to show the new land
   showToast('New land unlocked! 🏞️');
 }
 
@@ -1321,7 +1323,7 @@ function tickCars() {
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
-let cash = 100000;
+let cash = 900000000;
 
 const COSTS = {
   road: 50, park: 75,
