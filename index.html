@@ -1147,291 +1147,679 @@ function buildPark(r, c) {
 
 // ── City Hall (2×2 — premium governor's hall) ──────────────────────────────
 function buildCityHall(r, c) {
-  const a = cellCenter(r, c);
-  const cx = a.x + CELL / 2, cz = a.z + CELL / 2;
-  const S = CELL * 2;         // full footprint = 12 units wide
+  // Place the hall centred on the middle cell of the 3×3 footprint (r+1, c+1)
+  const a = cellCenter(r + 1, c + 1);
+  const cx = a.x, cz = a.z;
+  const S = CELL * 3;          // now spans 3 cells side (used for plaza/fence)
   const g = new THREE.Group(); g.userData.type = 'cityhall';
 
-  // ── Materials ──────────────────────────────────────────────────────────────
-  const stoneMat   = phong(0xD8CFC0, 0x555555, 18);      // pale limestone
-  const stoneLight = phong(0xEDE8E0, 0x777777, 24);      // lighter trim / cornice
-  const stoneDark  = phong(0xB0A898, 0x333333, 10);      // shadow / step nosing
-  const pillMat    = phong(0xEAE6DC, 0x888888, 30);      // polished column marble
-  const goldMat    = phong(0xD4A017, 0xFFEE88, 80);      // gold accents
-  const slateRoof  = phong(0x4A5260, 0x111111, 14);      // slate dome / roof
-  const glassMat   = new THREE.MeshPhongMaterial({ color: 0x9ACDDA, specular: 0xFFFFFF, shininess: 110, transparent: true, opacity: 0.72 });
-  const bronzeMat  = phong(0x7C6027, 0xAA8844, 40);
-  const doorMat    = phong(0x3A2710, 0x221100, 20);
-  const redFlagMat = phong(0xC8102E, 0x330000, 10);
-  const whiteMat   = phong(0xF5F5F5, 0xCCCCCC, 20);
+  // ── Micro helper ──────────────────────────────────────────────────────────
+  const box = (w,h,d,mat,x,y,z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true; g.add(m); return m;
+  };
+  const cyl = (rt,rb,h,seg,mat,x,y,z) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat);
+    m.position.set(x,y,z); m.castShadow=true; g.add(m); return m;
+  };
+  const sph = (r2,seg,mat,x,y,z) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r2,seg,seg>>1), mat);
+    m.position.set(x,y,z); m.castShadow=true; g.add(m); return m;
+  };
+  const cone = (r2,h,seg,mat,x,y,z) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r2,h,seg), mat);
+    m.position.set(x,y,z); m.castShadow=true; g.add(m); return m;
+  };
+  const tor = (r2,t,seg,mat,x,y,z,rx=0,rz=0) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r2,t,6,seg), mat);
+    m.position.set(x,y,z); m.rotation.x=rx; m.rotation.z=rz; g.add(m); return m;
+  };
 
-  // ── Ground plaza & perimeter kerbing ──────────────────────────────────────
-  const plaza = new THREE.Mesh(new THREE.BoxGeometry(S, 0.12, S), phong(0xCFCCC4, 0x444444, 8));
-  plaza.receiveShadow = true; g.add(plaza);
+  // ── Material palette — imperial palace ───────────────────────────────────
+  const granite   = phong(0x14141E, 0x080812, 22);   // near-black imperial granite
+  const midGran   = phong(0x22223A, 0x0E0E22, 16);   // mid charcoal body panels
+  const darkGran  = phong(0x0C0C14, 0x050508, 10);   // deep shadow recesses
+  const blackMar  = phong(0xF5F2EE, 0xFFFFFF, 90);   // pure white marble columns
+  const royGold   = phong(0xD4AF37, 0xFFEE88, 130);  // royal gold structural
+  const briGold   = phong(0xFFD700, 0xFFFFCC, 220);  // brilliant gold fine detail
+  const palGold   = phong(0xC9A02A, 0xFFDD66, 90);   // pale satin gold panels
+  const bronze    = phong(0x7C5C1A, 0xBB8833, 65);   // rich bronze fittings
+  const emerald   = phong(0x003D28, 0x00CC77, 35);   // deep emerald accents
+  const crimson   = phong(0x6A0010, 0xFF2244, 40);   // imperial crimson inlay
+  const amberGls  = new THREE.MeshPhongMaterial({ color:0xFFAA22, specular:0xFFEE88, shininess:140, transparent:true, opacity:0.80 });
+  const tealGls   = new THREE.MeshPhongMaterial({ color:0x55BBCC, specular:0xFFFFFF, shininess:160, transparent:true, opacity:0.65 });
+  const warmGlow  = new THREE.MeshPhongMaterial({ color:0xFFE070, emissive:new THREE.Color(0xFFB820), emissiveIntensity:1.2, transparent:true, opacity:0.93 });
+  const whiteMar  = phong(0xF2EDE6, 0xFFFFFF, 60);   // white marble accents
+  const creamRoof = phong(0xFDF8F0, 0xFFFCF5, 50);   // cream white roof surfaces
 
-  const kerbMat = stoneDark;
-  [[0, -S/2+0.12, S, 0.22], [0, S/2-0.12, S, 0.22]].forEach(([x2,z2,w,d]) => {
-    const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d), kerbMat);
-    k.position.set(x2, 0.15, z2); g.add(k);
-  });
-  [[-S/2+0.12, 0, 0.22, S], [S/2-0.12, 0, 0.22, S]].forEach(([x2,z2,w,d]) => {
-    const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, d), kerbMat);
-    k.position.set(x2, 0.15, z2); g.add(k);
-  });
+  // ── Key dimensions ────────────────────────────────────────────────────────
+  const bW=8.2, bD=7.6, bH=7.0;       // main body — much taller
+  const colH=6.8, colR=0.24;           // grand columns span full body height
+  const podW=9.2, podD=8.8, podH=1.4;
+  const crownY = 1.18 + bH;            // top of main body
 
-  // ── Main entrance stairs (front face: +z) ─────────────────────────────────
-  for (let i = 0; i < 5; i++) {
-    const sw = 4.0 - i * 0.3, sh = 0.2, sd = 0.52;
-    const step = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, sd), stoneMat);
-    step.position.set(0, 0.07 + i * sh, S/2 - 0.28 - i * sd);
-    step.castShadow = true; step.receiveShadow = true; g.add(step);
-  }
-  // Step nosing strips (dark shadow lines)
-  for (let i = 0; i < 5; i++) {
-    const ns = new THREE.Mesh(new THREE.BoxGeometry(4.0 - i * 0.3, 0.04, 0.06), stoneDark);
-    ns.position.set(0, 0.05 + i * 0.2, S/2 - 0.04 - i * 0.52);
-    g.add(ns);
-  }
+  // ══════════════════════════════════════════════════════════════════════════
+  //  GROUND LEVEL
+  // ══════════════════════════════════════════════════════════════════════════
 
-  // ── Podium / stylobate (raised base) ──────────────────────────────────────
-  const podW = 8.2, podD = 7.8, podH = 1.12;
-  const podium = new THREE.Mesh(new THREE.BoxGeometry(podW, podH, podD), stoneMat);
-  podium.position.set(0, 0.62, -0.3); podium.castShadow = true; g.add(podium);
-  // Cornice / capital band around top of podium
-  const cornice = new THREE.Mesh(new THREE.BoxGeometry(podW + 0.18, 0.14, podD + 0.18), stoneLight);
-  cornice.position.set(0, 1.24, -0.3); g.add(cornice);
+  // Dark granite plaza
+  box(S,0.12,S, phong(0x10101A,0x050508,8), 0,0,0).receiveShadow=true;
 
-  // ── Main building body ─────────────────────────────────────────────────────
-  const bW = 7.2, bD = 6.6, bH = 2.8;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(bW, bH, bD), stoneMat);
-  body.position.set(0, 1.18 + bH/2, -0.3); body.castShadow = true; g.add(body);
+  // Bright gold kerb frame
+  [[0,-S/2+0.08,S+0.18,0.18,0.13],[0,S/2-0.08,S+0.18,0.18,0.13]].forEach(([px,pz,w,h,d])=>box(w,h,d,briGold,px,0.13,pz));
+  [[-S/2+0.08,0,0.13,0.18,S],[S/2-0.08,0,0.13,0.18,S]].forEach(([px,pz,w,h,d])=>box(w,h,d,briGold,px,0.13,pz));
 
-  // Rusticated horizontal band at ground level of the body
-  const band = new THREE.Mesh(new THREE.BoxGeometry(bW, 0.28, bD + 0.04), stoneDark);
-  band.position.set(0, 1.32, -0.3); g.add(band);
-
-  // Window recesses (arched look, front face only) — 3 tall windows
-  [-2.2, 0, 2.2].forEach(wx => {
-    const arch = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.55, 0.15), glassMat);
-    arch.position.set(wx, 2.35, 2.9); arch.castShadow = true; g.add(arch);
-    // Keystoned arch header (trapezoidal block above each window)
-    const hdr = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.18, 0.16), stoneLight);
-    hdr.position.set(wx, 3.17, 2.9); g.add(hdr);
-    // Sill
-    const sill = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.18), stoneDark);
-    sill.position.set(wx, 1.56, 2.9); g.add(sill);
-  });
-  // Side windows (2 each side)
-  [-1.4, 1.4].forEach(wz => {
-    [-1.85, 1.85].forEach(wx => {
-      const sw2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.2, 0.8), glassMat);
-      sw2.position.set(wx > 0 ? bW/2 - 0.02 : -bW/2 + 0.02, 2.4, wz - 0.3);
-      sw2.castShadow = true; g.add(sw2);
-    });
-  });
-
-  // ── Front portico (6 tall fluted Corinthian columns) ──────────────────────
-  const colH = 3.2, colR = 0.22;
-  const colPositions = [-3.1, -1.85, -0.62, 0.62, 1.85, 3.1];
-  colPositions.forEach(cx2 => {
-    const col = new THREE.Mesh(new THREE.CylinderGeometry(colR, colR * 1.08, colH, 14), pillMat);
-    col.position.set(cx2, 1.18 + colH/2, S/2 - 1.55);
-    col.castShadow = true; g.add(col);
-    // Fluted grooves (thin dark strips along column height)
-    for (let f = 0; f < 12; f++) {
-      const ang = (f / 12) * Math.PI * 2;
-      const groove = new THREE.Mesh(new THREE.BoxGeometry(0.03, colH * 0.96, 0.03), stoneDark);
-      groove.position.set(cx2 + Math.cos(ang) * colR * 0.95, 1.18 + colH/2, S/2 - 1.55 + Math.sin(ang) * colR * 0.95);
-      g.add(groove);
+  // Grand ceremonial gate pillars at plaza entrance
+  [-4.4,4.4].forEach(gx => {
+    cyl(0.28,0.32,4.2,10, blackMar, gx, 2.1+0.07, S/2-0.28);
+    // Gold banding on gate pillars
+    [1.0,2.0,3.0].forEach(gy=>cyl(0.33,0.33,0.1,10,royGold,gx,gy+0.07,S/2-0.28));
+    // Crowned gold capital
+    box(0.88,0.26,0.88, briGold, gx, 4.34, S/2-0.28);
+    box(0.72,0.14,0.72, royGold, gx, 4.54, S/2-0.28);
+    // Gold orb on gate pillar
+    sph(0.22,12,briGold, gx, 4.74, S/2-0.28);
+    // Decorative flutes on gate pillars
+    for(let f=0;f<8;f++){
+      const ang=(f/8)*Math.PI*2;
+      box(0.022,4.0,0.022,royGold, gx+Math.cos(ang)*0.29, 2.0+0.07, S/2-0.28+Math.sin(ang)*0.29);
     }
-    // Capital (ionic block at top)
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(colR * 3.2, 0.22, colR * 3.2), stoneLight);
-    cap.position.set(cx2, 1.18 + colH + 0.11, S/2 - 1.55); g.add(cap);
-    // Base (torus fillet)
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(colR * 1.25, colR * 1.35, 0.16, 14), stoneDark);
-    base.position.set(cx2, 1.25, S/2 - 1.55); g.add(base);
   });
+  // Linking chain (decorative gold bar between gate pillars)
+  box(8.98,0.06,0.06, royGold, 0, 4.6, S/2-0.28);
 
-  // ── Entablature: architrave → frieze → cornice over portico ───────────────
-  const porticoW = 7.0;
-  const architrave = new THREE.Mesh(new THREE.BoxGeometry(porticoW, 0.3, 0.58), stoneMat);
-  architrave.position.set(0, 1.18 + colH + 0.25, S/2 - 1.55); g.add(architrave);
-  // Frieze with alternating triglyph blocks
-  const frieze = new THREE.Mesh(new THREE.BoxGeometry(porticoW, 0.38, 0.52), stoneLight);
-  frieze.position.set(0, 1.18 + colH + 0.62, S/2 - 1.55); g.add(frieze);
-  for (let t = -3; t <= 3; t++) {
-    const trig = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.06), stoneDark);
-    trig.position.set(t * 1.0, 1.18 + colH + 0.62, S/2 - 1.31); g.add(trig);
+  // Approach path — dark granite inlaid with gold lines
+  box(4.6,0.04,4.2, phong(0x181826,0x080810,6), 0, 0.07, S/2-2.1);
+  for(let i=-2;i<=2;i++) box(0.04,0.04,4.2,royGold, i*1.05, 0.08, S/2-2.1);
+  for(let j=0;j<5;j++) box(4.6,0.04,0.04,royGold, 0, 0.08, S/2-0.4-j*0.92);
+
+  // 9-step grand staircase (wider + deeper)
+  for(let i=0;i<9;i++){
+    const sw=5.8-i*0.24, sh=0.16, sd=0.44;
+    box(sw,sh,sd, granite, 0, 0.08+i*sh, S/2-0.22-i*sd);
+    box(sw+0.04,0.04,0.06, briGold, 0, 0.06+i*sh, S/2-0.02-i*sd); // gold nosing
   }
-  // Raking cornice (slanted edges of pediment)
-  const porticoCornice = new THREE.Mesh(new THREE.BoxGeometry(porticoW + 0.2, 0.2, 0.66), stoneDark);
-  porticoCornice.position.set(0, 1.18 + colH + 0.92, S/2 - 1.55); g.add(porticoCornice);
-
-  // ── Triangular pediment ───────────────────────────────────────────────────
-  const pediment = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.01, 3.6, 1.35, 3, 1),
-    stoneMat
-  );
-  pediment.position.set(0, 1.18 + colH + 1.7, S/2 - 1.55);
-  pediment.rotation.y = Math.PI / 6;
-  pediment.castShadow = true; g.add(pediment);
-  // Pediment outline (raking moulding)
-  [[0, 1.18+colH+0.98, 7.1, 0.12, 0.42],
-   [-3.5, 1.18+colH+0.98, 0.12, 0.12, 2.1],
-   [3.5, 1.18+colH+0.98, 0.12, 0.12, 2.1]].forEach(([px2, py, pw, ph, pd]) => {
-    const mol = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), stoneLight);
-    mol.position.set(px2, py, S/2 - 1.55); g.add(mol);
+  // Stone balustrade along staircase sides
+  [-2.5,2.5].forEach(bsx=>{
+    box(0.28,1.44,2.36, midGran, bsx, 0.78, S/2-1.35);
+    box(0.32,0.1,2.4, royGold, bsx, 1.58, S/2-1.35);
+    for(let bi=0;bi<5;bi++) cyl(0.07,0.09,0.84,8,royGold, bsx, 0.5, S/2-0.5-bi*0.44);
   });
 
-  // ── Roofline cornice (main building top) ──────────────────────────────────
-  const mainCornice = new THREE.Mesh(new THREE.BoxGeometry(bW + 0.32, 0.24, bD + 0.32), stoneDark);
-  mainCornice.position.set(0, 1.18 + bH + 0.12, -0.3); g.add(mainCornice);
+  // ══════════════════════════════════════════════════════════════════════════
+  //  PODIUM
+  // ══════════════════════════════════════════════════════════════════════════
+  box(podW,podH,podD, granite, 0,0.66+podH/2,-0.3);
+  // Three-layer cornice at top of podium
+  box(podW+0.28,0.22,podD+0.28, royGold, 0,1.42,-0.3);
+  box(podW+0.14,0.1,podD+0.14,  emerald, 0,1.56,-0.3);
+  box(podW+0.32,0.1,podD+0.32,  briGold, 0,1.62,-0.3);
+  // Rustication joints on podium face
+  for(let pj=-4;pj<=4;pj++) box(0.04,podH*0.88,0.04,darkGran, pj*1.0, 0.66+podH/2, -0.3+podD/2+0.01);
+  // Side rustication
+  for(let pj=-3;pj<=3;pj++) box(0.04,podH*0.88,0.04,darkGran, bW/2+0.01, 0.66+podH/2, -0.3+pj*1.1);
 
-  // ── Central dome ──────────────────────────────────────────────────────────
-  const drumH = 0.9, drumR = 1.28;
-  const drum = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR * 1.06, drumH, 18), stoneMat);
-  drum.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3); drum.castShadow = true; g.add(drum);
-  // Drum windows (evenly spaced circular oculi)
-  for (let w2 = 0; w2 < 8; w2++) {
-    const wa = (w2 / 8) * Math.PI * 2;
-    const oculus = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.18, 10), glassMat);
-    oculus.rotation.x = Math.PI / 2; oculus.rotation.z = wa;
-    oculus.position.set(Math.cos(wa) * drumR * 0.95, 1.18 + bH + 0.24 + drumH/2, -0.3 + Math.sin(wa) * drumR * 0.95);
-    g.add(oculus);
+  // ══════════════════════════════════════════════════════════════════════════
+  //  MAIN BODY (tall imperial granite tower)
+  // ══════════════════════════════════════════════════════════════════════════
+  box(bW,bH,bD, granite, 0, 1.18+bH/2, -0.3);
+
+  // Horizontal gold band at every 1.4 units of height
+  for(let b=0;b<5;b++){
+    box(bW+0.1, 0.06, bD+0.1, royGold, 0, 1.18+1.0+b*1.3, -0.3);
   }
-  // Dome shell (hemisphere)
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(drumR * 0.98, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), slateRoof);
-  dome.position.set(0, 1.18 + bH + 0.24 + drumH, -0.3);
-  dome.castShadow = true; g.add(dome);
-  // Lantern atop dome
-  const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.52, 10), stoneMat);
-  lantern.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 - 0.1, -0.3);
-  lantern.castShadow = true; g.add(lantern);
-  const lanternRoof = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.44, 10), slateRoof);
-  lanternRoof.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 0.36, -0.3);
-  lanternRoof.castShadow = true; g.add(lanternRoof);
-  // Flag mast
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.8, 7), goldMat);
-  mast.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 0.84, -0.3);
-  g.add(mast);
-  // Flag
-  const flag = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.42, 0.02), redFlagMat);
-  flag.position.set(0.4, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 1.48, -0.3 + 0.01);
-  g.add(flag);
-  // Gold ball finial
-  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), goldMat);
-  finial.position.set(0, 1.18 + bH + 0.24 + drumH + drumR * 0.98 + 1.82, -0.3);
-  g.add(finial);
+  // Mid-height emerald inlay band
+  box(bW+0.06,0.12,bD+0.06, emerald, 0, 1.18+3.5, -0.3);
 
-  // ── Clock face on drum (front side) ───────────────────────────────────────
-  const clockFace = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), phong(0xFAF8F0, 0xCCCCCC, 20));
-  clockFace.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR * 0.99);
-  g.add(clockFace);
-  const clockRim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.045, 8, 24), goldMat);
-  clockRim.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR * 0.99 + 0.01);
-  g.add(clockRim);
-  // Clock hands
-  const hourHand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.03), stoneDark);
-  hourHand.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR + 0.02);
-  hourHand.rotation.z = 1.1; g.add(hourHand);
-  const minHand = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.42, 0.03), stoneDark);
-  minHand.position.set(0, 1.18 + bH + 0.24 + drumH/2, -0.3 + drumR + 0.03);
-  minHand.rotation.z = -0.5; g.add(minHand);
+  // ── Upper floor — second tier set back slightly ──────────────────────────
+  const t2W=7.2, t2D=6.6, t2H=2.2, t2Y=1.18+bH+0.1;
+  box(t2W,t2H,t2D, creamRoof, 0,t2Y+t2H/2,-0.3);
+  box(t2W+0.22,0.14,t2D+0.22, royGold, 0,t2Y+t2H+0.07,-0.3);
+  box(t2W+0.28,0.08,t2D+0.28, briGold, 0,t2Y+t2H+0.18,-0.3);
 
-  // ── Rear wings (flanking side pavilions) ──────────────────────────────────
-  [-1, 1].forEach(side => {
-    const wgX = side * 2.7;
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.2, bH - 0.4, 2.8), stoneMat);
-    wing.position.set(wgX, 1.18 + (bH - 0.4)/2, -2.9); wing.castShadow = true; g.add(wing);
-    // Wing roofline cornice
-    const wc = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.2, 3.0), stoneDark);
-    wc.position.set(wgX, 1.18 + bH - 0.25, -2.9); g.add(wc);
-    // Wing pilasters (flat half-column against wall)
-    [wgX - 0.85, wgX + 0.85].forEach(px3 => {
-      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.26, bH - 0.4, 0.18), pillMat);
-      pil.position.set(px3, 1.18 + (bH - 0.4)/2, -1.5); pil.castShadow = true; g.add(pil);
-      const pilCap = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.18, 0.28), stoneLight);
-      pilCap.position.set(px3, 1.18 + bH - 0.53, -1.5); g.add(pilCap);
-    });
-    // Wing window
-    const wwin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.72), glassMat);
-    wwin.position.set(side > 0 ? wgX + 1.1 + 0.01 : wgX - 1.1 - 0.01, 2.25, -2.9);
-    g.add(wwin);
-    const wsill = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.84), stoneDark);
-    wsill.position.set(side > 0 ? wgX + 1.11 : wgX - 1.11, 1.78, -2.9); g.add(wsill);
-    // Connecting hyphen corridor between wing and main body
-    const hyph = new THREE.Mesh(new THREE.BoxGeometry(1.2, bH * 0.75, 2.0), stoneDark);
-    hyph.position.set(side * (bW/2 + 0.6), 1.18 + bH * 0.375, -2.0); g.add(hyph);
+  // ══════════════════════════════════════════════════════════════════════════
+  //  WINDOWS — two full rows + upper floor
+  // ══════════════════════════════════════════════════════════════════════════
+  const FRONT_Z = -0.3+bD/2+0.01;
+
+  // Row 1 — lower (amber arched, 5 panels)
+  [-2.6,-1.3,0,1.3,2.6].forEach(wx=>{
+    // main amber pane
+    const w1=new THREE.Mesh(new THREE.BoxGeometry(0.82,2.1,0.14), amberGls);
+    w1.position.set(wx,2.2,FRONT_Z); g.add(w1);
+    // arched top
+    const arc=new THREE.Mesh(new THREE.CylinderGeometry(0.41,0.41,0.14,12,1,false,0,Math.PI),amberGls);
+    arc.rotation.x=Math.PI/2; arc.rotation.z=Math.PI/2;
+    arc.position.set(wx,3.26,FRONT_Z); g.add(arc);
+    // gold surround frame
+    box(1.0,2.24,0.08,royGold, wx,2.2,FRONT_Z+0.04);
+    box(1.0,0.12,0.08,royGold, wx,3.35,FRONT_Z+0.04);
+    box(1.0,0.12,0.2,briGold,  wx,1.12,FRONT_Z+0.02); // sill
+    // gold keystone above arch
+    box(0.22,0.3,0.1,briGold,  wx,3.5,FRONT_Z+0.04);
   });
 
-  // ── Entrance portal: double arched door with surround ─────────────────────
-  const doorPortal = new THREE.Mesh(new THREE.BoxGeometry(1.55, 2.5, 0.2), stoneDark);
-  doorPortal.position.set(0, 2.22, 2.96); g.add(doorPortal);
-  // Door panels
-  [-0.35, 0.35].forEach(dx => {
-    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.68, 2.1, 0.1), doorMat);
-    panel.position.set(dx, 2.1, 3.08); panel.castShadow = true; g.add(panel);
-    // Door moulding inset
-    const inset = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.7, 0.04), phong(0x2A1C0A, 0x110800, 8));
-    inset.position.set(dx, 2.2, 3.14); g.add(inset);
-    const inset2 = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.7, 0.04), phong(0x2A1C0A, 0x110800, 8));
-    inset2.position.set(dx, 1.52, 3.14); g.add(inset2);
-    // Brass door handle
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 8), bronzeMat);
-    handle.rotation.z = Math.PI / 2;
-    handle.position.set(dx * 0.45, 1.88, 3.14); g.add(handle);
-  });
-  // Fanlight above door (semicircle transom window)
-  const fanlight = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 8, 0, Math.PI, 0, Math.PI / 2), glassMat);
-  fanlight.rotation.z = Math.PI; fanlight.rotation.x = Math.PI / 2;
-  fanlight.position.set(0, 3.22, 3.03); g.add(fanlight);
-  const fanlightRim = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.045, 6, 16, Math.PI), stoneDark);
-  fanlightRim.rotation.z = Math.PI;
-  fanlightRim.position.set(0, 3.22, 3.04); g.add(fanlightRim);
-
-  // ── Gold-capped bollards flanking front steps ──────────────────────────────
-  [-2.0, -1.4, 1.4, 2.0].forEach(bx2 => {
-    const boll = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.65, 10), stoneDark);
-    boll.position.set(bx2, 0.37, S/2 - 0.18); boll.castShadow = true; g.add(boll);
-    const cap2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), goldMat);
-    cap2.position.set(bx2, 0.74, S/2 - 0.18); g.add(cap2);
+  // Row 2 — upper row (narrower teal windows)
+  [-2.4,-1.2,0,1.2,2.4].forEach(wx=>{
+    const w2=new THREE.Mesh(new THREE.BoxGeometry(0.64,1.5,0.12),tealGls);
+    w2.position.set(wx,4.8,FRONT_Z); g.add(w2);
+    // arched top
+    const arc2=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.12,10,1,false,0,Math.PI),tealGls);
+    arc2.rotation.x=Math.PI/2; arc2.rotation.z=Math.PI/2;
+    arc2.position.set(wx,5.56,FRONT_Z); g.add(arc2);
+    box(0.8,1.56,0.07,royGold,wx,4.8,FRONT_Z+0.03);
+    box(0.8,0.1,0.14,royGold, wx,3.97,FRONT_Z+0.02);
+    // Balcony sill with small railing
+    box(0.88,0.1,0.22,briGold, wx,3.96,FRONT_Z+0.08);
+    box(0.88,0.38,0.04,midGran, wx,4.15,FRONT_Z+0.2);
+    box(0.9,0.06,0.24,royGold, wx,4.36,FRONT_Z+0.2);
+    for(let b=-1;b<=1;b++) cyl(0.03,0.04,0.3,6,royGold, wx+b*0.26,4.18,FRONT_Z+0.2);
   });
 
-  // ── Decorative gold eagles on parapet corners ──────────────────────────────
-  [[-3.5, S/2-1.62], [3.5, S/2-1.62]].forEach(([ex, ez]) => {
-    const pedest = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.45, 0.32), stoneLight);
-    pedest.position.set(ex, 1.18 + bH + 0.24 + 0.22, ez); g.add(pedest);
-    const eagle = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), goldMat);
-    eagle.scale.set(1, 1.5, 0.8);
-    eagle.position.set(ex, 1.18 + bH + 0.24 + 0.62, ez); eagle.castShadow = true; g.add(eagle);
-    const wing1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.22), goldMat);
-    wing1.position.set(ex - 0.28, 1.18 + bH + 0.24 + 0.64, ez); wing1.rotation.z = 0.4; g.add(wing1);
-    const wing2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.22), goldMat);
-    wing2.position.set(ex + 0.28, 1.18 + bH + 0.24 + 0.64, ez); wing2.rotation.z = -0.4; g.add(wing2);
+  // Second-floor windows on upper tier
+  [-2.2,-1.1,0,1.1,2.2].forEach(wx=>{
+    const w3=new THREE.Mesh(new THREE.BoxGeometry(0.58,1.2,0.12),amberGls);
+    w3.position.set(wx,t2Y+1.1,FRONT_Z); g.add(w3);
+    box(0.72,1.28,0.07,royGold,wx,t2Y+1.1,FRONT_Z+0.03);
+    box(0.72,0.09,0.16,royGold,wx,t2Y+0.44,FRONT_Z+0.02);
   });
 
-  // ── Lamp posts on the front plaza approach ─────────────────────────────────
-  [-3.6, 3.6].forEach(lx => {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 3.2, 10), bronzeMat);
-    pole.position.set(lx, 1.65, S/2 - 0.7); pole.castShadow = true; g.add(pole);
-    // Arm
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.8, 6), bronzeMat);
-    arm.rotation.z = Math.PI / 2; arm.position.set(lx + (lx < 0 ? 0.4 : -0.4), 3.22, S/2 - 0.7); g.add(arm);
-    // Globe lantern
-    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10),
-      new THREE.MeshPhongMaterial({ color: 0xFFF3C0, emissive: 0xFFD86B, emissiveIntensity: 0.85, transparent: true, opacity: 0.88 }));
-    globe.position.set(lx + (lx < 0 ? 0.82 : -0.82), 3.22, S/2 - 0.7); g.add(globe);
-    // Lantern cage rings
-    [0, 0.14, -0.14].forEach(dy => {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.018, 6, 16), bronzeMat);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.set(lx + (lx < 0 ? 0.82 : -0.82), 3.22 + dy, S/2 - 0.7); g.add(ring);
+  // Side windows — 3 per side, 2 rows
+  [-1.6,0,1.6].forEach(wz=>{
+    [-1,1].forEach(side=>{
+      const xs = side*(bW/2-0.04);
+      // Row 1 side
+      const sw1=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.65,0.78),amberGls);
+      sw1.position.set(xs,2.2,-0.3+wz); g.add(sw1);
+      box(0.14,1.78,0.92,royGold,xs,2.2,-0.3+wz);
+      // Row 2 side
+      const sw2=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.3,0.64),tealGls);
+      sw2.position.set(xs,4.7,-0.3+wz); g.add(sw2);
+      box(0.14,1.42,0.76,royGold,xs,4.7,-0.3+wz);
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  FRONT PORTICO — 8 massive black-marble columns
+  // ══════════════════════════════════════════════════════════════════════════
+  // Portico: columns 2 units proud of the wall → walkable corridor behind
+  // Wall front face = -0.3 + bD/2 = 3.5  →  COL_Z = 3.5 + 2.0 = 5.5
+  const COL_Z = -0.3 + bD/2 + 2.0;  // 2-unit deep walkable portico
+  [-3.5,-2.3,-1.1,0,1.1,2.3,3.5].forEach(cx2=>{
+    // Black marble shaft
+    cyl(colR, colR*1.1, colH, 18, blackMar, cx2, 1.18+colH/2, COL_Z);
+    // 10 gold fluting strips
+    for(let f=0;f<10;f++){
+      const ang=(f/10)*Math.PI*2;
+      box(0.016,colH*0.95,0.016,royGold, cx2+Math.cos(ang)*colR*0.97, 1.18+colH/2, COL_Z+Math.sin(ang)*colR*0.97);
+    }
+    // Gold capital — 3-layer Corinthian
+    box(colR*3.8,0.14,colR*3.8, royGold,  cx2, 1.18+colH+0.07, COL_Z);
+    box(colR*3.2,0.16,colR*3.2, briGold,  cx2, 1.18+colH+0.23, COL_Z);
+    box(colR*2.6,0.14,colR*2.6, royGold,  cx2, 1.18+colH+0.38, COL_Z);
+    // Flared gold base
+    cyl(colR*1.45,colR*1.6,0.2,18,royGold, cx2,1.26,COL_Z);
+    cyl(colR*1.3,colR*1.45,0.12,18,briGold,cx2,1.38,COL_Z);
+  });
+
+  // ── Entablature over columns ───────────────────────────────────────────────
+  const pW = 8.4, entY = 1.18+colH+0.46;
+  box(pW,0.3,0.62,  midGran, 0,entY,COL_Z);        // architrave
+  box(pW,0.06,0.64, royGold, 0,entY+0.18,COL_Z);   // regula strip
+  box(pW,0.44,0.58, granite, 0,entY+0.44,COL_Z);   // frieze
+  // Gold metope panels
+  for(let t=-4;t<=4;t++){
+    box(0.68,0.34,0.07,palGold,  t*1.05,entY+0.44,COL_Z+0.26);
+    box(0.56,0.22,0.06,emerald,  t*1.05,entY+0.44,COL_Z+0.30);  // emerald inlay
+    box(0.3, 0.34,0.05,darkGran, t*1.05-0.5,entY+0.44,COL_Z+0.26);
+  }
+  box(pW+0.32,0.28,0.72, briGold, 0,entY+0.78,COL_Z); // cornice
+  // Dentils under cornice
+  for(let d=-8;d<=8;d++) box(0.1,0.14,0.24,royGold, d*0.52, entY+0.62, COL_Z+0.25);
+
+  // ── Grand pediment ────────────────────────────────────────────────────────
+  const pedY = entY+1.06;
+  // Gold raking moulding on all three sides
+  [[0,pedY-0.18,8.8,0.18,0.5],[-4.4,pedY-0.18,0.18,0.18,2.6],[4.4,pedY-0.18,0.18,0.18,2.6]].forEach(([px2,py2,pw,ph,pd])=>
+    box(pw,ph,pd,briGold,px2,py2,COL_Z));
+  // Tympanum — large gold relief panel + crimson inlay
+  box(5.4,0.84,0.12, palGold, 0,pedY+0.28,COL_Z+0.22);
+  box(4.6,0.6,0.1,   crimson, 0,pedY+0.28,COL_Z+0.26);
+  box(3.0,0.36,0.08, briGold, 0,pedY+0.28,COL_Z+0.28); // inner gold panel
+  // 3 gold trophy sculptures in tympanum
+  [-1.2,0,1.2].forEach(tx=>{ sph(0.2,8,briGold,tx,pedY+0.46,COL_Z+0.28); cone(0.1,0.4,6,royGold,tx,pedY+0.78,COL_Z+0.28); });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  SIDE COLONNADES — 4 pilasters each side
+  // ══════════════════════════════════════════════════════════════════════════
+  [-1,1].forEach(side=>{
+    const xs = side*(bW/2+0.12);
+    [-2.4,-0.8,0.8,2.4].forEach(pz2=>{
+      cyl(0.18,0.20,colH*0.75,14,blackMar, xs,1.18+colH*0.375,-0.3+pz2);
+      box(colR*3.0,0.22,colR*3.0,royGold,xs,1.18+colH*0.75+0.11,-0.3+pz2);
+      cyl(0.24,0.26,0.16,14,royGold,xs,1.26,-0.3+pz2);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  ROOFLINE CROWN PARAPET (main body)
+  // ══════════════════════════════════════════════════════════════════════════
+  const parY = crownY + 0.05;
+  // Parapet wall
+  box(bW+0.6, 0.78, bD+0.6, creamRoof, 0,parY+0.39,-0.3);
+  box(bW+0.7, 0.12, bD+0.7, briGold, 0,parY+0.82,-0.3); // cap rail
+  box(bW+0.64,0.08, bD+0.64,royGold, 0,parY+0.04,-0.3); // base rail
+  // Crimson inlay band on parapet face
+  box(bW+0.5,0.22,bD+0.5, crimson, 0,parY+0.36,-0.3);
+
+  // Balusters — front + back + sides
+  for(let i=-4;i<=4;i++){
+    cyl(0.065,0.085,0.7,8,royGold, i*1.0,parY+0.39,-0.3+bD/2+0.05);
+    sph(0.11,8,briGold, i*1.0,parY+0.84,-0.3+bD/2+0.05);
+    cyl(0.065,0.085,0.7,8,royGold, i*1.0,parY+0.39,-0.3-bD/2-0.05);
+    sph(0.11,8,briGold, i*1.0,parY+0.84,-0.3-bD/2-0.05);
+  }
+  for(let i=-3;i<=3;i++){
+    cyl(0.065,0.085,0.7,8,royGold, bW/2+0.05,parY+0.39,-0.3+i*1.0);
+    sph(0.11,8,briGold, bW/2+0.05,parY+0.84,-0.3+i*1.0);
+    cyl(0.065,0.085,0.7,8,royGold,-bW/2-0.05,parY+0.39,-0.3+i*1.0);
+    sph(0.11,8,briGold,-bW/2-0.05,parY+0.84,-0.3+i*1.0);
+  }
+
+  // Upper tier parapet
+  const uParY = t2Y+t2H+0.22;
+  box(t2W+0.5,0.6,t2D+0.5, creamRoof, 0,uParY+0.3,-0.3);
+  box(t2W+0.58,0.1,t2D+0.58,briGold,0,uParY+0.64,-0.3);
+  for(let i=-3;i<=3;i++){
+    cyl(0.055,0.07,0.56,8,royGold, i*0.92,uParY+0.28,-0.3+t2D/2+0.04);
+    cyl(0.055,0.07,0.56,8,royGold, i*0.92,uParY+0.28,-0.3-t2D/2-0.04);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  EIGHT CORNER OBELISK TOWERS
+  // ══════════════════════════════════════════════════════════════════════════
+  // Main 4 corner towers (tall)
+  [[bW/2-0.58, bD/2-0.58],[-bW/2+0.58, bD/2-0.58],[bW/2-0.58,-bD/2+0.58],[-bW/2+0.58,-bD/2+0.58]].forEach(([tx,tz])=>{
+    const tR=0.46, tH=bH+4.2;
+    cyl(tR,tR*1.12,tH,8,creamRoof,tx,1.18+tH/2,-0.3+tz);
+    // 5 gold bands ascending
+    [0.2,0.36,0.52,0.68,0.84].forEach(fr=>{ cyl(tR+0.07,tR+0.07,0.08,8,royGold,tx,1.18+tH*fr,-0.3+tz); });
+    // Emerald accent windows
+    for(let i=0;i<4;i++){
+      const ang=(i/4)*Math.PI*2;
+      const tw=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.7,0.09),amberGls);
+      tw.position.set(tx+Math.cos(ang)*tR*0.9,1.18+tH*0.6,-0.3+tz+Math.sin(ang)*tR*0.9);
+      tw.rotation.y=ang; g.add(tw);
+    }
+    // Gold collar + pointed obelisk cap
+    cyl(tR+0.1,tR+0.06,0.24,8,briGold,tx,1.18+tH+0.12,-0.3+tz);
+    cone(tR*0.78,2.2,8,briGold,tx,1.18+tH+1.34,-0.3+tz);
+    // Gold ring at base of obelisk cone
+    cyl(tR+0.14,tR+0.08,0.1,8,royGold,tx,1.18+tH+0.36,-0.3+tz);
+    // Small gold ball at very tip
+    sph(0.1,8,briGold,tx,1.18+tH+2.54,-0.3+tz);
+  });
+
+  // Mid-edge secondary spires (4 on long faces) — shorter
+  [[0, bD/2-0.3],[0,-bD/2+0.3]].forEach(([tx,tz])=>{
+    const sR=0.3, sH=bH+1.8;
+    cyl(sR,sR*1.08,sH,8,creamRoof,tx,1.18+sH/2,-0.3+tz);
+    [0.35,0.65].forEach(fr=>cyl(sR+0.05,sR+0.05,0.07,8,royGold,tx,1.18+sH*fr,-0.3+tz));
+    cyl(sR+0.08,sR+0.04,0.18,8,briGold,tx,1.18+sH+0.09,-0.3+tz);
+    cone(sR*0.72,1.4,8,royGold,tx,1.18+sH+0.86,-0.3+tz);
+    sph(0.09,8,briGold,tx,1.18+sH+1.64,-0.3+tz);
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  CENTRAL IMPERIAL CROWN TOWER (3-tier, no dome, no flag)
+  // ══════════════════════════════════════════════════════════════════════════
+  const ctY = uParY+0.68;  // sits on upper parapet
+
+  // Tier 1 — octagonal plinth
+  const t1R=1.32, t1H=1.0;
+  cyl(t1R,t1R*1.1,t1H,8,creamRoof, 0,ctY+t1H/2,-0.3);
+  box(t1R*2.0+0.22,0.12,t1R*2.0+0.22,royGold, 0,ctY+t1H+0.06,-0.3);
+  // Amber windows on Tier 1
+  for(let i=0;i<8;i++){
+    const ang=(i/8)*Math.PI*2;
+    const tw=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.62,0.1),amberGls);
+    tw.position.set(Math.cos(ang)*t1R*0.9,ctY+t1H*0.5,-0.3+Math.sin(ang)*t1R*0.9);
+    tw.rotation.y=ang; g.add(tw);
+    box(0.08,0.66,0.08,royGold, Math.cos(ang)*t1R*0.95,ctY+t1H*0.5,-0.3+Math.sin(ang)*t1R*0.95);
+  }
+
+  // Tier 2 — narrower octagonal drum
+  const t2R=1.0, t2TH=1.4;
+  const t2TY=ctY+t1H+0.12;
+  cyl(t2R,t2R*1.06,t2TH,8,creamRoof, 0,t2TY+t2TH/2,-0.3);
+  // Gold bands
+  [0.3,0.6,0.9].forEach(fr=>cyl(t2R+0.06,t2R+0.06,0.07,8,royGold,0,t2TY+t2TH*fr,-0.3));
+  // Teal windows on Tier 2
+  for(let i=0;i<8;i++){
+    const ang=(i/8)*Math.PI*2+Math.PI/8;
+    const tw=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.8,0.1),tealGls);
+    tw.position.set(Math.cos(ang)*t2R*0.92,t2TY+t2TH*0.5,-0.3+Math.sin(ang)*t2R*0.92);
+    tw.rotation.y=ang; g.add(tw);
+  }
+
+  // Tier 3 — gold imperial ring crown
+  const t3Y=t2TY+t2TH+0.04;
+  const crR=1.08;
+  cyl(crR+0.18,crR*0.9,0.38,8,briGold,0,t3Y+0.19,-0.3); // crown base ring
+  cyl(crR*0.84,crR+0.02,0.22,8,royGold,0,t3Y+0.5,-0.3); // crown waist
+  cyl(crR+0.22,crR*0.82,0.28,8,briGold,0,t3Y+0.72,-0.3); // crown top ring
+
+  // 12 crown points — alternating tall + short gold spires
+  for(let i=0;i<12;i++){
+    const ang=(i/12)*Math.PI*2;
+    const tall=i%2===0;
+    const h= tall ? 1.1 : 0.6;
+    const pr=crR+0.04;
+    cone(tall?0.1:0.08, h, 6, briGold,
+      Math.cos(ang)*pr, t3Y+0.86+h/2, -0.3+Math.sin(ang)*pr);
+    sph(tall?0.09:0.06,6,royGold, Math.cos(ang)*pr, t3Y+0.86+h+0.06, -0.3+Math.sin(ang)*pr);
+  }
+
+  // Crimson jewel panels inside crown ring
+  for(let i=0;i<8;i++){
+    const ang=(i/8)*Math.PI*2;
+    box(0.12,0.32,0.1,crimson, Math.cos(ang)*(crR-0.1),t3Y+0.44,-0.3+Math.sin(ang)*(crR-0.1));
+  }
+
+  // Central starburst orb (at the very pinnacle)
+  const orbY=t3Y+1.0;
+  sph(0.38,14,briGold,0,orbY,-0.3); // main gold orb
+  sph(0.24,10,royGold,0,orbY,-0.3); // inner orb
+  // 8 radiating gold bars from orb
+  for(let i=0;i<8;i++){
+    const ang=(i/8)*Math.PI*2;
+    box(0.04,0.04,0.48,briGold, Math.cos(ang)*0.4,orbY,-0.3+Math.sin(ang)*0.4);
+  }
+  // Vertical spire above orb
+  cyl(0.04,0.07,0.7,8,briGold, 0,orbY+0.55,-0.3);
+  sph(0.12,8,briGold, 0,orbY+0.98,-0.3);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  REAR WINGS — elevated pavilions
+  // ══════════════════════════════════════════════════════════════════════════
+  [-1,1].forEach(side=>{
+    const wgX=side*3.4, wH=bH*0.68, wW=2.6, wD=3.2;
+    box(wW,wH,wD, granite, wgX,1.18+wH/2,-3.3);
+    // Gold cornice + emerald band on wing
+    box(wW+0.22,0.2,wD+0.22,royGold,wgX,1.18+wH+0.1,-3.3);
+    box(wW+0.14,0.1,wD+0.14,emerald,wgX,1.18+wH-0.18,-3.3);
+    // 2 pilasters
+    [wgX-1.0,wgX+1.0].forEach(px3=>{
+      cyl(0.17,0.19,wH,12,blackMar,px3,1.18+wH/2,-1.75);
+      box(colR*2.8,0.18,colR*2.8,royGold,px3,1.18+wH+0.09,-1.75);
+      cyl(0.22,0.24,0.14,12,royGold,px3,1.26,-1.75);
+    });
+    // Amber wing windows (2 rows)
+    const wws=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.2,0.78),amberGls);
+    wws.position.set(side>0?wgX+1.31:wgX-1.31, 2.4,-3.3); g.add(wws);
+    box(0.14,1.32,0.92,royGold,side>0?wgX+1.31:wgX-1.31,2.4,-3.3);
+    const wws2=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.9,0.62),tealGls);
+    wws2.position.set(side>0?wgX+1.31:wgX-1.31, 3.9,-3.3); g.add(wws2);
+    // Wing mini-spire
+    cyl(0.24,0.28,0.52,8,royGold,wgX,1.18+wH+0.36,-3.3);
+    cone(0.2,0.8,8,briGold,wgX,1.18+wH+0.96,-3.3);
+    sph(0.1,8,briGold,wgX,1.18+wH+1.46,-3.3);
+    // Connecting colonnade corridor
+    const hyph=box(1.3,wH*0.6,2.2,midGran,side*(bW/2+0.65),1.18+wH*0.3,-2.2);
+    box(1.42,0.12,2.32,royGold,side*(bW/2+0.65),1.18+wH*0.6+0.06,-2.2);
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  GRAND ENTRANCE PORTAL
+  // ══════════════════════════════════════════════════════════════════════════
+  // Portal surround — deep recess with multi-layer gold frame
+  box(2.4,4.0,0.3,granite,0,2.9,FRONT_Z+0.08);
+  box(2.6,4.14,0.18,royGold,0,2.9,FRONT_Z+0.12);
+  box(2.44,4.02,0.14,briGold,0,2.9,FRONT_Z+0.14);
+  box(2.28,3.98,0.12,emerald,0,2.9,FRONT_Z+0.16);
+
+  // Double doors
+  [-0.56,0.56].forEach(dx=>{
+    // Door slab
+    box(0.98,3.0,0.12,phong(0x120A04,0x1A0E06,18),dx,2.44,FRONT_Z+0.14);
+    // 3 raised gold panels per door
+    [3.0,1.85,0.72].forEach(py=>box(0.68,0.7,0.05,royGold,dx,py,FRONT_Z+0.18));
+    // Crimson inlay in panels
+    [3.0,1.85,0.72].forEach(py=>box(0.5,0.52,0.04,crimson,dx,py,FRONT_Z+0.20));
+    // Brass handle
+    const hdl=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.3,8),bronze);
+    hdl.rotation.z=Math.PI/2; hdl.position.set(dx*0.38,2.1,FRONT_Z+0.22); g.add(hdl);
+  });
+
+  // Large amber fanlight (tall arched transom)
+  const fl=new THREE.Mesh(new THREE.SphereGeometry(1.1,16,10,0,Math.PI,0,Math.PI/2),amberGls);
+  fl.rotation.z=Math.PI; fl.rotation.x=Math.PI/2;
+  fl.position.set(0,4.0,FRONT_Z+0.14); g.add(fl);
+  tor(1.1,0.07,24,briGold, 0,4.0,FRONT_Z+0.16, 0,Math.PI);
+
+  // Gold spoke dividers in fanlight
+  for(let i=0;i<5;i++){
+    const ang=-Math.PI/2+(i/4)*Math.PI;
+    box(0.06,2.24,0.06,royGold, Math.cos(ang)*0.5,4.0+Math.sin(ang)*0.5, FRONT_Z+0.18);
+  }
+  // Crown above fanlight
+  box(2.64,0.3,0.22,briGold, 0,5.22,FRONT_Z+0.13);
+  box(2.3,0.18,0.16,royGold,0,5.46,FRONT_Z+0.13);
+  // Coat of arms in fanlight keystone position
+  sph(0.22,10,briGold,0,4.0,FRONT_Z+0.2);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  EXTERIOR DETAILING
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Gold-capped imperial bollards (6, wider approach)
+  [-3.0,-2.0,-1.0,1.0,2.0,3.0].forEach(bx2=>{
+    cyl(0.09,0.12,0.88,10,granite,bx2,0.51,S/2-0.22);
+    sph(0.16,10,briGold,bx2,1.0,S/2-0.22);
+    cyl(0.13,0.13,0.06,10,royGold,bx2,0.62,S/2-0.22);
+  });
+
+  // Decorative gold urns on parapet corners (8 total)
+  [[-bW/2-0.1,bD/2+0.1],[bW/2+0.1,bD/2+0.1],[-bW/2-0.1,-bD/2-0.1],[bW/2+0.1,-bD/2-0.1]].forEach(([ux,uz])=>{
+    const uY=parY+0.78;
+    cyl(0.18,0.24,0.5,8,royGold,ux,uY+0.25,-0.3+uz);
+    cyl(0.24,0.18,0.08,8,briGold,ux,uY+0.54,-0.3+uz);
+    // Urn bowl
+    const urn=new THREE.Mesh(new THREE.SphereGeometry(0.26,10,8,0,Math.PI*2,0,Math.PI/2),briGold);
+    urn.position.set(ux,uY+0.56,-0.3+uz); urn.scale.y=0.7; g.add(urn);
+    sph(0.08,8,royGold,ux,uY+0.78,-0.3+uz);
+  });
+
+  // Prestige lamp posts (6, triple globes)
+  [-4.8,-3.2,3.2,4.8].forEach(lx=>{
+    const poleY=2.5;
+    cyl(0.07,0.1,5.0,10,bronze,lx,poleY,S/2-0.9);
+    [0.3,0,-0.3].forEach(dy=>{
+      const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.0,6),bronze);
+      arm.rotation.z=Math.PI/2; arm.position.set(lx+(lx<0?0.5:-0.5),4.7+dy,S/2-0.9); g.add(arm);
+      const globe=new THREE.Mesh(new THREE.SphereGeometry(0.26,14,10),warmGlow);
+      globe.position.set(lx+(lx<0?1.02:-1.02),4.7+dy,S/2-0.9); g.add(globe);
+      tor(0.29,0.02,16,royGold,lx+(lx<0?1.02:-1.02),4.7+dy,S/2-0.9,Math.PI/2);
+    });
+    // Gold finial top
+    sph(0.14,8,briGold,lx,5.1,S/2-0.9);
+    cone(0.1,0.4,8,royGold,lx,5.38,S/2-0.9);
+  });
+
+  // Emerald decorative panels on body side walls (3 per side)
+  [-1,1].forEach(side=>{
+    [-1.8,0,1.8].forEach(pz=>{
+      box(0.08,2.2,1.28,emerald,side*(bW/2+0.04),3.0,-0.3+pz);
+      box(0.06,2.36,1.44,royGold,side*(bW/2+0.04),3.0,-0.3+pz);
+      // Gold keystone diamond inlay
+      box(0.07,0.36,0.36,briGold,side*(bW/2+0.04),3.0,-0.3+pz);
+    });
+  });
+
+  // Gold star inlays in the plaza granite
+  for(let i=-2;i<=2;i++) for(let j=-1;j<=1;j++) {
+    if(i===0&&j===0) continue;
+    box(0.18,0.03,0.18,royGold,i*2.2,0.075,j*2.2-0.3);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  3×3 COMPOUND  —  iron net fence · white marble pillars · opened gate
+  // ══════════════════════════════════════════════════════════════════════════
+  const CPX  =  9.0;   // half-width of compound (±x)
+  const CPF  =  9.2;   // front fence z
+  const CPB  = -9.0;   // back fence z — actual rear edge of 3×3 plot (−S/2)
+  const GH   =  3.0;   // half-width of gate opening
+  const FH   =  4.0;   // fence/pillar height
+
+  const ironMat  = phong(0x080808, 0x181818, 80);
+  const pillarMat= phong(0xF0EDE8, 0xFFFFFF, 60);
+
+  // ── Extended compound ground ─────────────────────────────────────────────
+  const groundMat = phong(0x0E0E18, 0x060608, 6);
+  box(18.4, 0.08, 3.6, groundMat,   0, 0.04,  7.6);    // front courtyard strip
+  box(3.2,  0.08, 18.2, groundMat, -8.4, 0.04, 0.1);   // left side strip
+  box(3.2,  0.08, 18.2, groundMat,  8.4, 0.04, 0.1);   // right side strip
+  box(18.4, 0.08, 0.4, groundMat,   0, 0.04, CPB);      // back strip at plot edge
+  // Gold inlay grid in front courtyard
+  for(let gl=-3;gl<=3;gl++) box(0.04, 0.04, 3.6, royGold, gl*2.8, 0.1, 7.6);
+  box(18.2, 0.04, 0.04, royGold, 0, 0.1, 6.2);
+  box(18.2, 0.04, 0.04, royGold, 0, 0.1, 9.0);
+
+  // ── White marble corner pillars (4) ─────────────────────────────────────
+  [[-CPX,CPF],[CPX,CPF],[-CPX,CPB],[CPX,CPB]].forEach(([px,pz])=>{
+    // Base footing
+    box(1.24,0.12,1.24, royGold,     px, 0.06, pz);
+    box(1.10,0.26,1.10, pillarMat,   px, 0.19, pz);
+    // Main shaft
+    box(0.90,FH+0.2,0.90, pillarMat, px, FH/2+0.32, pz);
+    // 4 corner flutes
+    for(let f=0;f<4;f++){
+      const a2=(f/4)*Math.PI*2+Math.PI/4;
+      box(0.07,FH+0.1,0.07,phong(0xDDD9D2,0xCCCCCC,30),
+          px+Math.cos(a2)*0.40, FH/2+0.32, pz+Math.sin(a2)*0.40);
+    }
+    // Capital layers
+    box(1.06,0.20,1.06, royGold,  px, FH+0.42, pz);
+    box(1.14,0.10,1.14, briGold,  px, FH+0.57, pz);
+    box(0.90,0.26,0.90, royGold,  px, FH+0.70, pz);
+    // Gold orb finial
+    sph(0.30,12,briGold, px, FH+1.02, pz);
+    // Thin gold ring around orb base
+    tor(0.32,0.03,18,royGold, px,FH+0.88,pz, Math.PI/2);
+  });
+
+  // ── Iron net fence helpers ───────────────────────────────────────────────
+  // Horizontal fence run: x1→x2 at constant z
+  const fH2 = (x1,x2,fz)=>{
+    const len=x2-x1, midX=(x1+x2)*0.5;
+    // 3 horizontal rails
+    [0.38, FH*0.50, FH-0.18].forEach(ry=>box(len,0.09,0.09,ironMat,midX,ry,fz));
+    // Vertical bars with spear tips (~every 0.46 units)
+    const n=Math.max(Math.round(Math.abs(len)/0.46),2);
+    for(let b=0;b<=n;b++){
+      const bx=x1+b*(len/n);
+      box(0.07,FH-0.08,0.07,ironMat, bx,(FH-0.08)/2,fz);
+      cone(0.065,0.28,4,ironMat,     bx, FH+0.14, fz);
+    }
+    // Net cross-bars (alternating mid-bays)
+    for(let b=0;b<n;b+=2){
+      const bx2=x1+(b+0.5)*(len/n), bw=len/n*0.88;
+      box(bw,0.055,0.055,ironMat, bx2,FH*0.28,fz);
+      box(bw,0.055,0.055,ironMat, bx2,FH*0.72,fz);
+    }
+  };
+  // Vertical fence run: z1→z2 at constant x
+  const fV2 = (fx,z1,z2)=>{
+    const len=z2-z1, midZ=(z1+z2)*0.5;
+    [0.38, FH*0.50, FH-0.18].forEach(ry=>box(0.09,0.09,len,ironMat,fx,ry,midZ));
+    const n=Math.max(Math.round(Math.abs(len)/0.46),2);
+    for(let b=0;b<=n;b++){
+      const bz=z1+b*(len/n);
+      box(0.07,FH-0.08,0.07,ironMat, fx,(FH-0.08)/2,bz);
+      cone(0.065,0.28,4,ironMat,     fx, FH+0.14, bz);
+    }
+    for(let b=0;b<n;b+=2){
+      const bz2=z1+(b+0.5)*(len/n), blen=len/n*0.88;
+      box(0.055,0.055,blen,ironMat, fx,FH*0.28,bz2);
+      box(0.055,0.055,blen,ironMat, fx,FH*0.72,bz2);
+    }
+  };
+
+  // Front fence: left of gate + right of gate
+  fH2(-CPX+0.50, -GH-0.15, CPF);
+  fH2( GH+0.15,   CPX-0.50, CPF);
+  // Side fences
+  fV2(-CPX, CPB+0.50, CPF-0.50);
+  fV2( CPX, CPB+0.50, CPF-0.50);
+  // Back fence
+  fH2(-CPX+0.50, CPX-0.50, CPB);
+
+  // ── Opened main gate (two panels swung ~80° outward) ────────────────────
+  [-1,1].forEach(side=>{
+    const hingeX = side*(GH+0.1);
+    const panelW = GH-0.2;
+    const gp = new THREE.Group();
+
+    // 6 vertical gate bars
+    for(let b=0;b<6;b++){
+      const bx = (b/(5))*panelW * (side>0?1:-1);
+      const bar=new THREE.Mesh(new THREE.BoxGeometry(0.075,FH-0.1,0.075),ironMat);
+      bar.position.set(bx,(FH-0.1)/2,0); gp.add(bar);
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(0.068,0.30,4),ironMat);
+      tip.position.set(bx,FH+0.15,0); gp.add(tip);
+    }
+    // 3 horizontal rails on gate panel
+    [0.36,FH*0.50,FH-0.18].forEach(ry=>{
+      const rail=new THREE.Mesh(new THREE.BoxGeometry(panelW+0.08,0.09,0.09),ironMat);
+      rail.position.set(side>0?panelW/2:-panelW/2,ry,0); gp.add(rail);
+    });
+    // Net cross-bars
+    [[FH*0.26],[FH*0.74]].forEach(([ry])=>{
+      const cr=new THREE.Mesh(new THREE.BoxGeometry(panelW*0.88,0.055,0.055),ironMat);
+      cr.position.set(side>0?panelW/2:-panelW/2,ry,0); gp.add(cr);
+    });
+    // Gold hinge post
+    const hp=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,FH+0.2,8),royGold);
+    hp.position.set(0,(FH+0.2)/2,0); gp.add(hp);
+    // 3 gold hinge knuckles
+    [FH*0.20,FH*0.50,FH*0.80].forEach(hy=>{
+      const hk=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.18,8),briGold);
+      hk.position.set(0,hy,0); gp.add(hk);
+    });
+    // Gold cap on hinge post
+    const hc=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,6),briGold);
+    hc.position.set(0,FH+0.36,0); gp.add(hc);
+
+    // Position at hinge point on front fence line, then swing open
+    gp.position.set(hingeX, 0, CPF);
+    gp.rotation.y = side>0 ? -Math.PI*0.82 : Math.PI*0.82;
+    g.add(gp);
+  });
+
+  // ── Gate arch / header ───────────────────────────────────────────────────
+  // Two gold gate posts flanking opening
+  [-GH-0.1, GH+0.1].forEach(gx=>{
+    cyl(0.20,0.24, FH+1.4, 8, royGold, gx,(FH+1.4)/2, CPF);
+    cyl(0.26,0.20, 0.14,   8, briGold, gx, FH+1.47,   CPF);
+    sph(0.24,10,briGold,       gx, FH+1.70, CPF);
+  });
+  // Horizontal arch lintel (3-layer)
+  box(GH*2+0.5, 0.34, 0.28, briGold, 0, FH+0.96, CPF);
+  box(GH*2+0.2, 0.16, 0.16, royGold, 0, FH+0.74, CPF);
+  box(GH*2+0.6, 0.1,  0.32, palGold, 0, FH+1.18, CPF);
+  // Central gate crest — gold orb + cross
+  sph(0.34,12,briGold, 0,FH+1.20,CPF);
+  sph(0.20,8, crimson, 0,FH+1.20,CPF+0.02);
+  box(0.60,0.07,0.14,royGold, 0,FH+1.05,CPF);
+  box(0.07,0.52,0.14,royGold, 0,FH+1.22,CPF);
+  // Small gold spires on top of gate posts
+  cone(0.1,0.5,6,briGold, -GH-0.1, FH+2.00, CPF);
+  cone(0.1,0.5,6,briGold,  GH+0.1, FH+2.00, CPF);
 
   g.position.set(cx, 0.07, cz);
   return g;
 }
+
 
 
 function buildBigPark(r, c) {
