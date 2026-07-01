@@ -35,23 +35,27 @@
     }
     #hint.fade { opacity: 0; }
 
-    /* ── Zoom controls ────────────────────────────── */
-    #zoom-wrap { position: fixed; bottom: 28px; right: 18px;
-      display: flex; flex-direction: column; align-items: center; gap: 7px; }
-    .zbtn {
-      width: 46px; height: 46px; border-radius: 50%;
-      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 24px; font-weight: 300;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
+    /* ── Camera target crosshair ──────────────────── */
+    #cam-target-dot {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px; height: 14px;
+      border: 1.5px solid rgba(255,255,255,0.65);
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+      z-index: 10;
+      box-shadow: 0 0 6px rgba(0,0,0,0.4);
     }
-    .zbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
-    #zoom-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.88);
-      letter-spacing: 0.6px; background: rgba(0,0,0,0.32); backdrop-filter: blur(8px);
-      padding: 4px 9px; border-radius: 10px; min-width: 44px; text-align: center; }
-    #zoom-bar-wrap { width: 4px; height: 60px; background: rgba(255,255,255,0.15);
-      border-radius: 4px; overflow: hidden; }
-    #zoom-bar-fill { width: 100%; background: rgba(255,255,255,0.75); border-radius: 4px; transition: height 0.2s; }
+    #cam-target-dot::before, #cam-target-dot::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.55);
+    }
+    #cam-target-dot::before { width: 1px; height: 6px; top: -5px; left: 50%; transform: translateX(-50%); }
+    #cam-target-dot::after  { width: 6px; height: 1px; left: -5px; top: 50%; transform: translateY(-50%); }
+    #cam-target-dot.visible { opacity: 1; }
+
+    /* ── Zoom controls ────────────────────────────── */
 
     /* ── BUILD TOOLBAR — 3×3 grid, bottom-left ──── */
     #build-toolbar {
@@ -206,20 +210,6 @@
     #tool-badge .ti { font-size: 17px; }
     #tool-badge .tn { font-size: 11px; color: #88ffbb; }
 
-    /* ── PAN CONTROLS (front / back) ─────────────── */
-    #pan-wrap {
-      position: fixed; bottom: 28px; right: 74px;
-      display: flex; flex-direction: column; align-items: center; gap: 7px;
-      z-index: 20;
-    }
-    .panbtn {
-      width: 46px; height: 46px; border-radius: 50%;
-      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 20px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
-    }
-    .panbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
 
     /* ── CASH PANEL  (sits left of the compass) ──── */
     #cash-panel {
@@ -300,15 +290,11 @@
 
 <!-- Not-enough-cash toast -->
 <div id="no-cash-toast">Not enough cash 💸</div>
-<div id="hint">← Drag to rotate · Tap to build →</div>
+<div id="hint">← Drag to orbit · Pinch to zoom · 2-finger slide to pan →</div>
+<div id="cam-target-dot"></div>
 
 <!-- Zoom controls -->
-<div id="zoom-wrap">
-  <button class="zbtn" id="btn-in"  aria-label="Zoom in">+</button>
-  <div id="zoom-bar-wrap"><div id="zoom-bar-fill"></div></div>
-  <div id="zoom-label">60m</div>
-  <button class="zbtn" id="btn-out" aria-label="Zoom out">−</button>
-</div>
+
 
 <!-- ── BUILD TOOLBAR — 3×3 grid ──────────────────── -->
 <div id="build-toolbar">
@@ -430,10 +416,7 @@
 </div>
 
 <!-- Pan controls (front / back) -->
-<div id="pan-wrap">
-  <button class="panbtn" id="pan-fwd"  aria-label="Pan forward">▲</button>
-  <button class="panbtn" id="pan-back" aria-label="Pan back">▼</button>
-</div>
+
 
 <!-- Active tool badge -->
 <div id="tool-badge">
@@ -462,19 +445,46 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
 
 // ─────────────────────────────────────────────────
-//  CAMERA  (fixed direction, 20 m min, max grows +10 m per land purchase, starts at 100 m)
+//  CAMERA  — free spherical orbit + pan target
 // ─────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
 const ZOOM_MIN = 20, ZOOM_DEF = 60;
 let   ZOOM_MAX = 100;
-const CAM_DIR  = new THREE.Vector3(0, 30, 55).normalize();
-let   zoomDist = ZOOM_DEF, targetZoom = ZOOM_DEF;
-let   panOffX = 0, panOffZ = 0, targetPanX = 0, targetPanZ = 0;
-const PAN_LIMIT = 28;
+
+// Orbit angles
+const PHI_MIN   = 0.18;          // near-horizontal limit
+const PHI_MAX   = 1.45;          // near top-down limit
+let   azimuth   = Math.PI * 0.75;  // start angle (roughly SW view)
+let   elevation = 0.72;            // start tilt
+let   targetAz  = azimuth;
+let   targetEl  = elevation;
+let   zoomDist  = ZOOM_DEF, targetZoom = ZOOM_DEF;
+
+// Movable target point — camera always looks here
+const targetPoint  = new THREE.Vector3(0, 0, 0);
+const smoothTarget = new THREE.Vector3(0, 0, 0);
+let   panVelX = 0, panVelZ = 0;
+let   PAN_LIMIT_X = 42, PAN_LIMIT_Z = 42;
+
 function updateCamera() {
-  const base = CAM_DIR.clone().multiplyScalar(zoomDist);
-  camera.position.set(base.x, base.y, base.z + panOffZ);
-  camera.lookAt(0, 0, panOffZ);
+  // Clamp elevation
+  elevation = Math.max(PHI_MIN, Math.min(PHI_MAX, elevation));
+  targetEl  = Math.max(PHI_MIN, Math.min(PHI_MAX, targetEl));
+
+  // Clamp target point
+  targetPoint.x = Math.max(-PAN_LIMIT_X, Math.min(PAN_LIMIT_X, targetPoint.x));
+  targetPoint.z = Math.max(-PAN_LIMIT_Z, Math.min(PAN_LIMIT_Z, targetPoint.z));
+
+  // Smooth lerp
+  smoothTarget.x += (targetPoint.x - smoothTarget.x) * 0.12;
+  smoothTarget.z += (targetPoint.z - smoothTarget.z) * 0.12;
+
+  // Spherical → Cartesian offset from target
+  camera.position.x = smoothTarget.x + zoomDist * Math.sin(elevation) * Math.sin(azimuth);
+  camera.position.y =                  zoomDist * Math.cos(elevation);
+  camera.position.z = smoothTarget.z + zoomDist * Math.sin(elevation) * Math.cos(azimuth);
+
+  camera.lookAt(smoothTarget.x, 0, smoothTarget.z);
 }
 updateCamera();
 
@@ -679,8 +689,22 @@ function buyLand() {
   landPurchaseCount++;
   expandLand();
   refreshAffordability();
-  ZOOM_MAX += 10;        // each purchase extends the max zoom-out range by 10 m
-  targetZoom = ZOOM_MAX; // zoom out to the new max to show the new land
+
+  // Extend zoom range and grow pan limits to match the larger territory
+  ZOOM_MAX += 10;
+  // World grows by one CELL on one side each purchase; expand pan limits to match
+  PAN_LIMIT_X = 42 + (expandL + expandR) * CELL * 0.6;
+  PAN_LIMIT_Z = 42 + (expandT + expandB) * CELL * 0.6;
+
+  // Gently zoom out just a little (not all the way to max) so new edge comes into view
+  targetZoom = Math.min(ZOOM_MAX, targetZoom + 6);
+
+  // Nudge the camera target toward the new land's centre so the expansion is visible
+  const newCX = curCX(), newCZ = curCZ();
+  targetPoint.x += (newCX - targetPoint.x) * 0.35;
+  targetPoint.z += (newCZ - targetPoint.z) * 0.35;
+  panVelX = 0; panVelZ = 0;
+
   showToast('New land unlocked! 🏞️');
 }
 
@@ -3078,105 +3102,184 @@ haze2.position.set(0, 50, -200); scene.add(haze2);
 // ─────────────────────────────────────────────────
 //  INPUT — drag to rotate  |  tap to build
 // ─────────────────────────────────────────────────
-let dragging = false, lastX = 0, lastY = 0, rotY = 0, targetY = 0, vel = 0;
+//  INPUT — free orbit, 2-finger pan, double-tap, long-press
+// ─────────────────────────────────────────────────
+let dragging = false, lastX = 0, lastY = 0;
 let tapStartX = 0, tapStartY = 0, tapMoved = 0;
-let pinching = false, lastPinchDist = 0;
+let pinching = false, lastPinchDist = 0, lastMidX = 0, lastMidY = 0;
 let lastMouseX = 0, lastMouseY = 0;
+let longPressTimer = null;
+let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 
 const TAP_THRESHOLD = 9;
-
-function startDrag(x, y) {
-  dragging = true; lastX = x; lastY = y; vel = 0;
-  tapStartX = x; tapStartY = y; tapMoved = 0;
-  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded=true; }, 1200); }
-}
-function moveDrag(x, y) {
-  if (!dragging) return;
-  tapMoved += Math.abs(x - lastX) + Math.abs(y - lastY);
-  // Horizontal → rotate
-  const dx = (x - lastX) * 0.011;
-  vel = dx; targetY += dx;
-  // Vertical → pan world forward/back in scene space
-  const dy = (y - lastY) * 0.18;
-  targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dy));
-  lastX = x; lastY = y;
-}
-function endDrag(ex, ey) {
-  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
-      !document.getElementById('build-subpanel').classList.contains('show')) {
-    const cell = getGridCell(ex, ey);
-    if (cell) placeItem(cell.r, cell.c);
-  }
-  dragging = false;
-}
 
 function getPinchDist(t) {
   const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
   return Math.sqrt(dx*dx + dy*dy);
 }
 
-// Mouse
-canvas.addEventListener('mousedown',  e => startDrag(e.clientX, e.clientY));
-canvas.addEventListener('mousemove',  e => { moveDrag(e.clientX, e.clientY); lastMouseX = e.clientX; lastMouseY = e.clientY; });
-canvas.addEventListener('mouseup',    e => endDrag(e.clientX, e.clientY));
+// ── Mouse handlers ──────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  tapStartX = e.clientX; tapStartY = e.clientY; tapMoved = 0;
+  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200); }
+});
+canvas.addEventListener('mousemove', e => {
+  lastMouseX = e.clientX; lastMouseY = e.clientY;
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  tapMoved += Math.abs(dx) + Math.abs(dy);
+  if (e.shiftKey) {
+    // Shift + drag = pan
+    const pScale = (zoomDist / 400) * 1.4;
+    const sinAz = Math.sin(azimuth), cosAz = Math.cos(azimuth);
+    targetPoint.x += (-dx * cosAz + dy * sinAz) * pScale;
+    targetPoint.z += ( dx * sinAz + dy * cosAz) * pScale;
+  } else {
+    // Orbit
+    targetAz += dx * 0.008;
+    targetEl -= dy * 0.008;
+  }
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mouseup', e => {
+  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
+      !document.getElementById('build-subpanel').classList.contains('show')) {
+    const cell = getGridCell(e.clientX, e.clientY);
+    if (cell) placeItem(cell.r, cell.c);
+  }
+  dragging = false;
+});
 canvas.addEventListener('mouseleave', () => { dragging = false; });
-
-// Mouse wheel zoom
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + e.deltaY * 0.06));
 }, { passive: false });
 
-// Touch
+// ── Touch handlers ──────────────────────────────────
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 2) { pinching = true; dragging = false; lastPinchDist = getPinchDist(e.touches); }
-  else { pinching = false; startDrag(e.touches[0].clientX, e.touches[0].clientY); }
+  clearTimeout(longPressTimer);
+
+  if (e.touches.length === 2) {
+    pinching = true; dragging = false;
+    lastPinchDist = getPinchDist(e.touches);
+    lastMidX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+    lastMidY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+    panVelX = 0; panVelZ = 0;
+    return;
+  }
+
+  pinching = false;
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  dragging = true; lastX = tx; lastY = ty;
+  tapStartX = tx; tapStartY = ty; tapMoved = 0;
+  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200); }
+
+  // Long press = reset camera
+  longPressTimer = setTimeout(() => {
+    if (tapMoved < 10) {
+      targetPoint.x = 0; targetPoint.z = 0;
+      panVelX = 0; panVelZ = 0;
+      targetAz   = Math.PI * 0.75;
+      targetEl   = 0.72;
+      targetZoom = ZOOM_DEF;
+      if (navigator.vibrate) navigator.vibrate([12, 50, 12]);
+      camDot.classList.add('visible');
+      setTimeout(() => camDot.classList.remove('visible'), 1200);
+    }
+  }, 600);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
+  clearTimeout(longPressTimer);
+
   if (e.touches.length === 2) {
     pinching = true; dragging = false;
-    const d = getPinchDist(e.touches);
-    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
-    lastPinchDist = d;
-  } else if (!pinching) { moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
+    const d    = getPinchDist(e.touches);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+
+    // Zoom (pinch)
+    const pinchDelta = Math.abs(d - lastPinchDist);
+    if (pinchDelta > 0.5)
+      targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
+
+    // Pan (2-finger slide)
+    const dMidX = midX - lastMidX, dMidY = midY - lastMidY;
+    const panDelta = Math.hypot(dMidX, dMidY);
+    if (panDelta > 0.5) {
+      const pScale = (zoomDist / 400) * 1.4;
+      const sinAz = Math.sin(azimuth), cosAz = Math.cos(azimuth);
+      panVelX = (-dMidX * cosAz + dMidY * sinAz) * pScale;
+      panVelZ = ( dMidX * sinAz + dMidY * cosAz) * pScale;
+      targetPoint.x += panVelX;
+      targetPoint.z += panVelZ;
+      camDot.classList.add('visible');
+    }
+
+    lastPinchDist = d; lastMidX = midX; lastMidY = midY;
+    return;
+  }
+
+  if (pinching) return;
+  if (!dragging) return;
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  const dx = tx - lastX, dy = ty - lastY;
+  tapMoved += Math.abs(dx) + Math.abs(dy);
+  // 1-finger drag = orbit
+  targetAz += dx * 0.008;
+  targetEl -= dy * 0.008;
+  lastX = tx; lastY = ty;
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
   e.preventDefault();
-  if (e.touches.length < 2) pinching = false;
-  if (e.touches.length === 0) {
-    const t = e.changedTouches[0];
-    endDrag(t.clientX, t.clientY);
+  clearTimeout(longPressTimer);
+
+  if (e.touches.length < 2) {
+    pinching = false;
+    camDot.classList.remove('visible');
+  }
+
+  if (e.touches.length === 0 && e.changedTouches.length > 0) {
+    const t0 = e.changedTouches[0];
+    const now = Date.now();
+
+    // Double-tap → snap target to tapped cell
+    if (now - lastTapTime < 320 &&
+        Math.hypot(t0.clientX - lastTapX, t0.clientY - lastTapY) < 30 &&
+        tapMoved < TAP_THRESHOLD) {
+      const cell = getGridCell(t0.clientX, t0.clientY);
+      if (cell) {
+        const centre = cellCenter(cell.r, cell.c);
+        targetPoint.x = centre.x; targetPoint.z = centre.z;
+        panVelX = 0; panVelZ = 0;
+        if (navigator.vibrate) navigator.vibrate(8);
+        camDot.classList.add('visible');
+        setTimeout(() => camDot.classList.remove('visible'), 1000);
+      }
+      lastTapTime = 0; return;
+    }
+
+    // Single tap → place building
+    if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
+        !document.getElementById('build-subpanel').classList.contains('show')) {
+      const cell = getGridCell(t0.clientX, t0.clientY);
+      if (cell) placeItem(cell.r, cell.c);
+    }
+
+    lastTapTime = now; lastTapX = t0.clientX; lastTapY = t0.clientY;
+    dragging = false;
   }
 }, { passive: false });
 
 // ─────────────────────────────────────────────────
-//  ZOOM BUTTONS
+//  ZOOM — mouse wheel only (screen controls removed)
 // ─────────────────────────────────────────────────
-const zoomLabel   = document.getElementById('zoom-label');
-const zoomBarFill = document.getElementById('zoom-bar-fill');
-document.getElementById('btn-in').addEventListener('click',  () => { targetZoom = Math.max(ZOOM_MIN, targetZoom-10); });
-document.getElementById('btn-out').addEventListener('click', () => { targetZoom = Math.min(ZOOM_MAX, targetZoom+10); });
-['btn-in','btn-out'].forEach((id,i) => {
-  const el = document.getElementById(id); const dir = i===0?-1:1; let raf;
-  el.addEventListener('pointerdown', () => { function s(){ targetZoom=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,targetZoom+dir*.8)); raf=requestAnimationFrame(s); } s(); });
-  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
-  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
-});
-
-// ─────────────────────────────────────────────────
-//  PAN BUTTONS  (front / back)
-// ─────────────────────────────────────────────────
-['pan-fwd','pan-back'].forEach((id, i) => {
-  const el = document.getElementById(id); const dir = i===0 ? -1 : 1; let raf;
-  const step = () => { targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dir * 0.9)); raf = requestAnimationFrame(step); };
-  el.addEventListener('pointerdown', () => step());
-  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
-  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
-});
+const zoomLabel   = { textContent: '' };   // stub — label removed
+const zoomBarFill = { style: {} };          // stub — bar removed
 const toolBadge = document.getElementById('tool-badge');
 const badgeIcon = document.getElementById('badge-icon');
 const badgeName = document.getElementById('badge-name');
@@ -3373,14 +3476,16 @@ document.addEventListener('click', function(e) {
 //  COMPASS
 // ─────────────────────────────────────────────────
 const needle = document.getElementById('needle');
-function updateCompass(angle) {
-  needle.setAttribute('transform', `rotate(${(-(angle*180/Math.PI)%360).toFixed(2)}, 27, 27)`);
+function updateCompass(az) {
+  const deg = (az * 180 / Math.PI) % 360;
+  needle.setAttribute('transform', `rotate(${deg.toFixed(2)}, 27, 27)`);
 }
 
 // ─────────────────────────────────────────────────
 //  HINT
 // ─────────────────────────────────────────────────
 const hintEl = document.getElementById('hint');
+const camDot = document.getElementById('cam-target-dot');
 let hintFaded = false;
 setTimeout(() => { if (!hintFaded) { hintEl.classList.add('fade'); hintFaded = true; } }, 5000);
 
@@ -3392,16 +3497,17 @@ function animate() {
   requestAnimationFrame(animate);
   t += 0.004;
 
-  // Rotation inertia
-  if (!dragging) { vel *= 0.91; targetY += vel; }
-  rotY += (targetY - rotY) * 0.13;
-  world.rotation.y = rotY;
+  // Smooth orbit angles
+  azimuth   += (targetAz   - azimuth)   * 0.12;
+  elevation += (targetEl   - elevation) * 0.12;
+  zoomDist  += (targetZoom - zoomDist)  * 0.10;
 
-  // Pan smoothing
-  panOffZ += (targetPanZ - panOffZ) * 0.12;
+  // Pan inertia + soft boundary spring
+  panVelX *= 0.88; panVelZ *= 0.88;
+  targetPoint.x += panVelX; targetPoint.z += panVelZ;
+  if (Math.abs(targetPoint.x) > PAN_LIMIT_X) { panVelX *= -0.3; targetPoint.x = Math.max(-PAN_LIMIT_X, Math.min(PAN_LIMIT_X, targetPoint.x)); }
+  if (Math.abs(targetPoint.z) > PAN_LIMIT_Z) { panVelZ *= -0.3; targetPoint.z = Math.max(-PAN_LIMIT_Z, Math.min(PAN_LIMIT_Z, targetPoint.z)); }
 
-  // Zoom
-  zoomDist += (targetZoom - zoomDist) * 0.10;
   updateCamera();
   zoomLabel.textContent = Math.round(zoomDist) + 'm';
   const pct = 1 - (zoomDist - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
@@ -3436,7 +3542,7 @@ function animate() {
     c.mesh.position.y += Math.sin(t * 0.8 + i) * 0.002;
   });
 
-  updateCompass(rotY);
+  updateCompass(azimuth);
   tickCars();
   renderer.render(scene, camera);
 }
