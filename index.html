@@ -416,6 +416,7 @@
   <!-- Governor panel — City Hall lives here -->
   <div id="sp-governor" class="sp-page hidden">
     <div class="sp-title">Governor</div>
+    <div id="ch-already-label" style="display:none;padding:10px 16px 8px;font-size:11px;font-weight:700;color:#88ffbb;letter-spacing:0.4px;border-bottom:1px solid rgba(255,255,255,0.07);">✓ City Hall built — only one allowed</div>
     <div class="sp-item sp-cityhall-type active" data-chtype="cityhall">
       <span class="sp-icon">🏛️</span>
       <div class="sp-info">
@@ -718,6 +719,7 @@ let selectedTool  = null;
 const placedItems = {};   // key "r,c" → THREE.Group
 let selectedHouseType = 'cottage';
 let selectedParkType  = 'park';
+let cityHallPlaced    = false;   // only one City Hall allowed per city
 
 function cellCenter(r, c) {
   return { x: -LAND/2 + CELL/2 + c*CELL, z: -LAND/2 + CELL/2 + r*CELL };
@@ -2941,10 +2943,16 @@ function refreshAffordability() {
   });
   // Governor / City Hall
   const tbGovEl = document.getElementById('tb-governor');
-  if (tbGovEl) tbGovEl.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
-  document.querySelectorAll('.sp-cityhall-type').forEach(el => {
-    el.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
-  });
+  const chAlready = document.getElementById('ch-already-label');
+  if (cityHallPlaced) {
+    if (tbGovEl) { tbGovEl.classList.add('cant-afford'); tbGovEl.title = 'City Hall already built'; }
+    document.querySelectorAll('.sp-cityhall-type').forEach(el => el.classList.add('cant-afford'));
+    if (chAlready) chAlready.style.display = 'block';
+  } else {
+    if (tbGovEl) { tbGovEl.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0)); tbGovEl.title = ''; }
+    document.querySelectorAll('.sp-cityhall-type').forEach(el => el.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0)));
+    if (chAlready) chAlready.style.display = 'none';
+  }
   // Land
   const lc = getLandCost();
   const spLandCost = document.getElementById('sp-land-cost');
@@ -2971,6 +2979,7 @@ function placeItem(r, c) {
       cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; });
       if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); }
+      if (item.userData.type === 'cityhall') { cityHallPlaced = false; refreshAffordability(); }
     }
     return;
   }
@@ -2996,7 +3005,10 @@ function placeItem(r, c) {
     let mesh;
     if      (selectedTool === 'bigpark')       mesh = buildBigPark(r, c);
     else if (selectedTool === 'amusementpark') mesh = buildAmusementPark(r, c);
-    else if (selectedTool === 'cityhall')      mesh = buildCityHall(r, c);
+    else if (selectedTool === 'cityhall') {
+      if (cityHallPlaced) { showToast('City Hall already built! Only one allowed 🏛️'); return; }
+      mesh = buildCityHall(r, c);
+    }
     if (mesh) {
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
@@ -3004,6 +3016,7 @@ function placeItem(r, c) {
       cells.forEach(k => { placedItems[k] = mesh; paidMap[k] = 0; });
       cash -= cost;
       updateCashUI(-cost);
+      if (selectedTool === 'cityhall') { cityHallPlaced = true; refreshAffordability(); clearTool(); }
     }
     return;
   }
