@@ -151,8 +151,8 @@
       background: rgba(12,16,26,0.97);
       backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
       border: 1.5px solid rgba(255,255,255,0.12);
-      border-radius: 22px;
-      min-width: 230px; max-width: min(300px, calc(100vw - 130px));
+      border-radius: 18px;
+      min-width: 184px; max-width: min(240px, calc(100vw - 130px));
       z-index: 19;
       opacity: 0; pointer-events: none;
       transition: opacity 0.2s ease, transform 0.22s cubic-bezier(.34,1.56,.64,1);
@@ -168,14 +168,14 @@
     .sp-page { display: flex; flex-direction: column; }
     .sp-page.hidden { display: none; }
     .sp-title {
-      padding: 11px 16px 7px;
-      font-size: 9.5px; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase;
+      padding: 9px 13px 6px;
+      font-size: 8px; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase;
       color: rgba(255,255,255,0.32);
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
     .sp-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 13px 16px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 13px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
       cursor: pointer;
       transition: background 0.13s; touch-action: manipulation;
@@ -184,10 +184,10 @@
     .sp-item:last-child { border-bottom: none; }
     .sp-item:active { background: rgba(255,255,255,0.07); }
     .sp-item.active { background: rgba(40,120,80,0.42); }
-    .sp-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .sp-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
     .sp-info { flex: 1; min-width: 0; }
-    .sp-name { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1.15; }
-    .sp-desc { font-size: 10px; color: rgba(255,255,255,0.36); margin-top: 2px; }
+    .sp-name { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); line-height: 1.15; }
+    .sp-desc { font-size: 8px; color: rgba(255,255,255,0.36); margin-top: 2px; }
     .sp-item.active .sp-name { color: #88ffbb; }
     .sp-item.cant-afford .sp-name { color: rgba(255,255,255,0.3); }
     .sp-item.cant-afford .bcost   { color: #ff6b6b; }
