@@ -35,23 +35,27 @@
     }
     #hint.fade { opacity: 0; }
 
-    /* ── Zoom controls ────────────────────────────── */
-    #zoom-wrap { position: fixed; bottom: 28px; right: 18px;
-      display: flex; flex-direction: column; align-items: center; gap: 7px; }
-    .zbtn {
-      width: 46px; height: 46px; border-radius: 50%;
-      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 24px; font-weight: 300;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
+    /* ── Camera target crosshair ──────────────────── */
+    #cam-target-dot {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px; height: 14px;
+      border: 1.5px solid rgba(255,255,255,0.65);
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+      z-index: 10;
+      box-shadow: 0 0 6px rgba(0,0,0,0.4);
     }
-    .zbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
-    #zoom-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.88);
-      letter-spacing: 0.6px; background: rgba(0,0,0,0.32); backdrop-filter: blur(8px);
-      padding: 4px 9px; border-radius: 10px; min-width: 44px; text-align: center; }
-    #zoom-bar-wrap { width: 4px; height: 60px; background: rgba(255,255,255,0.15);
-      border-radius: 4px; overflow: hidden; }
-    #zoom-bar-fill { width: 100%; background: rgba(255,255,255,0.75); border-radius: 4px; transition: height 0.2s; }
+    #cam-target-dot::before, #cam-target-dot::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.55);
+    }
+    #cam-target-dot::before { width: 1px; height: 6px; top: -5px; left: 50%; transform: translateX(-50%); }
+    #cam-target-dot::after  { width: 6px; height: 1px; left: -5px; top: 50%; transform: translateY(-50%); }
+    #cam-target-dot.visible { opacity: 1; }
+
+    /* ── Zoom controls ────────────────────────────── */
 
     /* ── BUILD TOOLBAR — 3×3 grid, bottom-left ──── */
     #build-toolbar {
@@ -206,20 +210,6 @@
     #tool-badge .ti { font-size: 17px; }
     #tool-badge .tn { font-size: 11px; color: #88ffbb; }
 
-    /* ── PAN CONTROLS (front / back) ─────────────── */
-    #pan-wrap {
-      position: fixed; bottom: 28px; right: 74px;
-      display: flex; flex-direction: column; align-items: center; gap: 7px;
-      z-index: 20;
-    }
-    .panbtn {
-      width: 46px; height: 46px; border-radius: 50%;
-      background: rgba(0,0,0,0.36); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(255,255,255,0.28); color: #fff; font-size: 20px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.12s, transform 0.1s; touch-action: manipulation;
-    }
-    .panbtn:active { background: rgba(255,255,255,0.18); transform: scale(0.92); }
 
     /* ── CASH PANEL  (sits left of the compass) ──── */
     #cash-panel {
@@ -300,15 +290,11 @@
 
 <!-- Not-enough-cash toast -->
 <div id="no-cash-toast">Not enough cash 💸</div>
-<div id="hint">← Drag to rotate · Tap to build →</div>
+<div id="hint">← Drag to orbit · Pinch to zoom · 2-finger slide to pan →</div>
+<div id="cam-target-dot"></div>
 
 <!-- Zoom controls -->
-<div id="zoom-wrap">
-  <button class="zbtn" id="btn-in"  aria-label="Zoom in">+</button>
-  <div id="zoom-bar-wrap"><div id="zoom-bar-fill"></div></div>
-  <div id="zoom-label">60m</div>
-  <button class="zbtn" id="btn-out" aria-label="Zoom out">−</button>
-</div>
+
 
 <!-- ── BUILD TOOLBAR — 3×3 grid ──────────────────── -->
 <div id="build-toolbar">
@@ -416,11 +402,12 @@
   <!-- Governor panel — City Hall lives here -->
   <div id="sp-governor" class="sp-page hidden">
     <div class="sp-title">Governor</div>
+    <div id="ch-already-label" style="display:none;padding:10px 16px 8px;font-size:11px;font-weight:700;color:#88ffbb;letter-spacing:0.4px;border-bottom:1px solid rgba(255,255,255,0.07);">✓ City Hall built — only one allowed</div>
     <div class="sp-item sp-cityhall-type active" data-chtype="cityhall">
       <span class="sp-icon">🏛️</span>
       <div class="sp-info">
         <div class="sp-name">City Hall</div>
-        <div class="sp-desc">Pillared dome, gold trim (2×2)</div>
+        <div class="sp-desc">Pillared dome, gold trim (3×3)</div>
       </div>
       <span class="bcost">$1,000</span>
     </div>
@@ -437,10 +424,7 @@
 </div>
 
 <!-- Pan controls (front / back) -->
-<div id="pan-wrap">
-  <button class="panbtn" id="pan-fwd"  aria-label="Pan forward">▲</button>
-  <button class="panbtn" id="pan-back" aria-label="Pan back">▼</button>
-</div>
+
 
 <!-- Active tool badge -->
 <div id="tool-badge">
@@ -469,19 +453,46 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
 
 // ─────────────────────────────────────────────────
-//  CAMERA  (fixed direction, 20 m min, max grows +10 m per land purchase, starts at 100 m)
+//  CAMERA  — free spherical orbit + pan target
 // ─────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 700);
 const ZOOM_MIN = 20, ZOOM_DEF = 60;
 let   ZOOM_MAX = 100;
-const CAM_DIR  = new THREE.Vector3(0, 30, 55).normalize();
-let   zoomDist = ZOOM_DEF, targetZoom = ZOOM_DEF;
-let   panOffX = 0, panOffZ = 0, targetPanX = 0, targetPanZ = 0;
-const PAN_LIMIT = 28;
+
+// Orbit angles
+const PHI_MIN   = 0.18;          // near-horizontal limit
+const PHI_MAX   = 1.45;          // near top-down limit
+let   azimuth   = Math.PI * 0.75;  // start angle (roughly SW view)
+let   elevation = 0.72;            // start tilt
+let   targetAz  = azimuth;
+let   targetEl  = elevation;
+let   zoomDist  = ZOOM_DEF, targetZoom = ZOOM_DEF;
+
+// Movable target point — camera always looks here
+const targetPoint  = new THREE.Vector3(0, 0, 0);
+const smoothTarget = new THREE.Vector3(0, 0, 0);
+let   panVelX = 0, panVelZ = 0;
+let   PAN_LIMIT_X = 42, PAN_LIMIT_Z = 42;
+
 function updateCamera() {
-  const base = CAM_DIR.clone().multiplyScalar(zoomDist);
-  camera.position.set(base.x, base.y, base.z + panOffZ);
-  camera.lookAt(0, 0, panOffZ);
+  // Clamp elevation
+  elevation = Math.max(PHI_MIN, Math.min(PHI_MAX, elevation));
+  targetEl  = Math.max(PHI_MIN, Math.min(PHI_MAX, targetEl));
+
+  // Clamp target point
+  targetPoint.x = Math.max(-PAN_LIMIT_X, Math.min(PAN_LIMIT_X, targetPoint.x));
+  targetPoint.z = Math.max(-PAN_LIMIT_Z, Math.min(PAN_LIMIT_Z, targetPoint.z));
+
+  // Smooth lerp
+  smoothTarget.x += (targetPoint.x - smoothTarget.x) * 0.12;
+  smoothTarget.z += (targetPoint.z - smoothTarget.z) * 0.12;
+
+  // Spherical → Cartesian offset from target
+  camera.position.x = smoothTarget.x + zoomDist * Math.sin(elevation) * Math.sin(azimuth);
+  camera.position.y =                  zoomDist * Math.cos(elevation);
+  camera.position.z = smoothTarget.z + zoomDist * Math.sin(elevation) * Math.cos(azimuth);
+
+  camera.lookAt(smoothTarget.x, 0, smoothTarget.z);
 }
 updateCamera();
 
@@ -524,7 +535,7 @@ scene.add(world);
 // ─────────────────────────────────────────────────
 //  LAND
 // ─────────────────────────────────────────────────
-const LAND = 72, CELL = 6, NCELLS = LAND / CELL, WALL_H = 3;
+const LAND = 90, CELL = 6, NCELLS = LAND / CELL, WALL_H = 3;
 
 // ── Land expansion state ──────────────────────────
 // Order of expansion: East → North → West → South (then cycles)
@@ -686,8 +697,22 @@ function buyLand() {
   landPurchaseCount++;
   expandLand();
   refreshAffordability();
-  ZOOM_MAX += 10;        // each purchase extends the max zoom-out range by 10 m
-  targetZoom = ZOOM_MAX; // zoom out to the new max to show the new land
+
+  // Extend zoom range and grow pan limits to match the larger territory
+  ZOOM_MAX += 10;
+  // World grows by one CELL on one side each purchase; expand pan limits to match
+  PAN_LIMIT_X = 42 + (expandL + expandR) * CELL * 0.6;
+  PAN_LIMIT_Z = 42 + (expandT + expandB) * CELL * 0.6;
+
+  // Gently zoom out just a little (not all the way to max) so new edge comes into view
+  targetZoom = Math.min(ZOOM_MAX, targetZoom + 6);
+
+  // Nudge the camera target toward the new land's centre so the expansion is visible
+  const newCX = curCX(), newCZ = curCZ();
+  targetPoint.x += (newCX - targetPoint.x) * 0.35;
+  targetPoint.z += (newCZ - targetPoint.z) * 0.35;
+  panVelX = 0; panVelZ = 0;
+
   showToast('New land unlocked! 🏞️');
 }
 
@@ -726,6 +751,7 @@ let selectedTool  = null;
 const placedItems = {};   // key "r,c" → THREE.Group
 let selectedHouseType = 'cottage';
 let selectedParkType  = 'park';
+let cityHallPlaced    = false;   // only one City Hall allowed per city
 
 function cellCenter(r, c) {
   return { x: -LAND/2 + CELL/2 + c*CELL, z: -LAND/2 + CELL/2 + r*CELL };
@@ -1155,9 +1181,10 @@ function buildPark(r, c) {
 
 // ── City Hall (2×2 — premium governor's hall) ──────────────────────────────
 function buildCityHall(r, c) {
-  const a = cellCenter(r, c);
-  const cx = a.x + CELL / 2, cz = a.z + CELL / 2;
-  const S = CELL * 2;
+  // Place the hall centred on the middle cell of the 3×3 footprint (r+1, c+1)
+  const a = cellCenter(r + 1, c + 1);
+  const cx = a.x, cz = a.z;
+  const S = CELL * 3;          // now spans 3 cells side (used for plaza/fence)
   const g = new THREE.Group(); g.userData.type = 'cityhall';
 
   // ── Micro helper ──────────────────────────────────────────────────────────
@@ -1186,7 +1213,7 @@ function buildCityHall(r, c) {
   const granite   = phong(0x14141E, 0x080812, 22);   // near-black imperial granite
   const midGran   = phong(0x22223A, 0x0E0E22, 16);   // mid charcoal body panels
   const darkGran  = phong(0x0C0C14, 0x050508, 10);   // deep shadow recesses
-  const blackMar  = phong(0x1A1826, 0x0A0816, 75);   // polished black marble columns
+  const blackMar  = phong(0xF5F2EE, 0xFFFFFF, 90);   // pure white marble columns
   const royGold   = phong(0xD4AF37, 0xFFEE88, 130);  // royal gold structural
   const briGold   = phong(0xFFD700, 0xFFFFCC, 220);  // brilliant gold fine detail
   const palGold   = phong(0xC9A02A, 0xFFDD66, 90);   // pale satin gold panels
@@ -1197,6 +1224,7 @@ function buildCityHall(r, c) {
   const tealGls   = new THREE.MeshPhongMaterial({ color:0x55BBCC, specular:0xFFFFFF, shininess:160, transparent:true, opacity:0.65 });
   const warmGlow  = new THREE.MeshPhongMaterial({ color:0xFFE070, emissive:new THREE.Color(0xFFB820), emissiveIntensity:1.2, transparent:true, opacity:0.93 });
   const whiteMar  = phong(0xF2EDE6, 0xFFFFFF, 60);   // white marble accents
+  const creamRoof = phong(0xFDF8F0, 0xFFFCF5, 50);   // cream white roof surfaces
 
   // ── Key dimensions ────────────────────────────────────────────────────────
   const bW=8.2, bD=7.6, bH=7.0;       // main body — much taller
@@ -1279,7 +1307,7 @@ function buildCityHall(r, c) {
 
   // ── Upper floor — second tier set back slightly ──────────────────────────
   const t2W=7.2, t2D=6.6, t2H=2.2, t2Y=1.18+bH+0.1;
-  box(t2W,t2H,t2D, midGran, 0,t2Y+t2H/2,-0.3);
+  box(t2W,t2H,t2D, creamRoof, 0,t2Y+t2H/2,-0.3);
   box(t2W+0.22,0.14,t2D+0.22, royGold, 0,t2Y+t2H+0.07,-0.3);
   box(t2W+0.28,0.08,t2D+0.28, briGold, 0,t2Y+t2H+0.18,-0.3);
 
@@ -1348,7 +1376,9 @@ function buildCityHall(r, c) {
   // ══════════════════════════════════════════════════════════════════════════
   //  FRONT PORTICO — 8 massive black-marble columns
   // ══════════════════════════════════════════════════════════════════════════
-  const COL_Z = S/2-1.7;
+  // Portico: columns 2 units proud of the wall → walkable corridor behind
+  // Wall front face = -0.3 + bD/2 = 3.5  →  COL_Z = 3.5 + 2.0 = 5.5
+  const COL_Z = -0.3 + bD/2 + 2.0;  // 2-unit deep walkable portico
   [-3.5,-2.3,-1.1,0,1.1,2.3,3.5].forEach(cx2=>{
     // Black marble shaft
     cyl(colR, colR*1.1, colH, 18, blackMar, cx2, 1.18+colH/2, COL_Z);
@@ -1410,7 +1440,7 @@ function buildCityHall(r, c) {
   // ══════════════════════════════════════════════════════════════════════════
   const parY = crownY + 0.05;
   // Parapet wall
-  box(bW+0.6, 0.78, bD+0.6, midGran, 0,parY+0.39,-0.3);
+  box(bW+0.6, 0.78, bD+0.6, creamRoof, 0,parY+0.39,-0.3);
   box(bW+0.7, 0.12, bD+0.7, briGold, 0,parY+0.82,-0.3); // cap rail
   box(bW+0.64,0.08, bD+0.64,royGold, 0,parY+0.04,-0.3); // base rail
   // Crimson inlay band on parapet face
@@ -1432,7 +1462,7 @@ function buildCityHall(r, c) {
 
   // Upper tier parapet
   const uParY = t2Y+t2H+0.22;
-  box(t2W+0.5,0.6,t2D+0.5, midGran, 0,uParY+0.3,-0.3);
+  box(t2W+0.5,0.6,t2D+0.5, creamRoof, 0,uParY+0.3,-0.3);
   box(t2W+0.58,0.1,t2D+0.58,briGold,0,uParY+0.64,-0.3);
   for(let i=-3;i<=3;i++){
     cyl(0.055,0.07,0.56,8,royGold, i*0.92,uParY+0.28,-0.3+t2D/2+0.04);
@@ -1445,7 +1475,7 @@ function buildCityHall(r, c) {
   // Main 4 corner towers (tall)
   [[bW/2-0.58, bD/2-0.58],[-bW/2+0.58, bD/2-0.58],[bW/2-0.58,-bD/2+0.58],[-bW/2+0.58,-bD/2+0.58]].forEach(([tx,tz])=>{
     const tR=0.46, tH=bH+4.2;
-    cyl(tR,tR*1.12,tH,8,granite,tx,1.18+tH/2,-0.3+tz);
+    cyl(tR,tR*1.12,tH,8,creamRoof,tx,1.18+tH/2,-0.3+tz);
     // 5 gold bands ascending
     [0.2,0.36,0.52,0.68,0.84].forEach(fr=>{ cyl(tR+0.07,tR+0.07,0.08,8,royGold,tx,1.18+tH*fr,-0.3+tz); });
     // Emerald accent windows
@@ -1467,7 +1497,7 @@ function buildCityHall(r, c) {
   // Mid-edge secondary spires (4 on long faces) — shorter
   [[0, bD/2-0.3],[0,-bD/2+0.3]].forEach(([tx,tz])=>{
     const sR=0.3, sH=bH+1.8;
-    cyl(sR,sR*1.08,sH,8,midGran,tx,1.18+sH/2,-0.3+tz);
+    cyl(sR,sR*1.08,sH,8,creamRoof,tx,1.18+sH/2,-0.3+tz);
     [0.35,0.65].forEach(fr=>cyl(sR+0.05,sR+0.05,0.07,8,royGold,tx,1.18+sH*fr,-0.3+tz));
     cyl(sR+0.08,sR+0.04,0.18,8,briGold,tx,1.18+sH+0.09,-0.3+tz);
     cone(sR*0.72,1.4,8,royGold,tx,1.18+sH+0.86,-0.3+tz);
@@ -1481,7 +1511,7 @@ function buildCityHall(r, c) {
 
   // Tier 1 — octagonal plinth
   const t1R=1.32, t1H=1.0;
-  cyl(t1R,t1R*1.1,t1H,8,granite, 0,ctY+t1H/2,-0.3);
+  cyl(t1R,t1R*1.1,t1H,8,creamRoof, 0,ctY+t1H/2,-0.3);
   box(t1R*2.0+0.22,0.12,t1R*2.0+0.22,royGold, 0,ctY+t1H+0.06,-0.3);
   // Amber windows on Tier 1
   for(let i=0;i<8;i++){
@@ -1495,7 +1525,7 @@ function buildCityHall(r, c) {
   // Tier 2 — narrower octagonal drum
   const t2R=1.0, t2TH=1.4;
   const t2TY=ctY+t1H+0.12;
-  cyl(t2R,t2R*1.06,t2TH,8,midGran, 0,t2TY+t2TH/2,-0.3);
+  cyl(t2R,t2R*1.06,t2TH,8,creamRoof, 0,t2TY+t2TH/2,-0.3);
   // Gold bands
   [0.3,0.6,0.9].forEach(fr=>cyl(t2R+0.06,t2R+0.06,0.07,8,royGold,0,t2TY+t2TH*fr,-0.3));
   // Teal windows on Tier 2
@@ -1671,7 +1701,7 @@ function buildCityHall(r, c) {
   // ══════════════════════════════════════════════════════════════════════════
   const CPX  =  9.0;   // half-width of compound (±x)
   const CPF  =  9.2;   // front fence z
-  const CPB  = -6.1;   // back fence z
+  const CPB  = -9.0;   // back fence z — actual rear edge of 3×3 plot (−S/2)
   const GH   =  3.0;   // half-width of gate opening
   const FH   =  4.0;   // fence/pillar height
 
@@ -1681,9 +1711,9 @@ function buildCityHall(r, c) {
   // ── Extended compound ground ─────────────────────────────────────────────
   const groundMat = phong(0x0E0E18, 0x060608, 6);
   box(18.4, 0.08, 3.6, groundMat,   0, 0.04,  7.6);    // front courtyard strip
-  box(3.2,  0.08, 15.4, groundMat, -8.4, 0.04, 1.5);   // left side strip
-  box(3.2,  0.08, 15.4, groundMat,  8.4, 0.04, 1.5);   // right side strip
-  box(18.4, 0.08, 0.3, groundMat,   0, 0.04, CPB);      // back strip
+  box(3.2,  0.08, 18.2, groundMat, -8.4, 0.04, 0.1);   // left side strip
+  box(3.2,  0.08, 18.2, groundMat,  8.4, 0.04, 0.1);   // right side strip
+  box(18.4, 0.08, 0.4, groundMat,   0, 0.04, CPB);      // back strip at plot edge
   // Gold inlay grid in front courtyard
   for(let gl=-3;gl<=3;gl++) box(0.04, 0.04, 3.6, royGold, gl*2.8, 0.1, 7.6);
   box(18.2, 0.04, 0.04, royGold, 0, 0.1, 6.2);
@@ -2670,8 +2700,7 @@ function isCellFree(forCar, r, c) {
   const myDr = forCar.tgt ? forCar.tgt.r - forCar.cur.r : 0;
   const myDc = forCar.tgt ? forCar.tgt.c - forCar.cur.c : 0;
   const hasDir = (myDr !== 0 || myDc !== 0);
-  const allVehicles = [...carList, ...(typeof policeCarList !== "undefined" ? policeCarList : [])];
-  for (const other of allVehicles) {
+  for (const other of carList) {
     if (other === forCar) continue;
     const oDr = other.tgt.r - other.cur.r;
     const oDc = other.tgt.c - other.cur.c;
@@ -2863,7 +2892,6 @@ function tickCars() {
     if (comp.length >= 5) while (carList.length < calcMaxCars()) spawnCar(comp);
   }
 }
-
 // ═════════════════════════════════════════════════════════════════
 //  POLICE CAR MODEL
 // ═════════════════════════════════════════════════════════════════
@@ -2915,8 +2943,8 @@ function buildPoliceCar() {
   const redMat = new THREE.MeshPhongMaterial({ color:0xFF1100, emissive:new THREE.Color(0xCC0000), emissiveIntensity:0.0, transparent:true, opacity:0.92 });
   const redLens = new THREE.Mesh(new THREE.BoxGeometry(0.27,0.09,0.24), redMat);
   redLens.position.set(0.18,0.99,0.06); g.add(redLens);
-  g.userData.blueMat = blueMat;
-  g.userData.redMat  = redMat;
+  g.userData.blueMat    = blueMat;
+  g.userData.redMat     = redMat;
   g.userData.isPoliceCar = true;
   return g;
 }
@@ -2956,31 +2984,26 @@ function buildPoliceStation(r, c) {
 
   // Foundation (both cells)
   box(CELL-0.1, 0.28, CELL*2, concM, lx, 0.14, lz+CELL/2);
-
   // Steps
   box(3.4, 0.18, 0.36, stepM, lx, 0.37, lz + BD/2 + 0.18);
   box(3.0, 0.36, 0.36, stepM, lx, 0.46, lz + BD/2 + 0.54);
-
   // Body: navy lower, grey upper
-  box(BW, BH*0.52, BD, navyM,  lx, 0.28+BH*0.52/2,           lz);
+  box(BW, BH*0.52, BD, navyM,  lx, 0.28+BH*0.52/2,          lz);
   box(BW, BH*0.48, BD, ltGryM, lx, 0.28+BH*0.52+BH*0.48/2,  lz);
   // Stripe divider
   box(BW+0.1, 0.24, BD+0.1, stripM, lx, 0.28+BH*0.52-0.12, lz);
-
   // POLICE sign
   box(BW*0.78, 0.58, 0.10, signM, lx, 0.28+BH*0.52+BH*0.48*0.70, lz + BD/2 + 0.01);
   [-1.0,-0.60,-0.22,0.10,0.42,0.74].forEach(lo => {
     const lm = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.36,0.07), whtTxt);
     lm.position.set(lx+lo, 0.28+BH*0.52+BH*0.48*0.70, lz + BD/2 + 0.06); g.add(lm);
   });
-
   // Double door
   box(0.52,1.72,0.09, doorM, lx-0.32, 0.28+0.86, lz + BD/2 + 0.01);
   box(0.52,1.72,0.09, doorM, lx+0.32, 0.28+0.86, lz + BD/2 + 0.01);
   box(0.44,1.58,0.07, glassMp, lx-0.32, 0.28+0.86, lz + BD/2 + 0.04);
   box(0.44,1.58,0.07, glassMp, lx+0.32, 0.28+0.86, lz + BD/2 + 0.04);
   box(1.22,0.12,0.10, doorM, lx, 0.28+1.78, lz + BD/2 + 0.01);
-
   // Front upper windows with bars
   [-1.25,1.25].forEach(wx => {
     box(1.0,0.88,0.10, ltGryM,  lx+wx, 0.28+BH*0.52+BH*0.48*0.35, lz + BD/2 + 0.01);
@@ -2989,24 +3012,19 @@ function buildPoliceStation(r, c) {
       box(0.036,0.72,0.09, barM, lx+wx+bx, 0.28+BH*0.52+BH*0.48*0.35, lz + BD/2 + 0.02);
     });
   });
-
-  // Flat roof + parapet
+  // Flat roof + parapet + AC + antenna
   const roofY = 0.28 + BH;
   box(BW+0.3, 0.20, BD+0.3, roofM, lx, roofY+0.10, lz);
   box(BW-0.3, 0.22, BD-0.3, roofM, lx, roofY+0.32, lz);
-  // AC unit
   box(1.1,0.44,0.80, concM, lx-1.1, roofY+0.44, lz+0.5);
-  // Antenna
   const antM = new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
   const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.04,2.2,6), antM);
   ant.position.set(lx+1.4, roofY+1.3, lz-0.5); g.add(ant);
-
-  // Parking bay tarmac
+  // Parking bay tarmac + markings
   box(CELL-0.1, 0.06, CELL-0.1, tarmacM, lx, 0.32, pkZ);
   box(4.0,0.01,0.07, bayM, lx, 0.36, pkZ - CELL/2 + 0.18);
   [-1.25,1.25].forEach(bx => { box(0.07,0.01,CELL*0.82, bayM, lx+bx, 0.36, pkZ - 0.28); });
-
-  // Parked police car (shows when not patrolling)
+  // Parked police car
   const parkedCar = buildPoliceCar();
   parkedCar.position.set(lx, 0.38, pkZ);
   parkedCar.rotation.y = Math.PI;
@@ -3124,7 +3142,6 @@ function tickPoliceCars() {
       from.x+dx*v.t - Math.cos(h)*LANE_W, 0.14,
       from.z+dz*v.t - Math.sin(h)*LANE_W
     );
-    // Siren flash
     if (v.group.userData.blueMat) {
       v.group.userData.blueMat.emissiveIntensity = blueOn ? 1.8 : 0.0;
       v.group.userData.redMat.emissiveIntensity  = blueOn ? 0.0 : 1.8;
@@ -3160,7 +3177,7 @@ const COSTS = {
 const FOOTPRINTS = {
   bigpark:       { w: 2, h: 2 },   // 2×2 = 4 cells
   amusementpark: { w: 3, h: 3 },   // 3×3 = 9 cells
-  cityhall:      { w: 2, h: 2 },   // 2×2 = 4 cells
+  cityhall:      { w: 3, h: 3 },   // 3×3 = 9 cells
   policestation: { w: 1, h: 2 },   // 1×2 = 2 cells
 };
 function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
@@ -3227,10 +3244,16 @@ function refreshAffordability() {
   });
   // Governor / City Hall
   const tbGovEl = document.getElementById('tb-governor');
-  if (tbGovEl) tbGovEl.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
-  document.querySelectorAll('.sp-cityhall-type').forEach(el => {
-    el.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0));
-  });
+  const chAlready = document.getElementById('ch-already-label');
+  if (cityHallPlaced) {
+    if (tbGovEl) { tbGovEl.classList.add('cant-afford'); tbGovEl.title = 'City Hall already built'; }
+    document.querySelectorAll('.sp-cityhall-type').forEach(el => el.classList.add('cant-afford'));
+    if (chAlready) chAlready.style.display = 'block';
+  } else {
+    if (tbGovEl) { tbGovEl.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0)); tbGovEl.title = ''; }
+    document.querySelectorAll('.sp-cityhall-type').forEach(el => el.classList.toggle('cant-afford', cash < (COSTS.cityhall ?? 0)));
+    if (chAlready) chAlready.style.display = 'none';
+  }
   // Land
   const lc = getLandCost();
   const spLandCost = document.getElementById('sp-land-cost');
@@ -3259,7 +3282,7 @@ function placeItem(r, c) {
       cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; });
       if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); checkPoliceStationsNearRoads(); }
-      if (item.userData.type === 'cityhall')      { cityHallPlaced = false; refreshAffordability(); }
+      if (item.userData.type === 'cityhall') { cityHallPlaced = false; refreshAffordability(); }
       if (item.userData.type === 'policestation') { removePoliceCarsForStation(item.userData.stationR, item.userData.stationC); }
     }
     return;
@@ -3288,7 +3311,7 @@ function placeItem(r, c) {
     else if (selectedTool === 'amusementpark') mesh = buildAmusementPark(r, c);
     else if (selectedTool === 'policestation') mesh = buildPoliceStation(r, c);
     else if (selectedTool === 'cityhall') {
-      if (cityHallPlaced) { showToast('City Hall already built!'); return; }
+      if (cityHallPlaced) { showToast('City Hall already built! Only one allowed 🏛️'); return; }
       mesh = buildCityHall(r, c);
     }
     if (mesh) {
@@ -3298,11 +3321,11 @@ function placeItem(r, c) {
       cells.forEach(k => { placedItems[k] = mesh; paidMap[k] = 0; });
       cash -= cost;
       updateCashUI(-cost);
-      if (selectedTool === 'cityhall')      { cityHallPlaced = true; refreshAffordability(); clearTool(); }
+      if (selectedTool === 'cityhall') { cityHallPlaced = true; refreshAffordability(); clearTool(); }
       if (selectedTool === 'policestation') {
         const launched = spawnPoliceCar(r, c);
         if (launched && mesh.userData.parkedCar) mesh.userData.parkedCar.visible = false;
-        showToast(launched ? '🚔 Officer on patrol!' : '🏛 Station built - connect to a road to deploy!');
+        showToast(launched ? '🚔 Officer on patrol!' : '🏛 Station built — connect to a road to deploy!');
       }
     }
     return;
@@ -3365,105 +3388,184 @@ haze2.position.set(0, 50, -200); scene.add(haze2);
 // ─────────────────────────────────────────────────
 //  INPUT — drag to rotate  |  tap to build
 // ─────────────────────────────────────────────────
-let dragging = false, lastX = 0, lastY = 0, rotY = 0, targetY = 0, vel = 0;
+//  INPUT — free orbit, 2-finger pan, double-tap, long-press
+// ─────────────────────────────────────────────────
+let dragging = false, lastX = 0, lastY = 0;
 let tapStartX = 0, tapStartY = 0, tapMoved = 0;
-let pinching = false, lastPinchDist = 0;
+let pinching = false, lastPinchDist = 0, lastMidX = 0, lastMidY = 0;
 let lastMouseX = 0, lastMouseY = 0;
+let longPressTimer = null;
+let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 
 const TAP_THRESHOLD = 9;
-
-function startDrag(x, y) {
-  dragging = true; lastX = x; lastY = y; vel = 0;
-  tapStartX = x; tapStartY = y; tapMoved = 0;
-  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded=true; }, 1200); }
-}
-function moveDrag(x, y) {
-  if (!dragging) return;
-  tapMoved += Math.abs(x - lastX) + Math.abs(y - lastY);
-  // Horizontal → rotate
-  const dx = (x - lastX) * 0.011;
-  vel = dx; targetY += dx;
-  // Vertical → pan world forward/back in scene space
-  const dy = (y - lastY) * 0.18;
-  targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dy));
-  lastX = x; lastY = y;
-}
-function endDrag(ex, ey) {
-  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
-      !document.getElementById('build-subpanel').classList.contains('show')) {
-    const cell = getGridCell(ex, ey);
-    if (cell) placeItem(cell.r, cell.c);
-  }
-  dragging = false;
-}
 
 function getPinchDist(t) {
   const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
   return Math.sqrt(dx*dx + dy*dy);
 }
 
-// Mouse
-canvas.addEventListener('mousedown',  e => startDrag(e.clientX, e.clientY));
-canvas.addEventListener('mousemove',  e => { moveDrag(e.clientX, e.clientY); lastMouseX = e.clientX; lastMouseY = e.clientY; });
-canvas.addEventListener('mouseup',    e => endDrag(e.clientX, e.clientY));
+// ── Mouse handlers ──────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  tapStartX = e.clientX; tapStartY = e.clientY; tapMoved = 0;
+  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200); }
+});
+canvas.addEventListener('mousemove', e => {
+  lastMouseX = e.clientX; lastMouseY = e.clientY;
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  tapMoved += Math.abs(dx) + Math.abs(dy);
+  if (e.shiftKey) {
+    // Shift + drag = pan
+    const pScale = (zoomDist / 400) * 1.4;
+    const sinAz = Math.sin(azimuth), cosAz = Math.cos(azimuth);
+    targetPoint.x += (-dx * cosAz + dy * sinAz) * pScale;
+    targetPoint.z += ( dx * sinAz + dy * cosAz) * pScale;
+  } else {
+    // Orbit
+    targetAz += dx * 0.008;
+    targetEl -= dy * 0.008;
+  }
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mouseup', e => {
+  if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
+      !document.getElementById('build-subpanel').classList.contains('show')) {
+    const cell = getGridCell(e.clientX, e.clientY);
+    if (cell) placeItem(cell.r, cell.c);
+  }
+  dragging = false;
+});
 canvas.addEventListener('mouseleave', () => { dragging = false; });
-
-// Mouse wheel zoom
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + e.deltaY * 0.06));
 }, { passive: false });
 
-// Touch
+// ── Touch handlers ──────────────────────────────────
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (e.touches.length === 2) { pinching = true; dragging = false; lastPinchDist = getPinchDist(e.touches); }
-  else { pinching = false; startDrag(e.touches[0].clientX, e.touches[0].clientY); }
+  clearTimeout(longPressTimer);
+
+  if (e.touches.length === 2) {
+    pinching = true; dragging = false;
+    lastPinchDist = getPinchDist(e.touches);
+    lastMidX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+    lastMidY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+    panVelX = 0; panVelZ = 0;
+    return;
+  }
+
+  pinching = false;
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  dragging = true; lastX = tx; lastY = ty;
+  tapStartX = tx; tapStartY = ty; tapMoved = 0;
+  if (!hintFaded) { setTimeout(() => { hintEl.classList.add('fade'); hintFaded = true; }, 1200); }
+
+  // Long press = reset camera
+  longPressTimer = setTimeout(() => {
+    if (tapMoved < 10) {
+      targetPoint.x = 0; targetPoint.z = 0;
+      panVelX = 0; panVelZ = 0;
+      targetAz   = Math.PI * 0.75;
+      targetEl   = 0.72;
+      targetZoom = ZOOM_DEF;
+      if (navigator.vibrate) navigator.vibrate([12, 50, 12]);
+      camDot.classList.add('visible');
+      setTimeout(() => camDot.classList.remove('visible'), 1200);
+    }
+  }, 600);
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
+  clearTimeout(longPressTimer);
+
   if (e.touches.length === 2) {
     pinching = true; dragging = false;
-    const d = getPinchDist(e.touches);
-    targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
-    lastPinchDist = d;
-  } else if (!pinching) { moveDrag(e.touches[0].clientX, e.touches[0].clientY); }
+    const d    = getPinchDist(e.touches);
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+
+    // Zoom (pinch)
+    const pinchDelta = Math.abs(d - lastPinchDist);
+    if (pinchDelta > 0.5)
+      targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, targetZoom + (lastPinchDist - d) * 0.14));
+
+    // Pan (2-finger slide)
+    const dMidX = midX - lastMidX, dMidY = midY - lastMidY;
+    const panDelta = Math.hypot(dMidX, dMidY);
+    if (panDelta > 0.5) {
+      const pScale = (zoomDist / 400) * 1.4;
+      const sinAz = Math.sin(azimuth), cosAz = Math.cos(azimuth);
+      panVelX = (-dMidX * cosAz + dMidY * sinAz) * pScale;
+      panVelZ = ( dMidX * sinAz + dMidY * cosAz) * pScale;
+      targetPoint.x += panVelX;
+      targetPoint.z += panVelZ;
+      camDot.classList.add('visible');
+    }
+
+    lastPinchDist = d; lastMidX = midX; lastMidY = midY;
+    return;
+  }
+
+  if (pinching) return;
+  if (!dragging) return;
+  const tx = e.touches[0].clientX, ty = e.touches[0].clientY;
+  const dx = tx - lastX, dy = ty - lastY;
+  tapMoved += Math.abs(dx) + Math.abs(dy);
+  // 1-finger drag = orbit
+  targetAz += dx * 0.008;
+  targetEl -= dy * 0.008;
+  lastX = tx; lastY = ty;
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
   e.preventDefault();
-  if (e.touches.length < 2) pinching = false;
-  if (e.touches.length === 0) {
-    const t = e.changedTouches[0];
-    endDrag(t.clientX, t.clientY);
+  clearTimeout(longPressTimer);
+
+  if (e.touches.length < 2) {
+    pinching = false;
+    camDot.classList.remove('visible');
+  }
+
+  if (e.touches.length === 0 && e.changedTouches.length > 0) {
+    const t0 = e.changedTouches[0];
+    const now = Date.now();
+
+    // Double-tap → snap target to tapped cell
+    if (now - lastTapTime < 320 &&
+        Math.hypot(t0.clientX - lastTapX, t0.clientY - lastTapY) < 30 &&
+        tapMoved < TAP_THRESHOLD) {
+      const cell = getGridCell(t0.clientX, t0.clientY);
+      if (cell) {
+        const centre = cellCenter(cell.r, cell.c);
+        targetPoint.x = centre.x; targetPoint.z = centre.z;
+        panVelX = 0; panVelZ = 0;
+        if (navigator.vibrate) navigator.vibrate(8);
+        camDot.classList.add('visible');
+        setTimeout(() => camDot.classList.remove('visible'), 1000);
+      }
+      lastTapTime = 0; return;
+    }
+
+    // Single tap → place building
+    if (dragging && tapMoved < TAP_THRESHOLD && selectedTool &&
+        !document.getElementById('build-subpanel').classList.contains('show')) {
+      const cell = getGridCell(t0.clientX, t0.clientY);
+      if (cell) placeItem(cell.r, cell.c);
+    }
+
+    lastTapTime = now; lastTapX = t0.clientX; lastTapY = t0.clientY;
+    dragging = false;
   }
 }, { passive: false });
 
 // ─────────────────────────────────────────────────
-//  ZOOM BUTTONS
+//  ZOOM — mouse wheel only (screen controls removed)
 // ─────────────────────────────────────────────────
-const zoomLabel   = document.getElementById('zoom-label');
-const zoomBarFill = document.getElementById('zoom-bar-fill');
-document.getElementById('btn-in').addEventListener('click',  () => { targetZoom = Math.max(ZOOM_MIN, targetZoom-10); });
-document.getElementById('btn-out').addEventListener('click', () => { targetZoom = Math.min(ZOOM_MAX, targetZoom+10); });
-['btn-in','btn-out'].forEach((id,i) => {
-  const el = document.getElementById(id); const dir = i===0?-1:1; let raf;
-  el.addEventListener('pointerdown', () => { function s(){ targetZoom=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,targetZoom+dir*.8)); raf=requestAnimationFrame(s); } s(); });
-  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
-  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
-});
-
-// ─────────────────────────────────────────────────
-//  PAN BUTTONS  (front / back)
-// ─────────────────────────────────────────────────
-['pan-fwd','pan-back'].forEach((id, i) => {
-  const el = document.getElementById(id); const dir = i===0 ? -1 : 1; let raf;
-  const step = () => { targetPanZ = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, targetPanZ + dir * 0.9)); raf = requestAnimationFrame(step); };
-  el.addEventListener('pointerdown', () => step());
-  el.addEventListener('pointerup',   () => cancelAnimationFrame(raf));
-  el.addEventListener('pointerleave',() => cancelAnimationFrame(raf));
-});
+const zoomLabel   = { textContent: '' };   // stub — label removed
+const zoomBarFill = { style: {} };          // stub — bar removed
 const toolBadge = document.getElementById('tool-badge');
 const badgeIcon = document.getElementById('badge-icon');
 const badgeName = document.getElementById('badge-name');
@@ -3640,6 +3742,13 @@ document.querySelectorAll('.sp-cityhall-type').forEach(function(el) {
   });
 });
 
+// ── Land buy button in sub-panel ────────────────────
+document.getElementById('sp-land-buy-btn').addEventListener('click', function() {
+  buyLand();
+  closeSubpanel();
+  setActiveTb(null);
+});
+
 // ── Police Station button ─────────────────────────
 const spPoliceBtn = document.getElementById('sp-police-btn');
 if (spPoliceBtn) {
@@ -3649,13 +3758,6 @@ if (spPoliceBtn) {
     closeSubpanel();
   });
 }
-
-// ── Land buy button in sub-panel ────────────────────
-document.getElementById('sp-land-buy-btn').addEventListener('click', function() {
-  buyLand();
-  closeSubpanel();
-  setActiveTb(null);
-});
 
 // ── Tap outside sub-panel to close ─────────────────
 document.addEventListener('click', function(e) {
@@ -3670,14 +3772,16 @@ document.addEventListener('click', function(e) {
 //  COMPASS
 // ─────────────────────────────────────────────────
 const needle = document.getElementById('needle');
-function updateCompass(angle) {
-  needle.setAttribute('transform', `rotate(${(-(angle*180/Math.PI)%360).toFixed(2)}, 27, 27)`);
+function updateCompass(az) {
+  const deg = (az * 180 / Math.PI) % 360;
+  needle.setAttribute('transform', `rotate(${deg.toFixed(2)}, 27, 27)`);
 }
 
 // ─────────────────────────────────────────────────
 //  HINT
 // ─────────────────────────────────────────────────
 const hintEl = document.getElementById('hint');
+const camDot = document.getElementById('cam-target-dot');
 let hintFaded = false;
 setTimeout(() => { if (!hintFaded) { hintEl.classList.add('fade'); hintFaded = true; } }, 5000);
 
@@ -3689,16 +3793,17 @@ function animate() {
   requestAnimationFrame(animate);
   t += 0.004;
 
-  // Rotation inertia
-  if (!dragging) { vel *= 0.91; targetY += vel; }
-  rotY += (targetY - rotY) * 0.13;
-  world.rotation.y = rotY;
+  // Smooth orbit angles
+  azimuth   += (targetAz   - azimuth)   * 0.12;
+  elevation += (targetEl   - elevation) * 0.12;
+  zoomDist  += (targetZoom - zoomDist)  * 0.10;
 
-  // Pan smoothing
-  panOffZ += (targetPanZ - panOffZ) * 0.12;
+  // Pan inertia + soft boundary spring
+  panVelX *= 0.88; panVelZ *= 0.88;
+  targetPoint.x += panVelX; targetPoint.z += panVelZ;
+  if (Math.abs(targetPoint.x) > PAN_LIMIT_X) { panVelX *= -0.3; targetPoint.x = Math.max(-PAN_LIMIT_X, Math.min(PAN_LIMIT_X, targetPoint.x)); }
+  if (Math.abs(targetPoint.z) > PAN_LIMIT_Z) { panVelZ *= -0.3; targetPoint.z = Math.max(-PAN_LIMIT_Z, Math.min(PAN_LIMIT_Z, targetPoint.z)); }
 
-  // Zoom
-  zoomDist += (targetZoom - zoomDist) * 0.10;
   updateCamera();
   zoomLabel.textContent = Math.round(zoomDist) + 'm';
   const pct = 1 - (zoomDist - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN);
@@ -3733,7 +3838,7 @@ function animate() {
     c.mesh.position.y += Math.sin(t * 0.8 + i) * 0.002;
   });
 
-  updateCompass(rotY);
+  updateCompass(azimuth);
   tickCars();
   tickPoliceCars();
   // Idle light pulse on parked police cars
