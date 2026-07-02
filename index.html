@@ -256,6 +256,28 @@
     .bitem.cant-afford .bcost  { color: #ff6b6b; }
     .htype.cant-afford .htype-name { color: rgba(255,255,255,0.35); }
     .htype.cant-afford .bcost      { color: #ff6b6b; }
+
+    /* ── BUILD LIMIT COUNTER ─────────────────────── */
+    .blimit {
+      flex-shrink: 0; margin-left: 5px;
+      font-size: clamp(9px, 2.2vw, 11px); font-weight: 700;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      padding: 2px 6px;
+      color: rgba(255,255,255,0.65);
+      white-space: nowrap; letter-spacing: 0.3px;
+    }
+    .blimit.limit-full {
+      color: #ff6b6b;
+      border-color: rgba(255,107,107,0.4);
+      background: rgba(255,107,107,0.12);
+    }
+    .blimit.limit-ok {
+      color: #88ffbb;
+      border-color: rgba(136,255,187,0.35);
+      background: rgba(136,255,187,0.1);
+    }
   </style>
 </head>
 <body>
@@ -339,50 +361,50 @@
   <!-- House styles -->
   <div id="sp-house" class="sp-page hidden">
     <div class="sp-title">House Style</div>
-    <div class="sp-item sp-house-type active" data-htype="cottage">
+    <div class="sp-item sp-house-type active" data-htype="cottage" data-limit="20">
       <span class="sp-icon">🏡</span>
       <div class="sp-info"><div class="sp-name">Cottage</div><div class="sp-desc">Cosy &amp; charming</div></div>
-      <span class="bcost">$150</span>
+      <span class="bcost">$150</span><span class="blimit" id="lim-cottage">0/20</span>
     </div>
-    <div class="sp-item sp-house-type" data-htype="modern">
+    <div class="sp-item sp-house-type" data-htype="modern" data-limit="15">
       <span class="sp-icon">🏢</span>
       <div class="sp-info"><div class="sp-name">Modern</div><div class="sp-desc">Sleek flat-roof</div></div>
-      <span class="bcost">$220</span>
+      <span class="bcost">$220</span><span class="blimit" id="lim-modern">0/15</span>
     </div>
-    <div class="sp-item sp-house-type" data-htype="villa">
+    <div class="sp-item sp-house-type" data-htype="villa" data-limit="10">
       <span class="sp-icon">🏛️</span>
       <div class="sp-info"><div class="sp-name">Villa</div><div class="sp-desc">Grand &amp; elegant</div></div>
-      <span class="bcost">$380</span>
+      <span class="bcost">$380</span><span class="blimit" id="lim-villa">0/10</span>
     </div>
-    <div class="sp-item sp-house-type" data-htype="cabin">
+    <div class="sp-item sp-house-type" data-htype="cabin" data-limit="20">
       <span class="sp-icon">🛖</span>
       <div class="sp-info"><div class="sp-name">Log Cabin</div><div class="sp-desc">Rustic A-frame</div></div>
-      <span class="bcost">$130</span>
+      <span class="bcost">$130</span><span class="blimit" id="lim-cabin">0/20</span>
     </div>
-    <div class="sp-item sp-house-type" data-htype="apartment">
+    <div class="sp-item sp-house-type" data-htype="apartment" data-limit="10">
       <span class="sp-icon">🏬</span>
       <div class="sp-info"><div class="sp-name">Apartment</div><div class="sp-desc">Multi-level living</div></div>
-      <span class="bcost">$260</span>
+      <span class="bcost">$260</span><span class="blimit" id="lim-apartment">0/10</span>
     </div>
   </div>
 
   <!-- Park types -->
   <div id="sp-park" class="sp-page hidden">
     <div class="sp-title">Park Type</div>
-    <div class="sp-item sp-park-type active" data-ptype="park">
+    <div class="sp-item sp-park-type active" data-ptype="park" data-limit="15">
       <span class="sp-icon">🌲</span>
       <div class="sp-info"><div class="sp-name">Park</div><div class="sp-desc">Trees, paths &amp; bench</div></div>
-      <span class="bcost">$75</span>
+      <span class="bcost">$75</span><span class="blimit" id="lim-park">0/15</span>
     </div>
-    <div class="sp-item sp-park-type" data-ptype="bigpark">
+    <div class="sp-item sp-park-type" data-ptype="bigpark" data-limit="5">
       <span class="sp-icon">🎡</span>
       <div class="sp-info"><div class="sp-name">Big Park</div><div class="sp-desc">Play zone (2×2)</div></div>
-      <span class="bcost">$7,000</span>
+      <span class="bcost">$7,000</span><span class="blimit" id="lim-bigpark">0/5</span>
     </div>
-    <div class="sp-item sp-park-type" data-ptype="amusementpark">
+    <div class="sp-item sp-park-type" data-ptype="amusementpark" data-limit="2">
       <span class="sp-icon">🎢</span>
       <div class="sp-info"><div class="sp-name">Amusement Park</div><div class="sp-desc">Waterfall Wonders (3×3)</div></div>
-      <span class="bcost">$15,000</span>
+      <span class="bcost">$15,000</span><span class="blimit" id="lim-amusementpark">0/2</span>
     </div>
   </div>
 
@@ -403,21 +425,21 @@
   <div id="sp-governor" class="sp-page hidden">
     <div class="sp-title">Governor</div>
     <div id="ch-already-label" style="display:none;padding:10px 16px 8px;font-size:11px;font-weight:700;color:#88ffbb;letter-spacing:0.4px;border-bottom:1px solid rgba(255,255,255,0.07);">✓ City Hall built — only one allowed</div>
-    <div class="sp-item sp-cityhall-type active" data-chtype="cityhall">
+    <div class="sp-item sp-cityhall-type active" data-chtype="cityhall" data-limit="1">
       <span class="sp-icon">🏛️</span>
       <div class="sp-info">
         <div class="sp-name">City Hall</div>
         <div class="sp-desc">Pillared dome, gold trim (3×3)</div>
       </div>
-      <span class="bcost">$1,000</span>
+      <span class="bcost">$1,000</span><span class="blimit" id="lim-cityhall">0/1</span>
     </div>
-    <div class="sp-item" id="sp-police-btn" data-tool="policestation">
+    <div class="sp-item" id="sp-police-btn" data-tool="policestation" data-limit="8">
       <span class="sp-icon">🚔</span>
       <div class="sp-info">
         <div class="sp-name">Police Station</div>
         <div class="sp-desc">1×2 · patrol car deploys on road</div>
       </div>
-      <span class="bcost">$800</span>
+      <span class="bcost">$800</span><span class="blimit" id="lim-policestation">0/8</span>
     </div>
   </div>
 
@@ -911,7 +933,9 @@ function makeSignTexture(text, w = 512, h = 144, bg = '#0E7A5E', fg = '#FFFFFF',
 function buildHouse(r, c) {
   const fns = { cottage: buildCottage, modern: buildModern,
                 villa: buildVilla, cabin: buildCabin, apartment: buildApartment };
-  return (fns[selectedHouseType] || buildCottage)(r, c);
+  const mesh = (fns[selectedHouseType] || buildCottage)(r, c);
+  if (mesh) mesh.userData.houseType = selectedHouseType;
+  return mesh;
 }
 
 // 1 ── Cottage  (English Country) ───────────────────
@@ -3182,6 +3206,68 @@ const FOOTPRINTS = {
 };
 function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
 
+// ── Build limits ────────────────────────────────────
+// How many of each type the player can place in total.
+const BUILD_LIMITS = {
+  cottage: 20, modern: 15, villa: 10, cabin: 20, apartment: 10,
+  park: 15, bigpark: 5, amusementpark: 2,
+  cityhall: 1, policestation: 8,
+  road: Infinity,  // no cap
+};
+
+// Count how many of a given type are currently placed.
+// For multi-cell buildings we count unique mesh objects only.
+function countPlaced(type) {
+  const seen = new Set();
+  let n = 0;
+  for (const k in placedItems) {
+    const m = placedItems[k];
+    if (m.userData.type === type && !seen.has(m)) { seen.add(m); n++; }
+  }
+  return n;
+}
+
+// House sub-type counts live inside userData.houseType set in buildHouse
+function countHouseType(htype) {
+  const seen = new Set();
+  let n = 0;
+  for (const k in placedItems) {
+    const m = placedItems[k];
+    if (m.userData.type === 'house' && m.userData.houseType === htype && !seen.has(m)) {
+      seen.add(m); n++;
+    }
+  }
+  return n;
+}
+
+// Refresh all blimit counter badges in the sub-panel.
+function updateBuildCounters() {
+  // House types
+  ['cottage','modern','villa','cabin','apartment'].forEach(ht => {
+    const el = document.getElementById('lim-' + ht); if (!el) return;
+    const lim = BUILD_LIMITS[ht] ?? Infinity;
+    const cnt = countHouseType(ht);
+    el.textContent = cnt + '/' + lim;
+    el.className = 'blimit ' + (cnt >= lim ? 'limit-full' : cnt > 0 ? 'limit-ok' : '');
+  });
+  // Park types
+  ['park','bigpark','amusementpark'].forEach(pt => {
+    const el = document.getElementById('lim-' + pt); if (!el) return;
+    const lim = BUILD_LIMITS[pt] ?? Infinity;
+    const cnt = countPlaced(pt);
+    el.textContent = cnt + '/' + lim;
+    el.className = 'blimit ' + (cnt >= lim ? 'limit-full' : cnt > 0 ? 'limit-ok' : '');
+  });
+  // Governor buildings
+  ['cityhall','policestation'].forEach(bt => {
+    const el = document.getElementById('lim-' + bt); if (!el) return;
+    const lim = BUILD_LIMITS[bt] ?? Infinity;
+    const cnt = countPlaced(bt);
+    el.textContent = cnt + '/' + lim;
+    el.className = 'blimit ' + (cnt >= lim ? 'limit-full' : cnt > 0 ? 'limit-ok' : '');
+  });
+}
+
 const paidMap = {};   // key → original cost paid (for refunds)
 
 const cashPanel    = document.getElementById('cash-panel');
@@ -3262,10 +3348,25 @@ function refreshAffordability() {
   if (spLandBtn)  spLandBtn.classList.toggle('cant-afford', cash < lc);
   const spPoliceBtnEl = document.getElementById('sp-police-btn');
   if (spPoliceBtnEl) spPoliceBtnEl.classList.toggle('cant-afford', cash < (COSTS.policestation ?? 0));
+
+  // Also grey out items that have hit their build limit
+  document.querySelectorAll('.sp-house-type').forEach(el => {
+    const lim = BUILD_LIMITS[el.dataset.htype] ?? Infinity;
+    if (countHouseType(el.dataset.htype) >= lim) el.classList.add('cant-afford');
+  });
+  document.querySelectorAll('.sp-park-type').forEach(el => {
+    const lim = BUILD_LIMITS[el.dataset.ptype] ?? Infinity;
+    if (countPlaced(el.dataset.ptype) >= lim) el.classList.add('cant-afford');
+  });
+  if (countPlaced('policestation') >= (BUILD_LIMITS.policestation ?? Infinity)) {
+    if (spPoliceBtnEl) spPoliceBtnEl.classList.add('cant-afford');
+  }
+  updateBuildCounters();
 }
 
 // Init display
 updateCashUI(0);
+updateBuildCounters();
 
 // ── Place / Erase ──────────────────────────────────
 function placeItem(r, c) {
@@ -3284,15 +3385,29 @@ function placeItem(r, c) {
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); checkPoliceStationsNearRoads(); }
       if (item.userData.type === 'cityhall') { cityHallPlaced = false; refreshAffordability(); }
       if (item.userData.type === 'policestation') { removePoliceCarsForStation(item.userData.stationR, item.userData.stationC); }
+      updateBuildCounters();
     }
     return;
+  }
+
+  // ── Build limit check ───────────────────────────
+  const effectiveType = selectedTool === 'house' ? selectedHouseType : selectedTool;
+  const lim = BUILD_LIMITS[effectiveType];
+  if (lim !== undefined && lim !== Infinity) {
+    const cnt = effectiveType === selectedHouseType && selectedTool === 'house'
+      ? countHouseType(effectiveType)
+      : countPlaced(effectiveType);
+    if (cnt >= lim) {
+      showToast(`Limit reached: ${cnt}/${lim} ${effectiveType} already built 🚫`);
+      return;
+    }
   }
 
   const cost = getBuildCost(selectedTool);
   if (cash < cost) { flashBroke(); return; }
   const fp = getFootprint(selectedTool);
 
-  // Multi-cell buildings (e.g. the Big Park 2×2, or the Amusement Park 3×3)
+  // Multi-cell buildings
   if (fp.w > 1 || fp.h > 1) {
     const cells = [];
     for (let dr = 0; dr < fp.h; dr++) {
@@ -3321,6 +3436,7 @@ function placeItem(r, c) {
       cells.forEach(k => { placedItems[k] = mesh; paidMap[k] = 0; });
       cash -= cost;
       updateCashUI(-cost);
+      updateBuildCounters();
       if (selectedTool === 'cityhall') { cityHallPlaced = true; refreshAffordability(); clearTool(); }
       if (selectedTool === 'policestation') {
         const launched = spawnPoliceCar(r, c);
@@ -3348,6 +3464,7 @@ function placeItem(r, c) {
     world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
     cash -= cost;
     updateCashUI(-cost);
+    updateBuildCounters();
     if (selectedTool === 'road' || wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); checkPoliceStationsNearRoads(); }
   }
 }
