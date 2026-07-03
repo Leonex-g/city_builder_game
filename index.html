@@ -441,6 +441,22 @@
       </div>
       <span class="bcost">$800</span><span class="blimit" id="lim-policestation">0/8</span>
     </div>
+    <div class="sp-item" id="sp-bigpolice-btn" data-tool="bigpolicestation">
+      <span class="sp-icon">🏢</span>
+      <div class="sp-info">
+        <div class="sp-name">Big Police Station</div>
+        <div class="sp-desc">2×2 · radar · 4 bays · 2 patrol cars</div>
+      </div>
+      <span class="bcost">$2,500</span>
+    </div>
+    <div class="sp-item" id="sp-hospital-btn" data-tool="hospital">
+      <span class="sp-icon">🏥</span>
+      <div class="sp-info">
+        <div class="sp-name">Hospital</div>
+        <div class="sp-desc">1×2 · building + public parking</div>
+      </div>
+      <span class="bcost">$1,200</span>
+    </div>
   </div>
 
 </div>
@@ -3066,7 +3082,13 @@ const policeCarList = [];
 let   policeFlashT  = 0;
 
 function getStationNeighbours(sr, sc) {
-  const footCells = [[sr,sc],[sr+1,sc]];
+  // Determine footprint from placed item type
+  const key  = `${sr},${sc}`;
+  const item = placedItems[key];
+  const isBig = item && item.userData.type === 'bigpolicestation';
+  const footCells = isBig
+    ? [[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]]   // 2×2
+    : [[sr,sc],[sr+1,sc]];                          // 1×2
   const seen = new Set(footCells.map(([r,c])=>`${r},${c}`));
   const out  = [];
   footCells.forEach(([r,c]) => {
@@ -3117,7 +3139,7 @@ function removePoliceCarsForStation(sr, sc) {
 
 function checkPoliceStationsNearRoads() {
   Object.values(placedItems).forEach(item => {
-    if (item.userData.type !== 'policestation') return;
+    if (item.userData.type !== 'policestation' && item.userData.type !== 'bigpolicestation') return;
     const sr=item.userData.stationR, sc=item.userData.stationC;
     if (policeCarList.some(p=>p.stationR===sr && p.stationC===sc)) return;
     const launched = spawnPoliceCar(sr, sc);
@@ -3184,6 +3206,442 @@ function tickPoliceCars() {
   }
 }
 
+
+
+// ═════════════════════════════════════════════════════════════════
+//  BIG POLICE STATION  (2×2 cells)
+//  [r,c]   [r,c+1]   ← Station building (tall, radar on roof)
+//  [r+1,c] [r+1,c+1] ← Parking lot (4 bays, 2 police cars)
+//  Front face toward parking (+Z direction)
+// ═════════════════════════════════════════════════════════════════
+function buildBigPoliceStation(r, c) {
+  const tL = cellCenter(r,   c);
+  const tR = cellCenter(r,   c+1);
+  const bL = cellCenter(r+1, c);
+  const bR = cellCenter(r+1, c+1);
+
+  const bldX = (tL.x + tR.x) / 2;   // centre of top strip
+  const bldZ = tL.z;
+  const pkX  = (bL.x + bR.x) / 2;   // centre of bottom strip
+  const pkZ  = bL.z;
+
+  const g = new THREE.Group();
+  g.userData.type     = 'bigpolicestation';
+  g.userData.stationR = r;
+  g.userData.stationC = c;
+
+  const concM   = new THREE.MeshLambertMaterial({ color: 0x777777 });
+  const navyM   = new THREE.MeshLambertMaterial({ color: 0x101E3A });
+  const ltGryM  = new THREE.MeshLambertMaterial({ color: 0xCDD3DC });
+  const darkGryM= new THREE.MeshLambertMaterial({ color: 0x383E48 });
+  const stripM  = new THREE.MeshLambertMaterial({ color: 0x1A3A8A });
+  const signM   = new THREE.MeshLambertMaterial({ color: 0x060F2A });
+  const roofM   = new THREE.MeshLambertMaterial({ color: 0x1A1A1A });
+  const stepM   = new THREE.MeshLambertMaterial({ color: 0xAAAAAA });
+  const glassM  = new THREE.MeshPhongMaterial({ color:0x6688AA, specular:0xBBDDFF, shininess:140, transparent:true, opacity:0.68 });
+  const doorM   = new THREE.MeshLambertMaterial({ color: 0x0A1520 });
+  const barM    = new THREE.MeshLambertMaterial({ color: 0x222222 });
+  const tarmacM = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const bayM    = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  const yellowM = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
+  const whtTxt  = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  const chromM  = new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
+  const radarM  = new THREE.MeshLambertMaterial({ color: 0xDDDDDD });
+  const radarDkM= new THREE.MeshLambertMaterial({ color: 0x555555 });
+  const glowB   = new THREE.MeshPhongMaterial({ color:0x0044FF, emissive:new THREE.Color(0x001188), emissiveIntensity:0.7 });
+  const glowR   = new THREE.MeshPhongMaterial({ color:0xFF1100, emissive:new THREE.Color(0xAA0000), emissiveIntensity:0.7 });
+
+  function box(w,h,d,mat,ox,oy,oz) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(ox,oy,oz); m.castShadow=true; m.receiveShadow=true; g.add(m); return m;
+  }
+  function cyl(rT,rB,h,seg,mat,ox,oy,oz) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rT,rB,h,seg), mat);
+    m.position.set(ox,oy,oz); m.castShadow=true; g.add(m); return m;
+  }
+
+  const BW     = CELL * 2 - 0.20;   // 11.8 wide
+  const BD     = CELL - 0.40;       // 5.6 deep
+  const BH     = 10.0;              // tall
+  const frontZ = bldZ + BD / 2;     // front face toward parking
+
+  // ── Foundation ──────────────────────────────────────────────
+  box(CELL*2-0.1, 0.32, CELL, concM, bldX, 0.16, bldZ);
+
+  // ── Steps (front, toward parking) ───────────────────────────
+  box(5.0, 0.18, 0.44, stepM, bldX, 0.50, frontZ + 0.22);
+  box(4.4, 0.36, 0.44, stepM, bldX, 0.68, frontZ + 0.66);
+
+  // ── Main body: navy lower, grey upper ───────────────────────
+  box(BW, BH*0.55, BD, navyM,   bldX, 0.32+BH*0.55/2,           bldZ);
+  box(BW, BH*0.45, BD, ltGryM,  bldX, 0.32+BH*0.55+BH*0.45/2,  bldZ);
+  box(BW+0.12, 0.30, BD+0.12, stripM, bldX, 0.32+BH*0.55-0.15, bldZ);
+
+  // ── 4 Front pilasters ───────────────────────────────────────
+  [-4.0,-1.35,1.35,4.0].forEach(cx2 => {
+    box(0.42, BH*0.55, 0.22, darkGryM, bldX+cx2, 0.32+BH*0.55/2, frontZ+0.01);
+    box(0.50, 0.22, 0.28, ltGryM, bldX+cx2, 0.32+BH*0.55+0.11, frontZ+0.01);
+  });
+
+  // ── POLICE sign ─────────────────────────────────────────────
+  const signY = 0.32+BH*0.55+BH*0.45*0.65;
+  box(BW*0.72, 0.80, 0.12, signM, bldX, signY, frontZ+0.02);
+  [-2.2,-1.32,-0.44,0.18,0.90,1.72].forEach(lo => {
+    const lm = new THREE.Mesh(new THREE.BoxGeometry(0.54,0.50,0.09), whtTxt);
+    lm.position.set(bldX+lo, signY, frontZ+0.08); g.add(lm);
+  });
+
+  // ── Front entrance (3 door pairs) ───────────────────────────
+  [-1.5,0,1.5].forEach(dx => {
+    box(0.56,2.10,0.11, doorM, bldX+dx-0.30, 0.32+1.05, frontZ+0.02);
+    box(0.56,2.10,0.11, doorM, bldX+dx+0.30, 0.32+1.05, frontZ+0.02);
+    box(0.50,1.88,0.08, glassM, bldX+dx-0.30, 0.32+1.05, frontZ+0.06);
+    box(0.50,1.88,0.08, glassM, bldX+dx+0.30, 0.32+1.05, frontZ+0.06);
+  });
+  box(BW*0.82, 0.18, 0.13, darkGryM, bldX, 0.32+2.19, frontZ+0.02);
+
+  // ── Upper front windows (2 rows × 5 cols) ───────────────────
+  [1.55,2.65].forEach(wRow => {
+    const wy = 0.32+BH*0.55+BH*0.45*wRow/BH;
+    [-4.2,-2.1,0,2.1,4.2].forEach(wx => {
+      box(1.22,1.05,0.12, ltGryM, bldX+wx, wy, frontZ+0.02);
+      box(1.00,0.86,0.09, glassM, bldX+wx, wy, frontZ+0.05);
+      box(1.02,0.06,0.11, barM,   bldX+wx, wy, frontZ+0.06);
+      box(0.06,0.88,0.11, barM,   bldX+wx, wy, frontZ+0.06);
+    });
+  });
+
+  // ── Flat roof + parapet ──────────────────────────────────────
+  const roofY = 0.32+BH;
+  box(BW+0.4, 0.24, BD+0.4, roofM, bldX, roofY+0.12, bldZ);
+  box(BW+0.4, 0.72, 0.28, roofM, bldX, roofY+0.60, bldZ-BD/2);
+  box(BW+0.4, 0.72, 0.28, roofM, bldX, roofY+0.60, bldZ+BD/2);
+  box(0.28, 0.72, BD+0.4, roofM, bldX-BW/2, roofY+0.60, bldZ);
+  box(0.28, 0.72, BD+0.4, roofM, bldX+BW/2, roofY+0.60, bldZ);
+
+  // ── Rooftop AC & vents ───────────────────────────────────────
+  box(2.0,0.60,1.2, darkGryM, bldX-3.5, roofY+0.54, bldZ-1.0);
+  box(1.4,0.50,0.9, darkGryM, bldX+3.0, roofY+0.49, bldZ+0.8);
+  [-2.0,0,2.0].forEach(vx => { cyl(0.15,0.18,0.55,8,concM, bldX+vx, roofY+0.52, bldZ-0.5); });
+
+  // ── RADAR SYSTEM ─────────────────────────────────────────────
+  const rBase = roofY + 0.24;
+  cyl(0.14,0.20,3.8,10, radarDkM, bldX, rBase+1.9, bldZ);
+  [-0.9,0.3,1.5].forEach(my => { box(1.4,0.08,0.08, radarDkM, bldX, rBase+1.9+my, bldZ); });
+  [[-2.4,0],[2.4,0]].forEach(([mx]) => {
+    cyl(0.07,0.10,2.0,8, chromM, bldX+mx, rBase+1.0, bldZ);
+    box(2.5,0.04,0.04, radarDkM, bldX+mx/2, rBase+2.4, bldZ);
+  });
+
+  // Rotating radar dish
+  const radarDish = new THREE.Group();
+  const dishBack = new THREE.Mesh(
+    new THREE.SphereGeometry(1.45,14,10,0,Math.PI*2,0,Math.PI*0.55), radarM
+  );
+  dishBack.rotation.x = Math.PI/2; radarDish.add(dishBack);
+  radarDish.add(new THREE.Mesh(new THREE.TorusGeometry(1.45,0.07,8,24), radarDkM));
+  const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.10,0.90,8), chromM);
+  horn.rotation.x=Math.PI/2; horn.position.z=-0.45; radarDish.add(horn);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.10,1.30), radarDkM);
+  arm.position.z=-0.65; radarDish.add(arm);
+  radarDish.position.set(bldX, rBase+3.85, bldZ);
+  radarDish.rotation.x=-Math.PI*0.18;
+  g.add(radarDish);
+  g.userData.radarDish = radarDish;
+
+  // Beacon
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.14,8,7), glowR);
+  beacon.position.set(bldX, rBase+3.88, bldZ);
+  g.userData.beacon = beacon; g.add(beacon);
+
+  // Antenna panels (4 directions)
+  [[-90,0],[90,0],[0,-90],[0,90]].forEach(([ry],i) => {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.10,1.60,0.40), radarDkM);
+    panel.rotation.y=ry*Math.PI/180;
+    panel.position.set(bldX+Math.sin(ry*Math.PI/180)*0.55, rBase+2.6, bldZ+Math.cos(ry*Math.PI/180)*0.55);
+    g.add(panel);
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.12), i%2===0?glowB:glowR);
+    led.position.set(bldX+Math.sin(ry*Math.PI/180)*0.62, rBase+2.8, bldZ+Math.cos(ry*Math.PI/180)*0.62);
+    g.add(led);
+  });
+
+  // Flag pole
+  cyl(0.035,0.050,4.8,8, chromM, bldX+BW/2-0.5, roofY+2.7, bldZ-BD/2+0.5);
+  box(1.8,0.35,0.05, new THREE.MeshLambertMaterial({color:0x0033AA}), bldX+BW/2-0.5+0.9, roofY+4.95, bldZ-BD/2+0.52);
+  box(1.8,0.35,0.05, new THREE.MeshLambertMaterial({color:0xFFFFFF}), bldX+BW/2-0.5+0.9, roofY+4.60, bldZ-BD/2+0.52);
+
+  // ── PARKING LOT (4 bays, 2 police cars parked) ───────────────
+  box(CELL*2-0.1, 0.08, CELL-0.1, tarmacM, pkX, 0.32, pkZ);
+  box(CELL*2-0.1,0.01,0.07, bayM, pkX, 0.37, pkZ-CELL/2+0.12);
+  box(CELL*2-0.1,0.01,0.07, bayM, pkX, 0.37, pkZ+CELL/2-0.12);
+  box(0.07,0.01,CELL-0.1, bayM, pkX-CELL+0.05, 0.37, pkZ);
+  box(0.07,0.01,CELL-0.1, bayM, pkX+CELL-0.05, 0.37, pkZ);
+
+  const bayW = (CELL*2-0.5)/4;
+  [-1.5,-0.5,0.5].forEach(i => { box(0.07,0.01,CELL-0.3, bayM, pkX+i*bayW, 0.37, pkZ); });
+  [-1.5,-0.5,0.5,1.5].forEach(bi => {
+    const bx2 = pkX+bi*bayW;
+    box(bayW*0.55,0.01,0.10, yellowM, bx2, 0.37, pkZ-0.6);
+    box(bayW*0.55,0.01,0.10, yellowM, bx2, 0.37, pkZ-0.8);
+  });
+
+  // Gate posts + barrier arm
+  [-CELL+0.4, CELL-0.4].forEach(gx => {
+    cyl(0.14,0.17,1.80,8, concM, pkX+gx, 0.32+0.90, pkZ+CELL/2-0.3);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,7), glowR);
+    lamp.position.set(pkX+gx, 0.32+1.84, pkZ+CELL/2-0.3); g.add(lamp);
+  });
+  box(CELL*2-1.0,0.08,0.08, yellowM, pkX, 0.32+1.55, pkZ+CELL/2-0.3);
+  for (let si=0; si<7; si++) {
+    box(0.16,0.08,0.10,
+      new THREE.MeshBasicMaterial({color:si%2===0?0xFF0000:0xFFFFFF}),
+      pkX-CELL+1.0+si*1.4, 0.32+1.60, pkZ+CELL/2-0.3);
+  }
+
+  // 2 parked police cars (bays 0 and 1)
+  const parkedCars = [];
+  [-1.5,-0.5].forEach(bi => {
+    const pc = buildPoliceCar();
+    pc.position.set(pkX+(bi-0.5)*bayW+bayW*0.5, 0.38, pkZ);
+    pc.rotation.y = 0;
+    g.add(pc);
+    parkedCars.push(pc);
+  });
+  g.userData.parkedCars = parkedCars;
+  g.userData.parkedCar  = parkedCars[0];
+
+  g.position.set(0,0,0);
+  return g;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  HOSPITAL  (1×2 cells)
+//  Cell r,c   = Hospital building  (front face toward parking +Z)
+//  Cell r+1,c = Public parking lot (4 bays, public cars)
+// ═════════════════════════════════════════════════════════════════
+function buildHospital(r, c) {
+  const bC  = cellCenter(r,   c);   // building cell
+  const pkC = cellCenter(r+1, c);   // parking cell
+  const g   = new THREE.Group();
+  g.userData.type = 'hospital';
+
+  // ── Materials ─────────────────────────────────────────────────
+  const whtM    = new THREE.MeshLambertMaterial({ color: 0xF5F5F0 });  // clean white body
+  const ltBlueM = new THREE.MeshLambertMaterial({ color: 0xDDE8F5 });  // light-blue facade panels
+  const midBlueM= new THREE.MeshLambertMaterial({ color: 0x4A7EC7 });  // blue accent band
+  const dkBlueM = new THREE.MeshLambertMaterial({ color: 0x1A3A6A });  // dark-blue base / trim
+  const glassM  = new THREE.MeshPhongMaterial({ color:0xAAD4F0, specular:0xFFFFFF, shininess:160, transparent:true, opacity:0.68 });
+  const glassWmM= new THREE.MeshPhongMaterial({ color:0xFFE8A0, specular:0xFFFFFF, shininess:100,
+    emissive:new THREE.Color(0xFFCC44), emissiveIntensity:0.35, transparent:true, opacity:0.75 });
+  const concM   = new THREE.MeshLambertMaterial({ color: 0x999999 });
+  const roofM   = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  const stepM   = new THREE.MeshLambertMaterial({ color: 0xBBBBBB });
+  const doorM   = new THREE.MeshLambertMaterial({ color: 0x224488 });
+  const redM    = new THREE.MeshLambertMaterial({ color: 0xDD2222 });
+  const redEmM  = new THREE.MeshPhongMaterial({ color:0xFF0000, emissive:new THREE.Color(0xFF0000), emissiveIntensity:0.9 });
+  const tarmacM = new THREE.MeshLambertMaterial({ color: 0x1A1A1A });
+  const bayM    = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  const yellowM = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
+  const blueM   = new THREE.MeshBasicMaterial({ color: 0x2255CC });
+  const chromM  = new THREE.MeshLambertMaterial({ color: 0xCCCCCC });
+  const whtBasic= new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+
+  function box(w, h, d, mat, ox, oy, oz) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(ox, oy, oz); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+  }
+  function cyl(rT, rB, h, seg, mat, ox, oy, oz) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, seg), mat);
+    m.position.set(ox, oy, oz); m.castShadow = true; g.add(m); return m;
+  }
+
+  const lx = bC.x,  lz = bC.z;
+  const pkX = pkC.x, pkZ = pkC.z;
+  const BW = CELL - 0.22;          // 5.78 wide
+  const BD = CELL - 0.50;          // 5.50 deep
+  const BH = 7.2;                  // tall — 3 visible floors
+  const frontZ = lz + BD / 2;      // front face toward parking
+
+  // ── FOUNDATION ────────────────────────────────────────────────
+  box(CELL - 0.1, 0.30, CELL * 2, concM, lx, 0.15, lz + CELL / 2);
+
+  // ── WIDE CANOPY over entrance (on front face) ────────────────
+  box(BW + 0.6, 0.18, 1.60, ltBlueM, lx, 0.30 + BH * 0.28 + 0.09, frontZ + 0.80);
+  // Canopy support pillars
+  [-1.8, 1.8].forEach(px => {
+    box(0.20, 0.30 + BH * 0.28, 0.20, dkBlueM, lx + px, (0.30 + BH * 0.28) / 2, frontZ + 1.60);
+  });
+
+  // ── APPROACH STEPS ────────────────────────────────────────────
+  box(3.6, 0.16, 0.38, stepM, lx, 0.46, frontZ + 0.19);
+  box(3.2, 0.32, 0.38, stepM, lx, 0.54, frontZ + 0.57);
+
+  // ── MAIN BODY ─────────────────────────────────────────────────
+  // Ground + 1st floor — white
+  box(BW, BH * 0.40, BD, whtM,    lx, 0.30 + BH * 0.40 / 2,              lz);
+  // 2nd + 3rd floor — light blue panels
+  box(BW, BH * 0.60, BD, ltBlueM, lx, 0.30 + BH * 0.40 + BH * 0.60 / 2, lz);
+
+  // Blue horizontal band at floor 2 boundary
+  box(BW + 0.12, 0.28, BD + 0.12, midBlueM, lx, 0.30 + BH * 0.40 - 0.14, lz);
+  // Dark blue cornice at top of floor 1
+  box(BW + 0.12, 0.16, BD + 0.12, dkBlueM, lx, 0.30 + BH * 0.40 * 0.50,  lz);
+
+  // ── RED CROSS SIGN (front, upper centre) ─────────────────────
+  // White backing plate
+  box(1.40, 1.40, 0.12, whtM, lx, 0.30 + BH * 0.40 + BH * 0.60 * 0.55, frontZ + 0.02);
+  // Red horizontal bar
+  box(1.20, 0.38, 0.10, redM, lx, 0.30 + BH * 0.40 + BH * 0.60 * 0.55, frontZ + 0.07);
+  // Red vertical bar
+  box(0.38, 1.20, 0.10, redM, lx, 0.30 + BH * 0.40 + BH * 0.60 * 0.55, frontZ + 0.07);
+
+  // ── HOSPITAL sign text panel ──────────────────────────────────
+  const sigY = 0.30 + BH * 0.40 + BH * 0.60 * 0.85;
+  box(BW * 0.70, 0.52, 0.11, dkBlueM, lx, sigY, frontZ + 0.02);
+  // "HOSPITAL" letter blocks (8 letters)
+  const letterPositions = [-1.70,-1.21,-0.72,-0.23,0.10,0.50,0.90,1.34];
+  letterPositions.forEach(lo => {
+    const lm = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.08), whtBasic);
+    lm.position.set(lx + lo, sigY, frontZ + 0.08); g.add(lm);
+  });
+
+  // ── ENTRANCE DOUBLE DOORS (front, ground floor) ───────────────
+  // Left door
+  box(0.58, 2.0, 0.10, doorM,  lx - 0.35, 0.30 + 1.0, frontZ + 0.01);
+  box(0.50, 1.82, 0.07, glassM, lx - 0.35, 0.30 + 1.0, frontZ + 0.05);
+  // Right door
+  box(0.58, 2.0, 0.10, doorM,  lx + 0.35, 0.30 + 1.0, frontZ + 0.01);
+  box(0.50, 1.82, 0.07, glassM, lx + 0.35, 0.30 + 1.0, frontZ + 0.05);
+  // Door frame
+  box(1.42, 0.14, 0.12, dkBlueM, lx, 0.30 + 2.07, frontZ + 0.01);
+  // Emergency lit sign above door
+  box(0.80, 0.24, 0.09, redEmM, lx, 0.30 + 2.28, frontZ + 0.06);
+
+  // ── GROUND FLOOR WINDOWS (both sides of door) ────────────────
+  [-1.80, 1.80].forEach(wx => {
+    box(0.96, 1.52, 0.10, whtM,   lx + wx, 0.30 + BH * 0.40 * 0.42, frontZ + 0.01);
+    box(0.78, 1.34, 0.07, glassWmM, lx + wx, 0.30 + BH * 0.40 * 0.42, frontZ + 0.05);
+  });
+
+  // ── UPPER FLOOR WINDOWS (2 floors × 3 columns) ───────────────
+  const winY1 = 0.30 + BH * 0.40 + BH * 0.60 * 0.22;
+  const winY2 = 0.30 + BH * 0.40 + BH * 0.60 * 0.58;
+  [-1.80, 0, 1.80].forEach(wx => {
+    [winY1, winY2].forEach(wy => {
+      // Frame
+      box(1.0, 1.10, 0.11, ltBlueM, lx + wx, wy, frontZ + 0.01);
+      // Glass (warm glow — lit interior)
+      box(0.82, 0.92, 0.08, glassWmM, lx + wx, wy, frontZ + 0.05);
+      // Horizontal divider
+      box(0.84, 0.05, 0.10, dkBlueM, lx + wx, wy, frontZ + 0.06);
+    });
+  });
+
+  // ── SIDE WINDOWS ─────────────────────────────────────────────
+  [-1, 1].forEach(side => {
+    const sx = lx + side * (BW / 2 + 0.01);
+    [1.2, 2.8, 4.5].forEach(wz => {
+      box(0.10, 0.88, 0.95, glassM, sx, 0.30 + wz, lz - BD / 2 + wz * 0.48);
+    });
+  });
+
+  // ── FLAT ROOF ─────────────────────────────────────────────────
+  const roofY = 0.30 + BH;
+  box(BW + 0.3, 0.22, BD + 0.3, roofM, lx, roofY + 0.11, lz);
+  // Parapet
+  [[-BD/2, BW + 0.3, 0.28], [BD/2, BW + 0.3, 0.28]].forEach(([oz, pw, pd]) => {
+    box(pw, 0.56, pd, dkBlueM, lx, roofY + 0.50, lz + oz);
+  });
+  box(0.28, 0.56, BD + 0.3, dkBlueM, lx - BW / 2, roofY + 0.50, lz);
+  box(0.28, 0.56, BD + 0.3, dkBlueM, lx + BW / 2, roofY + 0.50, lz);
+
+  // ── ROOFTOP HELIPAD ──────────────────────────────────────────
+  // Helipad circle (flat disc)
+  const heliGeo = new THREE.CylinderGeometry(1.60, 1.60, 0.08, 24);
+  const heliMat = new THREE.MeshLambertMaterial({ color: 0x44AA44 });
+  const heli = new THREE.Mesh(heliGeo, heliMat);
+  heli.position.set(lx, roofY + 0.26, lz); heli.receiveShadow = true; g.add(heli);
+  // White H marking
+  box(0.26, 0.01, 1.20, whtBasic, lx - 0.44, roofY + 0.31, lz);  // left H leg
+  box(0.26, 0.01, 1.20, whtBasic, lx + 0.44, roofY + 0.31, lz);  // right H leg
+  box(1.20, 0.01, 0.26, whtBasic, lx,         roofY + 0.31, lz);  // crossbar
+  // Helipad border circle stripes (8 white wedges)
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const wx = lx + Math.sin(angle) * 1.30;
+    const wz2 = lz + Math.cos(angle) * 1.30;
+    box(0.14, 0.01, 0.34, i % 2 === 0 ? whtBasic : yellowM, wx, roofY + 0.31, wz2);
+  }
+  // Corner light poles (4)
+  const corners2 = [[-2.0,-2.0],[2.0,-2.0],[-2.0,2.0],[2.0,2.0]];
+  corners2.forEach(([cx2, cz2]) => {
+    cyl(0.04, 0.05, 0.80, 6, chromM, lx + cx2, roofY + 0.62, lz + cz2);
+    const bl = new THREE.Mesh(new THREE.SphereGeometry(0.09, 7, 6),
+      new THREE.MeshPhongMaterial({ color:0xFF4400, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.9 }));
+    bl.position.set(lx + cx2, roofY + 1.06, lz + cz2); g.add(bl);
+  });
+  // Flagpole
+  cyl(0.03, 0.04, 3.6, 8, chromM, lx + BW/2 - 0.4, roofY + 2.0, lz - BD/2 + 0.4);
+  box(1.5, 0.30, 0.04, new THREE.MeshLambertMaterial({color:0xDD2222}), lx + BW/2 - 0.4 + 0.75, roofY + 3.65, lz - BD/2 + 0.42);
+  box(1.5, 0.30, 0.04, new THREE.MeshLambertMaterial({color:0xFFFFFF}), lx + BW/2 - 0.4 + 0.75, roofY + 3.35, lz - BD/2 + 0.42);
+
+  // ── ROOFTOP HVAC / EQUIPMENT ──────────────────────────────────
+  box(1.0, 0.50, 0.75, roofM, lx - 2.0, roofY + 0.47, lz + 0.6);
+  box(0.65, 0.38, 0.60, roofM, lx + 1.8, roofY + 0.41, lz - 0.5);
+  cyl(0.12, 0.16, 0.55, 8, concM, lx - 1.0, roofY + 0.50, lz - 0.8);
+  cyl(0.12, 0.16, 0.55, 8, concM, lx + 0.5, roofY + 0.50, lz - 1.0);
+
+  // ── PUBLIC PARKING LOT (cell r+1) ────────────────────────────
+  // Tarmac
+  box(CELL - 0.1, 0.08, CELL - 0.1, tarmacM, pkX, 0.32, pkZ);
+
+  // Outer border lines
+  box(CELL - 0.1, 0.01, 0.07, bayM, pkX, 0.37, pkZ - CELL / 2 + 0.12);
+  box(CELL - 0.1, 0.01, 0.07, bayM, pkX, 0.37, pkZ + CELL / 2 - 0.12);
+  box(0.07, 0.01, CELL - 0.1, bayM, pkX - CELL / 2 + 0.10, 0.37, pkZ);
+  box(0.07, 0.01, CELL - 0.1, bayM, pkX + CELL / 2 - 0.10, 0.37, pkZ);
+
+  // 3 bay dividers → 4 parking bays
+  const bayW = (CELL - 0.6) / 4;
+  [-1, 0, 1].forEach(i => {
+    box(0.07, 0.01, CELL - 0.3, bayM, pkX + i * bayW, 0.37, pkZ);
+  });
+
+  // Bay arrows (yellow chevrons) and P symbol in each bay
+  [-1.5, -0.5, 0.5, 1.5].forEach(bi => {
+    const bx2 = pkX + bi * bayW;
+    // Chevron arrows pointing toward hospital
+    box(bayW * 0.55, 0.01, 0.10, yellowM, bx2, 0.37, pkZ - 0.55);
+    box(bayW * 0.55, 0.01, 0.10, yellowM, bx2, 0.37, pkZ - 0.75);
+  });
+
+  // PARKING signage at entrance
+  box(0.80, 0.80, 0.08, blueM, pkX, 0.70, pkZ + CELL / 2 - 0.18);
+  box(0.50, 0.50, 0.06, whtBasic, pkX, 0.70, pkZ + CELL / 2 - 0.22);
+  cyl(0.05, 0.07, 0.68, 8, chromM, pkX, 0.36 + 0.34, pkZ + CELL / 2 - 0.18);
+
+  // 2 public cars parked (bays 0 and 2 — give variety of color)
+  const publicColors = [0xCC4444, 0x2255BB];
+  [0, 2].forEach((bayIdx, i) => {
+    const carX = pkX + (bayIdx - 1.5) * bayW;
+    const car  = buildCar(publicColors[i]);   // regular city car
+    car.position.set(carX, 0.38, pkZ);
+    car.rotation.y = 0;   // facing hospital entrance (−Z → toward building)
+    g.add(car);
+  });
+
+  // Ambulance bay line (red striped area at building-side edge)
+  for (let si = 0; si < 6; si++) {
+    box(0.32, 0.01, CELL * 0.92, si % 2 === 0 ? yellowM : redM,
+      pkX - CELL / 2 + 0.22 + si * 0.36, 0.37, pkZ - 0.20);
+  }
+  // "AMBULANCE ONLY" text block (simplified)
+  box(BW * 0.30, 0.01, 0.18, whtBasic, pkX - CELL / 2 + 1.10, 0.37, pkZ - 0.20);
+
+  g.position.set(0, 0, 0);
+  return g;
+}
+
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
@@ -3191,7 +3649,7 @@ let cash = 900000000;
 
 const COSTS = {
   road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
-  cityhall: 1000, policestation: 800,
+  cityhall: 1000, policestation: 800, bigpolicestation: 2500, hospital: 1200,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
   erase: 0,
 };
@@ -3202,7 +3660,9 @@ const FOOTPRINTS = {
   bigpark:       { w: 2, h: 2 },   // 2×2 = 4 cells
   amusementpark: { w: 3, h: 3 },   // 3×3 = 9 cells
   cityhall:      { w: 3, h: 3 },   // 3×3 = 9 cells
-  policestation: { w: 1, h: 2 },   // 1×2 = 2 cells
+  policestation:    { w: 1, h: 2 },   // 1×2 = 2 cells
+  bigpolicestation: { w: 2, h: 2 },   // 2×2 = 4 cells
+  hospital:         { w: 1, h: 2 },   // 1×2 = 2 cells
 };
 function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
 
@@ -3348,6 +3808,10 @@ function refreshAffordability() {
   if (spLandBtn)  spLandBtn.classList.toggle('cant-afford', cash < lc);
   const spPoliceBtnEl = document.getElementById('sp-police-btn');
   if (spPoliceBtnEl) spPoliceBtnEl.classList.toggle('cant-afford', cash < (COSTS.policestation ?? 0));
+  const spBigPoliceBtnEl = document.getElementById('sp-bigpolice-btn');
+  if (spBigPoliceBtnEl) spBigPoliceBtnEl.classList.toggle('cant-afford', cash < (COSTS.bigpolicestation ?? 0));
+  const spHospitalBtnEl = document.getElementById('sp-hospital-btn');
+  if (spHospitalBtnEl) spHospitalBtnEl.classList.toggle('cant-afford', cash < (COSTS.hospital ?? 0));
 
   // Also grey out items that have hit their build limit
   document.querySelectorAll('.sp-house-type').forEach(el => {
@@ -3384,7 +3848,7 @@ function placeItem(r, c) {
       if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); checkPoliceStationsNearRoads(); }
       if (item.userData.type === 'cityhall') { cityHallPlaced = false; refreshAffordability(); }
-      if (item.userData.type === 'policestation') { removePoliceCarsForStation(item.userData.stationR, item.userData.stationC); }
+      if (item.userData.type === 'policestation' || item.userData.type === 'bigpolicestation') { removePoliceCarsForStation(item.userData.stationR, item.userData.stationC); }
       updateBuildCounters();
     }
     return;
@@ -3424,7 +3888,9 @@ function placeItem(r, c) {
     let mesh;
     if      (selectedTool === 'bigpark')       mesh = buildBigPark(r, c);
     else if (selectedTool === 'amusementpark') mesh = buildAmusementPark(r, c);
-    else if (selectedTool === 'policestation') mesh = buildPoliceStation(r, c);
+    else if (selectedTool === 'policestation')    mesh = buildPoliceStation(r, c);
+    else if (selectedTool === 'bigpolicestation') mesh = buildBigPoliceStation(r, c);
+    else if (selectedTool === 'hospital')          mesh = buildHospital(r, c);
     else if (selectedTool === 'cityhall') {
       if (cityHallPlaced) { showToast('City Hall already built! Only one allowed 🏛️'); return; }
       mesh = buildCityHall(r, c);
@@ -3438,11 +3904,13 @@ function placeItem(r, c) {
       updateCashUI(-cost);
       updateBuildCounters();
       if (selectedTool === 'cityhall') { cityHallPlaced = true; refreshAffordability(); clearTool(); }
-      if (selectedTool === 'policestation') {
+      if (selectedTool === 'policestation' || selectedTool === 'bigpolicestation') {
         const launched = spawnPoliceCar(r, c);
-        if (launched && mesh.userData.parkedCar) mesh.userData.parkedCar.visible = false;
-        showToast(launched ? '🚔 Officer on patrol!' : '🏛 Station built — connect to a road to deploy!');
+        const pcArr = mesh.userData.parkedCars || (mesh.userData.parkedCar ? [mesh.userData.parkedCar] : []);
+        if (launched) pcArr.forEach(pc => { if(pc) pc.visible = false; });
+        showToast(launched ? '🚔 Officer on patrol!' : '🏛 Station built — connect a road to deploy!');
       }
+      if (selectedTool === 'hospital') { showToast('🏥 Hospital open! Serving the city.'); }
     }
     return;
   }
@@ -3757,9 +4225,12 @@ function setTool(tool) {
     icon = ht.icon; name = ht.name;
   } else {
     const fb = {
-      road:     { icon: '🛣️', name: 'Road' },
-      erase:    { icon: '🗑️', name: 'Erase' },
-      cityhall: { icon: '🏛️', name: 'City Hall' },
+      road:               { icon: '🛣️', name: 'Road' },
+      erase:              { icon: '🗑️', name: 'Erase' },
+      cityhall:           { icon: '🏛️', name: 'City Hall' },
+      policestation:      { icon: '🚔', name: 'Police Station' },
+      bigpolicestation:   { icon: '🏢', name: 'Big Police Station' },
+      hospital:           { icon: '🏥', name: 'Hospital' },
     };
     const f = fb[tool] || { icon: '?', name: tool };
     icon = f.icon; name = f.name;
@@ -3876,6 +4347,26 @@ if (spPoliceBtn) {
   });
 }
 
+// ── Big Police Station button ────────────────────────
+const spBigPoliceBtn = document.getElementById('sp-bigpolice-btn');
+if (spBigPoliceBtn) {
+  spBigPoliceBtn.addEventListener('click', function() {
+    setTool('bigpolicestation');
+    setActiveTb(tbGovernor);
+    closeSubpanel();
+  });
+}
+
+// ── Hospital button ────────────────────────────────
+const spHospitalBtn = document.getElementById('sp-hospital-btn');
+if (spHospitalBtn) {
+  spHospitalBtn.addEventListener('click', function() {
+    setTool('hospital');
+    setActiveTb(tbGovernor);
+    closeSubpanel();
+  });
+}
+
 // ── Tap outside sub-panel to close ─────────────────
 document.addEventListener('click', function(e) {
   if (!buildSubpanel.classList.contains('show')) return;
@@ -3961,13 +4452,20 @@ function animate() {
   // Idle light pulse on parked police cars
   const idlePulse = (Math.sin(t * 1.4) + 1) * 0.5;
   Object.values(placedItems).forEach(item => {
-    if (item.userData.type === 'policestation' && item.userData.parkedCar && item.userData.parkedCar.visible) {
-      const pc = item.userData.parkedCar;
-      if (pc.userData.blueMat) {
+    if (item.userData.type !== 'policestation' && item.userData.type !== 'bigpolicestation') return;
+    // Spin radar dish on big station
+    if (item.userData.radarDish) item.userData.radarDish.rotation.z += 0.012;
+    // Pulse beacon
+    if (item.userData.beacon && item.userData.beacon.material)
+      item.userData.beacon.material.emissiveIntensity = idlePulse * 1.2;
+    // Pulse all parked police cars
+    const cars = item.userData.parkedCars || (item.userData.parkedCar ? [item.userData.parkedCar] : []);
+    cars.forEach(pc => {
+      if (pc && pc.visible && pc.userData.blueMat) {
         pc.userData.blueMat.emissiveIntensity = idlePulse * 0.40;
         pc.userData.redMat.emissiveIntensity  = (1 - idlePulse) * 0.40;
       }
-    }
+    });
   });
   renderer.render(scene, camera);
 }
