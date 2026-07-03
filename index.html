@@ -23,7 +23,93 @@
       margin-top: 3px; letter-spacing: 0.3px; }
 
     /* ── Compass ──────────────────────────────────── */
-    #compass { position: fixed; top: 16px; right: 16px; width: 54px; height: 54px; pointer-events: none; }
+    #compass { position: fixed; top: 66px; right: 24px; width: 54px; height: 54px; pointer-events: none; }
+
+    /* ── Settings icon ─────────────────────────────── */
+    #settings-btn {
+      position: fixed; top: 16px; right: 16px;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(0,0,0,0.36);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255,255,255,0.22);
+      color: rgba(255,255,255,0.88); font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 22;
+      transition: background 0.15s, transform 0.2s;
+      touch-action: manipulation;
+    }
+    #settings-btn:active  { background: rgba(255,255,255,0.15); transform: scale(0.92); }
+    #settings-btn.open { transform: rotate(45deg); }
+
+    /* ── Settings popup overlay ────────────────────── */
+    #settings-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      z-index: 50;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    #settings-overlay.open { opacity: 1; pointer-events: auto; }
+
+    /* ── Settings popup card ───────────────────────── */
+    #settings-popup {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -48%) scale(0.94);
+      width: min(88vw, 360px);
+      background: rgba(12,16,26,0.98);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border: 1.5px solid rgba(255,255,255,0.14);
+      border-radius: 22px; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+      z-index: 51;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.25s cubic-bezier(.34,1.56,.64,1);
+    }
+    #settings-popup.open {
+      opacity: 1; pointer-events: auto;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    /* Header */
+    #settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #settings-title {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 15px; font-weight: 800; letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.95);
+    }
+    #settings-title span { font-size: 20px; }
+    #settings-close {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.75); font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.12s, color 0.12s;
+      touch-action: manipulation;
+    }
+    #settings-close:active { background: rgba(255,255,255,0.2); color: #fff; }
+
+    /* Body */
+    #settings-body {
+      padding: 28px 18px 32px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    #settings-empty-icon { font-size: 44px; line-height: 1; }
+    #settings-empty-title {
+      font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6);
+      letter-spacing: 0.3px;
+    }
+    #settings-empty-desc {
+      font-size: 11px; color: rgba(255,255,255,0.3); text-align: center;
+      line-height: 1.55; max-width: 240px;
+    }
 
     /* ── Hint ─────────────────────────────────────── */
     #hint {
@@ -225,16 +311,39 @@
 
 
     /* ── CASH PANEL  (sits left of the compass) ──── */
+    /* ── TOP-RIGHT PANEL ROW ─────────────────────────
+       Settings btn (top:16px right:16px) is positioned
+       absolutely. Cash + diamonds share a flex row
+       that sits just to the left of it.               */
+    #top-right-panels {
+      position: fixed; top: 16px;
+      right: 64px;   /* gap from settings btn edge */
+      display: flex; align-items: center; gap: 8px;
+      z-index: 15; pointer-events: none;
+    }
+
     #cash-panel {
-      position: fixed; top: 20px; right: 78px;
       display: flex; align-items: center; gap: 6px;
       background: rgba(0,0,0,0.40); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border: 1.5px solid rgba(255,255,255,0.20); border-radius: 14px;
-      padding: 7px 14px 7px 10px; pointer-events: none; z-index: 15;
+      padding: 7px 14px 7px 10px;
     }
     #cash-icon   { font-size: 17px; line-height: 1; }
     #cash-amount { font-size: 15px; font-weight: 800; color: #ffffff;
                    letter-spacing: 0.5px; text-shadow: 0 1px 4px rgba(0,0,0,0.55); }
+
+    /* ── DIAMOND PANEL ─────────────────────────────── */
+    #diamond-panel {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,0,0,0.40); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(100,200,255,0.40); border-radius: 14px;
+      padding: 7px 13px 7px 9px;
+    }
+    #diamond-icon { width: 19px; height: 19px; flex-shrink: 0; display: block; }
+    #diamond-amount {
+      font-size: 15px; font-weight: 800; color: #7DDDFF;
+      letter-spacing: 0.5px; text-shadow: 0 1px 6px rgba(50,160,255,0.55);
+    }
 
     @keyframes cashShake {
       0%,100% { transform: translateX(0); }
@@ -317,10 +426,45 @@
   <circle cx="27" cy="27" r="3.2" fill="rgba(20,20,20,0.6)" stroke="white" stroke-width="1.2"/>
 </svg>
 
-<!-- Cash panel — left of the compass -->
-<div id="cash-panel">
-  <span id="cash-icon">💵</span>
-  <span id="cash-amount">$900,000,000</span>
+<!-- Settings button (below compass) -->
+<button id="settings-btn" aria-label="Settings">⚙️</button>
+
+<!-- Settings overlay -->
+<div id="settings-overlay"></div>
+
+<!-- Settings popup -->
+<div id="settings-popup" role="dialog" aria-modal="true" aria-label="Settings">
+  <div id="settings-header">
+    <div id="settings-title"><span>⚙️</span>Settings</div>
+    <button id="settings-close" aria-label="Close settings">✕</button>
+  </div>
+  <div id="settings-body">
+    <div id="settings-empty-icon">🔧</div>
+    <div id="settings-empty-title">No settings yet</div>
+    <div id="settings-empty-desc">Settings and customisation options will appear here in a future update.</div>
+  </div>
+</div>
+<!-- Top-right panel row: diamonds | cash -->
+<div id="top-right-panels">
+  <div id="diamond-panel">
+    <svg id="diamond-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="12,2 22,8 12,22 2,8" fill="#40C8FF" opacity="0.18"/>
+      <polygon points="12,2 22,8 12,9"  fill="#B8EEFF"/>
+      <polygon points="12,2  2,8 12,9"  fill="#7DD9FF"/>
+      <polygon points="22,8 12,9 12,22" fill="#3DAADD"/>
+      <polygon points=" 2,8 12,9 12,22" fill="#5BC3F0"/>
+      <polygon points="12,2 17,8 12,9"  fill="#DAFAFF" opacity="0.7"/>
+      <polygon points="12,2  7,8 12,9"  fill="#A8E8FF" opacity="0.7"/>
+      <polygon points="9,3 14,3 16,7 12,6" fill="white" opacity="0.55"/>
+      <polygon points="12,2 22,8 12,22 2,8" fill="none" stroke="#88DDFF" stroke-width="0.8"/>
+      <line x1="2" y1="8" x2="22" y2="8" stroke="#88DDFF" stroke-width="0.8"/>
+    </svg>
+    <span id="diamond-amount">50</span>
+  </div>
+  <div id="cash-panel">
+    <span id="cash-icon">💵</span>
+    <span id="cash-amount">$900,000,000</span>
+  </div>
 </div>
 
 <!-- Not-enough-cash toast -->
@@ -3752,7 +3896,8 @@ function buildHospital(r, c) {
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
-let cash = 900000000;
+let cash     = 900000000;
+let diamonds = 50;
 
 const COSTS = {
   road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
@@ -4586,6 +4731,31 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+// ─────────────────────────────────────────────────
+//  SETTINGS
+// ─────────────────────────────────────────────────
+(function() {
+  const btn     = document.getElementById('settings-btn');
+  const overlay = document.getElementById('settings-overlay');
+  const popup   = document.getElementById('settings-popup');
+  const closeBtn= document.getElementById('settings-close');
+
+  function openSettings() {
+    overlay.classList.add('open');
+    popup.classList.add('open');
+    btn.classList.add('open');
+  }
+  function closeSettings() {
+    overlay.classList.remove('open');
+    popup.classList.remove('open');
+    btn.classList.remove('open');
+  }
+
+  btn.addEventListener('click', openSettings);
+  closeBtn.addEventListener('click', closeSettings);
+  overlay.addEventListener('click', closeSettings);   // tap outside to close
+})();
 </script>
 </body>
 </html>
