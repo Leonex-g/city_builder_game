@@ -372,9 +372,9 @@
     }
     #cash-add-btn    { background: rgba(255,255,255,0.18); }
     #diamond-add-btn { background: rgba(77,200,255,0.22); border-color: rgba(125,220,255,0.45); }
-    #cash-add-btn:hover,    #cash-add-btn:hover    { background: rgba(255,255,255,0.30); }
+    #cash-add-btn:hover    { background: rgba(255,255,255,0.30); }
     #diamond-add-btn:hover { background: rgba(77,200,255,0.38); }
-    #cash-add-btn:active, #diamond-add-btn:active  { transform: scale(0.88); }
+    #cash-add-btn:active, #diamond-add-btn:active { transform: scale(0.88); }
 
     /* ── CASH POPUP ───────────────────────────────── */
     #cash-popup-overlay {
@@ -4210,14 +4210,6 @@ cashPopupOverlay.addEventListener('click', e => {
   if (e.target === cashPopupOverlay) cashPopupOverlay.classList.remove('open');
 });
 
-// Diamond + button — placeholder for future
-const diamondAddBtn = document.getElementById('diamond-add-btn');
-if (diamondAddBtn) {
-  diamondAddBtn.addEventListener('click', () => {
-    showToast('💎 Diamond store coming soon!');
-  });
-}
-
 document.querySelectorAll('.exchange-card').forEach(card => {
   const btn     = card.querySelector('.exchange-btn');
   const msg     = card.querySelector('.exchange-msg');
@@ -4253,14 +4245,21 @@ function updateCashUI(delta) {
   refreshAffordability();
 }
 
-function showToast(msg) {
-  if (toastTimer) clearTimeout(toastTimer);
+function showToast(msg) {  if (toastTimer) clearTimeout(toastTimer);
   noCashToast.textContent = msg;
   noCashToast.classList.add('show');
   toastTimer = setTimeout(() => {
     noCashToast.classList.remove('show');
     noCashToast.textContent = 'Not enough cash 💸';
   }, 1900);
+}
+
+// Diamond + button
+const diamondAddBtn = document.getElementById('diamond-add-btn');
+if (diamondAddBtn) {
+  diamondAddBtn.addEventListener('click', () => {
+    showToast('💎 Diamond store coming soon!');
+  });
 }
 
 function flashBroke() {
