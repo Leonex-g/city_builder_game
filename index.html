@@ -478,6 +478,58 @@
     .exchange-msg.success { color: #66ffaa; }
     .exchange-msg.error   { color: #ff6b6b; }
 
+    /* ── WATCH AD CARD ───────────────────────────── */
+    #ad-reward-card {
+      margin-top: 14px;
+      background: linear-gradient(135deg, rgba(255,180,0,0.10), rgba(255,120,0,0.08));
+      border: 1px solid rgba(255,180,0,0.25);
+      border-radius: 16px; padding: 14px 16px 14px;
+    }
+    #ad-reward-top {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    }
+    #ad-reward-icon { font-size: 30px; flex-shrink: 0; }
+    #ad-reward-title {
+      font-size: 14px; font-weight: 800; color: #FFD060; margin-bottom: 2px;
+    }
+    #ad-reward-subtitle {
+      font-size: 11px; color: rgba(255,255,255,0.45);
+    }
+    #ad-reward-subtitle strong { color: #66ffaa; }
+    #ad-watch-btn {
+      width: 100%; padding: 11px;
+      background: linear-gradient(135deg, #FFB300, #FF6B00);
+      border: none; border-radius: 10px;
+      color: #fff; font-size: 14px; font-weight: 800;
+      cursor: pointer; letter-spacing: 0.3px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #ad-watch-btn:hover  { opacity: 0.88; }
+    #ad-watch-btn:active { transform: scale(0.97); }
+    #ad-watch-btn:disabled {
+      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.25); cursor: not-allowed;
+    }
+    #ad-timer-wrap {
+      display: none; margin-top: 12px;
+    }
+    #ad-timer-bar-bg {
+      width: 100%; height: 5px; background: rgba(255,255,255,0.10);
+      border-radius: 4px; overflow: hidden; margin-bottom: 6px;
+    }
+    #ad-timer-bar {
+      height: 100%; width: 0%; background: linear-gradient(90deg, #FFB300, #66ffaa);
+      border-radius: 4px; transition: width 0.4s linear;
+    }
+    #ad-timer-label {
+      font-size: 11px; color: rgba(255,255,255,0.45); text-align: center;
+    }
+    #ad-reward-msg {
+      margin-top: 8px; font-size: 12px; font-weight: 700;
+      text-align: center; min-height: 16px;
+    }
+    #ad-reward-msg.success { color: #66ffaa; }
+    #ad-reward-msg.error   { color: #ff6b6b; }
+
     /* ── NOT-ENOUGH-CASH TOAST ────────────────────── */
     #no-cash-toast {
       position: fixed; top: 82px; left: 50%;
@@ -659,6 +711,24 @@
 
         </div>
       </div>
+
+      <!-- Watch Ad option -->
+      <div id="ad-reward-card">
+        <div id="ad-reward-top">
+          <span id="ad-reward-icon">📺</span>
+          <div id="ad-reward-info">
+            <div id="ad-reward-title">Watch Ad for Reward</div>
+            <div id="ad-reward-subtitle">Watch a short ad · get <strong>$1,000</strong> free</div>
+          </div>
+        </div>
+        <button id="ad-watch-btn">▶ Watch Now</button>
+        <div id="ad-timer-wrap">
+          <div id="ad-timer-bar-bg"><div id="ad-timer-bar"></div></div>
+          <div id="ad-timer-label">Waiting…</div>
+        </div>
+        <div id="ad-reward-msg"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -4261,6 +4331,65 @@ if (diamondAddBtn) {
     showToast('💎 Diamond store coming soon!');
   });
 }
+
+// ── Watch Ad for Reward ──────────────────────────────
+const adWatchBtn   = document.getElementById('ad-watch-btn');
+const adTimerWrap  = document.getElementById('ad-timer-wrap');
+const adTimerBar   = document.getElementById('ad-timer-bar');
+const adTimerLabel = document.getElementById('ad-timer-label');
+const adRewardMsg  = document.getElementById('ad-reward-msg');
+const AD_REWARD    = 1000;
+const AD_DURATION  = 15; // seconds (5–30 range, using 15 as balanced value)
+
+let adTimer = null;
+
+function resetAdCard() {
+  adWatchBtn.disabled = false;
+  adWatchBtn.textContent = '▶ Watch Now';
+  adTimerWrap.style.display = 'none';
+  adTimerBar.style.width = '0%';
+  adTimerLabel.textContent = 'Waiting…';
+  if (adTimer) { clearInterval(adTimer); adTimer = null; }
+}
+
+adWatchBtn.addEventListener('click', () => {
+  // Inject the popunder ad script (fires the ad immediately on click)
+  const adScript = document.createElement('script');
+  adScript.src = 'https://pl30208330.effectivecpmnetwork.com/87/97/b2/8797b2e9474da836a22982c62a404514.js';
+  adScript.async = true;
+  document.body.appendChild(adScript);
+
+  // Lock the button and show countdown timer
+  adWatchBtn.disabled = true;
+  adWatchBtn.textContent = '⏳ Ad running…';
+  adTimerWrap.style.display = 'block';
+  adRewardMsg.textContent = '';
+  adRewardMsg.className = '';
+
+  let elapsed = 0;
+  adTimer = setInterval(() => {
+    elapsed++;
+    const pct = Math.min((elapsed / AD_DURATION) * 100, 100);
+    adTimerBar.style.width = pct + '%';
+    const remaining = AD_DURATION - elapsed;
+    adTimerLabel.textContent = remaining > 0
+      ? `Reward in ${remaining}s…`
+      : 'Reward ready!';
+
+    if (elapsed >= AD_DURATION) {
+      clearInterval(adTimer); adTimer = null;
+      // Grant cash reward
+      cash += AD_REWARD;
+      updateCashUI(+AD_REWARD);
+      adRewardMsg.textContent = `+$${AD_REWARD.toLocaleString()} added to your funds! 🎉`;
+      adRewardMsg.className = 'success';
+      adWatchBtn.textContent = '✓ Reward Claimed';
+      adTimerLabel.textContent = 'Done!';
+      // Re-enable after 3s cooldown
+      setTimeout(resetAdCard, 3000);
+    }
+  }, 1000);
+});
 
 function flashBroke() {
   cashPanel.classList.remove('broke');
