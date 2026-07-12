@@ -56,16 +56,17 @@
     #settings-popup {
       position: fixed;
       top: 50%; left: 50%;
-      transform: translate(-50%, -48%) scale(0.94);
-      width: min(88vw, 360px);
+      transform: translate(-50%, -50%) scale(0.88);
+      width: min(92vw, 380px);
       background: rgba(12,16,26,0.98);
       backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
       border: 1.5px solid rgba(255,255,255,0.14);
-      border-radius: 22px; overflow: hidden;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
       z-index: 51;
       opacity: 0; pointer-events: none;
-      transition: opacity 0.22s ease, transform 0.25s cubic-bezier(.34,1.56,.64,1);
+      transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      max-height: 88vh; display: flex; flex-direction: column;
     }
     #settings-popup.open {
       opacity: 1; pointer-events: auto;
@@ -98,8 +99,9 @@
 
     /* Body */
     #settings-body {
-      padding: 28px 18px 32px;
+      padding: 20px 18px max(28px, env(safe-area-inset-bottom));
       display: flex; flex-direction: column; align-items: center; gap: 10px;
+      overflow-y: auto; flex: 1;
     }
     #settings-empty-icon { font-size: 44px; line-height: 1; }
     #settings-empty-title {
@@ -376,161 +378,108 @@
     #diamond-add-btn:hover { background: rgba(77,200,255,0.38); }
     #cash-add-btn:active, #diamond-add-btn:active { transform: scale(0.88); }
 
-    /* ── CASH POPUP ───────────────────────────────── */
+    /* ══ CASH POPUP ══════════════════════════════════ */
     #cash-popup-overlay {
       position: fixed; inset: 0; z-index: 99000;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       display: flex; align-items: center; justify-content: center;
+      padding: 16px;
       opacity: 0; pointer-events: none;
       transition: opacity 0.22s ease;
     }
-    #cash-popup-overlay.open {
-      opacity: 1; pointer-events: all;
-    }
+    #cash-popup-overlay.open { opacity: 1; pointer-events: all; }
     #cash-popup {
       position: relative;
-      width: min(340px, 90vw);
-      background: linear-gradient(160deg, #1a1f2e, #141820);
+      width: 100%;
+      max-width: min(420px, 92vw);
+      background: linear-gradient(160deg, #1a1f2e, #12151f);
       border: 1.5px solid rgba(255,255,255,0.14);
-      border-radius: 22px;
-      padding: 36px 28px 32px;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.7);
-      transform: scale(0.92) translateY(12px);
-      transition: transform 0.24s cubic-bezier(0.34,1.56,0.64,1);
+      border-radius: 24px;
+      padding: 36px 20px 28px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
+      transform: scale(0.88) translateY(16px);
+      transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+      max-height: 88vh; overflow-y: auto;
     }
-    #cash-popup-overlay.open #cash-popup {
-      transform: scale(1) translateY(0);
-    }
+    #cash-popup-overlay.open #cash-popup { transform: scale(1) translateY(0); }
+    #cash-popup::before { display: none; }
     #cash-popup-close {
-      position: absolute; top: 14px; right: 16px;
-      width: 30px; height: 30px; border-radius: 50%;
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px; border-radius: 50%;
       background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.75); font-size: 14px;
+      color: rgba(255,255,255,0.75); font-size: 15px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, color 0.15s;
+      transition: background 0.15s; touch-action: manipulation;
     }
-    #cash-popup-close:hover { background: rgba(255,80,80,0.35); color: #fff; }
+    #cash-popup-close:active { background: rgba(255,80,80,0.4); color:#fff; }
     #cash-popup-content { text-align: center; }
-    #cash-popup-title {
-      font-size: 20px; font-weight: 800; color: #fff;
-      letter-spacing: 0.4px; margin-bottom: 6px;
-    }
-    #cash-exchange-balance {
-      font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 16px;
-    }
-    #cash-exchange-balance span { color: #7DDDFF; font-weight: 700; }
+    #cash-popup-title { font-size:18px; font-weight:800; color:#fff; margin-bottom:4px; }
+    #cash-exchange-balance { font-size:12px; color:rgba(255,255,255,0.4); margin-bottom:14px; }
+    #cash-exchange-balance span { color:#7DDDFF; font-weight:700; }
 
-    /* Scrollable row */
+    /* Scrollable cards */
     #exchange-scroll-wrap {
       overflow-x: auto; overflow-y: hidden;
       scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
-      padding-bottom: 6px;
-      margin: 0 -4px;
+      padding-bottom: 6px; margin: 0 -16px; padding-left: 16px;
     }
     #exchange-scroll-wrap::-webkit-scrollbar { height: 3px; }
-    #exchange-scroll-wrap::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
-    #exchange-scroll-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    #exchange-scroll-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius:4px; }
+    #exchange-cards-row { display:flex; gap:10px; width:max-content; padding-right:16px; }
 
-    #exchange-cards-row {
-      display: flex; flex-direction: row; gap: 12px;
-      padding: 4px 4px 4px;
-      width: max-content;
+    .exchange-card-slot {
+      scroll-snap-align: start; flex-shrink:0;
+      width: clamp(140px, 42vw, 175px);
+      border-radius:16px; padding:14px 12px 12px;
+      display:flex; flex-direction:column; align-items:center; gap:10px;
     }
-
-    /* Individual card */
-    .exchange-card {
-      scroll-snap-align: start;
-      width: 170px; flex-shrink: 0;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px;
-      padding: 18px 14px 14px;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
-    }
-    .exchange-card-top {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      width: 100%;
-    }
-    .exchange-side { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .exchange-icon { font-size: 28px; line-height: 1; }
-    .exchange-val  { font-size: 16px; font-weight: 800; color: #fff; }
-    .exchange-label{ font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.8px; }
-    .exchange-arrow { font-size: 18px; color: rgba(255,255,255,0.3); }
-
-    .exchange-btn {
-      width: 100%; padding: 10px;
-      background: linear-gradient(135deg, #4fa3ff, #7B6EFF);
-      border: none; border-radius: 10px;
-      color: #fff; font-size: 13px; font-weight: 800;
-      cursor: pointer; letter-spacing: 0.3px;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .exchange-btn:hover  { opacity: 0.88; }
-    .exchange-btn:active { transform: scale(0.97); }
-    .exchange-btn:disabled {
-      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.25); cursor: not-allowed;
-    }
-    .exchange-msg {
-      font-size: 11px; font-weight: 600; min-height: 14px; text-align: center;
-    }
-    .exchange-msg.success { color: #66ffaa; }
-    .exchange-msg.error   { color: #ff6b6b; }
-
-    /* ── WATCH AD CARD ───────────────────────────── */
     #ad-reward-card {
-      margin-top: 14px;
-      background: linear-gradient(135deg, rgba(255,180,0,0.10), rgba(255,120,0,0.08));
-      border: 1px solid rgba(255,180,0,0.25);
-      border-radius: 16px; padding: 14px 16px 14px;
+      background: linear-gradient(140deg, rgba(255,170,0,0.14), rgba(255,100,0,0.10));
+      border: 1px solid rgba(255,170,0,0.28);
     }
-    #ad-reward-top {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-    }
-    #ad-reward-icon { font-size: 30px; flex-shrink: 0; }
-    #ad-reward-title {
-      font-size: 14px; font-weight: 800; color: #FFD060; margin-bottom: 2px;
-    }
-    #ad-reward-subtitle {
-      font-size: 11px; color: rgba(255,255,255,0.45);
-    }
-    #ad-reward-subtitle strong { color: #66ffaa; }
+    #ad-reward-top { display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; }
+    #ad-reward-icon { font-size:28px; }
+    #ad-reward-title { font-size:13px; font-weight:800; color:#FFD060; }
+    #ad-reward-subtitle { font-size:10px; color:rgba(255,255,255,0.4); line-height:1.4; text-align:center; }
+    #ad-reward-subtitle strong { color:#66ffaa; }
     #ad-watch-btn {
-      width: 100%; padding: 11px;
-      background: linear-gradient(135deg, #FFB300, #FF6B00);
-      border: none; border-radius: 10px;
-      color: #fff; font-size: 14px; font-weight: 800;
-      cursor: pointer; letter-spacing: 0.3px;
-      transition: opacity 0.15s, transform 0.1s;
+      width:100%; padding:10px 6px;
+      background: linear-gradient(135deg,#FFB300,#FF6B00);
+      border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:800;
+      cursor:pointer; touch-action:manipulation; transition:opacity 0.15s,transform 0.1s;
     }
-    #ad-watch-btn:hover  { opacity: 0.88; }
-    #ad-watch-btn:active { transform: scale(0.97); }
-    #ad-watch-btn:disabled {
-      background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.25); cursor: not-allowed;
-    }
-    #ad-timer-wrap {
-      display: none; margin-top: 12px;
-    }
-    #ad-timer-bar-bg {
-      width: 100%; height: 5px; background: rgba(255,255,255,0.10);
-      border-radius: 4px; overflow: hidden; margin-bottom: 6px;
-    }
-    #ad-timer-bar {
-      height: 100%; width: 0%; background: linear-gradient(90deg, #FFB300, #66ffaa);
-      border-radius: 4px; transition: width 0.4s linear;
-    }
-    #ad-timer-label {
-      font-size: 11px; color: rgba(255,255,255,0.45); text-align: center;
-    }
-    #ad-reward-msg {
-      margin-top: 8px; font-size: 12px; font-weight: 700;
-      text-align: center; min-height: 16px;
-    }
-    #ad-reward-msg.success { color: #66ffaa; }
-    #ad-reward-msg.error   { color: #ff6b6b; }
+    #ad-watch-btn:active { transform:scale(0.96); }
+    #ad-watch-btn:disabled { background:rgba(255,255,255,0.10); color:rgba(255,255,255,0.25); cursor:not-allowed; }
+    #ad-timer-wrap { display:none; width:100%; }
+    #ad-timer-bar-bg { width:100%; height:5px; background:rgba(255,255,255,0.10); border-radius:4px; overflow:hidden; margin-bottom:5px; }
+    #ad-timer-bar { height:100%; width:0%; background:linear-gradient(90deg,#FFB300,#66ffaa); border-radius:4px; transition:width 0.4s linear; }
+    #ad-timer-label { font-size:10px; color:rgba(255,255,255,0.4); text-align:center; }
+    #ad-reward-msg { font-size:10px; font-weight:700; text-align:center; min-height:13px; }
+    #ad-reward-msg.success { color:#66ffaa; }
+    #ad-reward-msg.error   { color:#ff6b6b; }
 
-    /* ── NOT-ENOUGH-CASH TOAST ────────────────────── */
+    .exchange-card { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); }
+    .exchange-card-top { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; }
+    .exchange-side { display:flex; flex-direction:column; align-items:center; gap:2px; }
+    .exchange-icon { font-size:22px; line-height:1; }
+    .exchange-val  { font-size:14px; font-weight:800; color:#fff; }
+    .exchange-label{ font-size:9px; color:rgba(255,255,255,0.38); text-transform:uppercase; letter-spacing:0.7px; }
+    .exchange-arrow { font-size:15px; color:rgba(255,255,255,0.28); }
+    .exchange-btn {
+      width:100%; padding:9px 6px;
+      background: linear-gradient(135deg,#4fa3ff,#7B6EFF);
+      border:none; border-radius:10px; color:#fff; font-size:12px; font-weight:800;
+      cursor:pointer; touch-action:manipulation; transition:opacity 0.15s,transform 0.1s;
+    }
+    .exchange-btn:active { transform:scale(0.96); }
+    .exchange-btn:disabled { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.22); cursor:not-allowed; }
+    .exchange-msg { font-size:10px; font-weight:600; min-height:13px; text-align:center; }
+    .exchange-msg.success { color:#66ffaa; }
+    .exchange-msg.error   { color:#ff6b6b; }
+
+    /* ══ NOT-ENOUGH-CASH TOAST ══════════════════════ */
     #no-cash-toast {
       position: fixed; top: 82px; left: 50%;
       transform: translateX(-50%) translateY(-6px);
@@ -652,8 +601,25 @@
       <div id="exchange-scroll-wrap">
         <div id="exchange-cards-row">
 
+          <!-- Watch Ad — FIRST -->
+          <div id="ad-reward-card" class="exchange-card-slot">
+            <div id="ad-reward-top">
+              <span id="ad-reward-icon">📺</span>
+              <div id="ad-reward-info">
+                <div id="ad-reward-title">Watch Ad</div>
+                <div id="ad-reward-subtitle">Short ad · get <strong>$1,000</strong> free</div>
+              </div>
+            </div>
+            <button id="ad-watch-btn">▶ Watch Now</button>
+            <div id="ad-timer-wrap">
+              <div id="ad-timer-bar-bg"><div id="ad-timer-bar"></div></div>
+              <div id="ad-timer-label">Waiting…</div>
+            </div>
+            <div id="ad-reward-msg"></div>
+          </div>
+
           <!-- Option 1: 20 → $5,000 -->
-          <div class="exchange-card" data-diamonds="20" data-cash="5000">
+          <div class="exchange-card exchange-card-slot" data-diamonds="20" data-cash="5000">
             <div class="exchange-card-top">
               <div class="exchange-side">
                 <div class="exchange-icon">💎</div>
@@ -672,7 +638,7 @@
           </div>
 
           <!-- Option 2: 50 → $15,000 -->
-          <div class="exchange-card" data-diamonds="50" data-cash="15000">
+          <div class="exchange-card exchange-card-slot" data-diamonds="50" data-cash="15000">
             <div class="exchange-card-top">
               <div class="exchange-side">
                 <div class="exchange-icon">💎</div>
@@ -691,7 +657,7 @@
           </div>
 
           <!-- Option 3: 100 → $50,000 -->
-          <div class="exchange-card" data-diamonds="100" data-cash="50000">
+          <div class="exchange-card exchange-card-slot" data-diamonds="100" data-cash="50000">
             <div class="exchange-card-top">
               <div class="exchange-side">
                 <div class="exchange-icon">💎</div>
@@ -711,24 +677,6 @@
 
         </div>
       </div>
-
-      <!-- Watch Ad option -->
-      <div id="ad-reward-card">
-        <div id="ad-reward-top">
-          <span id="ad-reward-icon">📺</span>
-          <div id="ad-reward-info">
-            <div id="ad-reward-title">Watch Ad for Reward</div>
-            <div id="ad-reward-subtitle">Watch a short ad · get <strong>$1,000</strong> free</div>
-          </div>
-        </div>
-        <button id="ad-watch-btn">▶ Watch Now</button>
-        <div id="ad-timer-wrap">
-          <div id="ad-timer-bar-bg"><div id="ad-timer-bar"></div></div>
-          <div id="ad-timer-label">Waiting…</div>
-        </div>
-        <div id="ad-reward-msg"></div>
-      </div>
-
     </div>
   </div>
 </div>
@@ -5141,4 +5089,3 @@ animate();
 </script>
 </body>
 </html>
-
