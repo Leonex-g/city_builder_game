@@ -223,6 +223,48 @@
       border-top: 1px solid rgba(255,255,255,0.07);
     }
     .sp-section-label:first-of-type { border-top: none; }
+
+    /* ── SERVICES DRILL-DOWN ─────────────────────── */
+    #svc-root, #builds-root, .svc-sub { display: flex; flex-direction: column; }
+    .svc-sub.hidden { display: none; }
+
+    /* Root category rows */
+    .svc-cat-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.12s;
+      touch-action: manipulation;
+    }
+    .svc-cat-item:last-child { border-bottom: none; }
+    .svc-cat-item:active { background: rgba(255,255,255,0.06); }
+    .svc-cat-icon { font-size: 22px; width: 28px; text-align: center; flex-shrink: 0; }
+    .svc-cat-info { flex: 1; min-width: 0; }
+    .svc-cat-name { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.92); }
+    .svc-cat-desc { font-size: 10px; color: rgba(255,255,255,0.38); margin-top: 1px; }
+    .svc-arrow { font-size: 18px; color: rgba(255,255,255,0.3); font-weight: 300; flex-shrink: 0; }
+
+    /* Sub-view header */
+    .svc-sub-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .svc-back-btn {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 700;
+      padding: 5px 12px; border-radius: 20px; cursor: pointer;
+      touch-action: manipulation; transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .svc-back-btn:active { background: rgba(255,255,255,0.18); }
+    .svc-sub-title { font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.9); }
+
+    /* Empty placeholder */
+    .svc-empty-note {
+      padding: 32px 16px; font-size: 13px;
+      color: rgba(255,255,255,0.3); text-align: center; font-style: italic;
+    }
     .sp-empty-note {
       padding: 28px 16px;
       font-size: 13px; color: rgba(255,255,255,0.35);
@@ -702,9 +744,9 @@
     <span>Builds</span>
   </button>
 
-  <button class="tb-btn" id="tb-factory" aria-label="Factory">
+  <button class="tb-btn" id="tb-factory" aria-label="Production">
     <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M4 18V9l5 3.5V9l5 3.5V4h4v14H4zm0 2h14v-1H4v1z"/></svg>
-    <span>Factory</span>
+    <span>Production</span>
   </button>
 
   <button class="tb-btn" id="tb-land" aria-label="Land">
@@ -729,59 +771,94 @@
 <!-- ── BUILD SUB-PANEL — floats above toolbar ────── -->
 <div id="build-subpanel">
 
-  <!-- Builds: Houses + Parks combined -->
+  <!-- Builds: two-level drill-down -->
   <div id="sp-builds" class="sp-page hidden">
-    <div class="sp-title">Builds</div>
 
-    <div class="sp-section-label">🏠 Houses</div>
-    <div class="sp-item sp-house-type active" data-htype="cottage" data-limit="20">
-      <span class="sp-icon">🏡</span>
-      <div class="sp-info"><div class="sp-name">Cottage</div><div class="sp-desc">Cosy &amp; charming</div></div>
-      <span class="bcost">$150</span><span class="blimit" id="lim-cottage">0/20</span>
-    </div>
-    <div class="sp-item sp-house-type" data-htype="modern" data-limit="15">
-      <span class="sp-icon">🏢</span>
-      <div class="sp-info"><div class="sp-name">Modern</div><div class="sp-desc">Sleek flat-roof</div></div>
-      <span class="bcost">$220</span><span class="blimit" id="lim-modern">0/15</span>
-    </div>
-    <div class="sp-item sp-house-type" data-htype="villa" data-limit="10">
-      <span class="sp-icon">🏛️</span>
-      <div class="sp-info"><div class="sp-name">Villa</div><div class="sp-desc">Grand &amp; elegant</div></div>
-      <span class="bcost">$380</span><span class="blimit" id="lim-villa">0/10</span>
-    </div>
-    <div class="sp-item sp-house-type" data-htype="cabin" data-limit="20">
-      <span class="sp-icon">🛖</span>
-      <div class="sp-info"><div class="sp-name">Log Cabin</div><div class="sp-desc">Rustic A-frame</div></div>
-      <span class="bcost">$130</span><span class="blimit" id="lim-cabin">0/20</span>
-    </div>
-    <div class="sp-item sp-house-type" data-htype="apartment" data-limit="10">
-      <span class="sp-icon">🏬</span>
-      <div class="sp-info"><div class="sp-name">Apartment</div><div class="sp-desc">Multi-level living</div></div>
-      <span class="bcost">$260</span><span class="blimit" id="lim-apartment">0/10</span>
+    <!-- Root -->
+    <div id="builds-root">
+      <div class="sp-title">Builds</div>
+
+      <div class="svc-cat-item" data-builds="houses">
+        <span class="svc-cat-icon">🏠</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Houses</div>
+          <div class="svc-cat-desc">Residential buildings</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
+
+      <div class="svc-cat-item" data-builds="parks">
+        <span class="svc-cat-icon">🌲</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Parks</div>
+          <div class="svc-cat-desc">Green spaces &amp; attractions</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
     </div>
 
-    <div class="sp-section-label">🌲 Parks</div>
-    <div class="sp-item sp-park-type active" data-ptype="park" data-limit="15">
-      <span class="sp-icon">🌲</span>
-      <div class="sp-info"><div class="sp-name">Park</div><div class="sp-desc">Trees, paths &amp; bench</div></div>
-      <span class="bcost">$75</span><span class="blimit" id="lim-park">0/15</span>
+    <!-- Houses sub-view -->
+    <div id="builds-houses" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">🏠 Houses</span>
+      </div>
+      <div class="sp-item sp-house-type active" data-htype="cottage" data-limit="20">
+        <span class="sp-icon">🏡</span>
+        <div class="sp-info"><div class="sp-name">Cottage</div><div class="sp-desc">Cosy &amp; charming</div></div>
+        <span class="bcost">$150</span><span class="blimit" id="lim-cottage">0/20</span>
+      </div>
+      <div class="sp-item sp-house-type" data-htype="modern" data-limit="15">
+        <span class="sp-icon">🏢</span>
+        <div class="sp-info"><div class="sp-name">Modern</div><div class="sp-desc">Sleek flat-roof</div></div>
+        <span class="bcost">$220</span><span class="blimit" id="lim-modern">0/15</span>
+      </div>
+      <div class="sp-item sp-house-type" data-htype="villa" data-limit="10">
+        <span class="sp-icon">🏛️</span>
+        <div class="sp-info"><div class="sp-name">Villa</div><div class="sp-desc">Grand &amp; elegant</div></div>
+        <span class="bcost">$380</span><span class="blimit" id="lim-villa">0/10</span>
+      </div>
+      <div class="sp-item sp-house-type" data-htype="cabin" data-limit="20">
+        <span class="sp-icon">🛖</span>
+        <div class="sp-info"><div class="sp-name">Log Cabin</div><div class="sp-desc">Rustic A-frame</div></div>
+        <span class="bcost">$130</span><span class="blimit" id="lim-cabin">0/20</span>
+      </div>
+      <div class="sp-item sp-house-type" data-htype="apartment" data-limit="10">
+        <span class="sp-icon">🏬</span>
+        <div class="sp-info"><div class="sp-name">Apartment</div><div class="sp-desc">Multi-level living</div></div>
+        <span class="bcost">$260</span><span class="blimit" id="lim-apartment">0/10</span>
+      </div>
     </div>
-    <div class="sp-item sp-park-type" data-ptype="bigpark" data-limit="5">
-      <span class="sp-icon">🎡</span>
-      <div class="sp-info"><div class="sp-name">Big Park</div><div class="sp-desc">Play zone (2×2)</div></div>
-      <span class="bcost">$7,000</span><span class="blimit" id="lim-bigpark">0/5</span>
+
+    <!-- Parks sub-view -->
+    <div id="builds-parks" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">🌲 Parks</span>
+      </div>
+      <div class="sp-item sp-park-type active" data-ptype="park" data-limit="15">
+        <span class="sp-icon">🌲</span>
+        <div class="sp-info"><div class="sp-name">Park</div><div class="sp-desc">Trees, paths &amp; bench</div></div>
+        <span class="bcost">$75</span><span class="blimit" id="lim-park">0/15</span>
+      </div>
+      <div class="sp-item sp-park-type" data-ptype="bigpark" data-limit="5">
+        <span class="sp-icon">🎡</span>
+        <div class="sp-info"><div class="sp-name">Big Park</div><div class="sp-desc">Play zone (2×2)</div></div>
+        <span class="bcost">$7,000</span><span class="blimit" id="lim-bigpark">0/5</span>
+      </div>
+      <div class="sp-item sp-park-type" data-ptype="amusementpark" data-limit="2">
+        <span class="sp-icon">🎢</span>
+        <div class="sp-info"><div class="sp-name">Amusement Park</div><div class="sp-desc">Waterfall Wonders (3×3)</div></div>
+        <span class="bcost">$15,000</span><span class="blimit" id="lim-amusementpark">0/2</span>
+      </div>
     </div>
-    <div class="sp-item sp-park-type" data-ptype="amusementpark" data-limit="2">
-      <span class="sp-icon">🎢</span>
-      <div class="sp-info"><div class="sp-name">Amusement Park</div><div class="sp-desc">Waterfall Wonders (3×3)</div></div>
-      <span class="bcost">$15,000</span><span class="blimit" id="lim-amusementpark">0/2</span>
-    </div>
+
   </div>
 
   <!-- Factory — coming soon -->
   <div id="sp-factory" class="sp-page hidden">
-    <div class="sp-title">Factory</div>
-    <div class="sp-empty-note">🏭 Factory buildings coming soon…</div>
+    <div class="sp-title">Production</div>
+    <div class="sp-empty-note">🏭 Production buildings coming soon…</div>
   </div>
 
   <!-- Land purchase -->
@@ -798,51 +875,134 @@
   </div>
 
   <!-- Governor panel — City Hall lives here -->
+  <!-- Services root + sub-category panels -->
   <div id="sp-governor" class="sp-page hidden">
-    <div class="sp-title">Services</div>
 
-    <div class="sp-section-label">🏛️ City Hall</div>
-    <div id="ch-already-label" style="display:none;padding:10px 16px 8px;font-size:11px;font-weight:700;color:#88ffbb;letter-spacing:0.4px;border-bottom:1px solid rgba(255,255,255,0.07);">✓ City Hall built — only one allowed</div>
-    <div class="sp-item sp-cityhall-type active" data-chtype="cityhall" data-limit="1">
-      <span class="sp-icon">🏛️</span>
-      <div class="sp-info">
-        <div class="sp-name">City Hall</div>
-        <div class="sp-desc">Pillared dome, gold trim (3×3)</div>
+    <!-- ── ROOT: category list ── -->
+    <div id="svc-root">
+      <div class="sp-title">Services</div>
+
+      <div class="svc-cat-item" data-svc="cityhall">
+        <span class="svc-cat-icon">🏛️</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">City Hall</div>
+          <div class="svc-cat-desc">Seat of government</div>
+        </div>
+        <span class="svc-arrow">›</span>
       </div>
-      <span class="bcost">$1,000</span><span class="blimit" id="lim-cityhall">0/1</span>
+
+      <div class="svc-cat-item" data-svc="electricity">
+        <span class="svc-cat-icon">⚡</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Electricity</div>
+          <div class="svc-cat-desc">Power infrastructure</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
+
+      <div class="svc-cat-item" data-svc="water">
+        <span class="svc-cat-icon">💧</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Water</div>
+          <div class="svc-cat-desc">Water supply network</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
+
+      <div class="svc-cat-item" data-svc="police">
+        <span class="svc-cat-icon">🚔</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Police Stations</div>
+          <div class="svc-cat-desc">Law enforcement</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
+
+      <div class="svc-cat-item" data-svc="hospital">
+        <span class="svc-cat-icon">🏥</span>
+        <div class="svc-cat-info">
+          <div class="svc-cat-name">Hospitals</div>
+          <div class="svc-cat-desc">Healthcare facilities</div>
+        </div>
+        <span class="svc-arrow">›</span>
+      </div>
     </div>
 
-    <div class="sp-section-label">⚡ Electricity</div>
-
-    <div class="sp-section-label">💧 Water</div>
-
-    <div class="sp-section-label">🚔 Police Stations</div>
-    <div class="sp-item" id="sp-police-btn" data-tool="policestation" data-limit="8">
-      <span class="sp-icon">🚔</span>
-      <div class="sp-info">
-        <div class="sp-name">Police Station</div>
-        <div class="sp-desc">1×2 · patrol car deploys on road</div>
+    <!-- ── CITY HALL sub-view ── -->
+    <div id="svc-cityhall" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">🏛️ City Hall</span>
       </div>
-      <span class="bcost">$800</span><span class="blimit" id="lim-policestation">0/8</span>
-    </div>
-    <div class="sp-item" id="sp-bigpolice-btn" data-tool="bigpolicestation" data-limit="8">
-      <span class="sp-icon">🏢</span>
-      <div class="sp-info">
-        <div class="sp-name">Big Police Station</div>
-        <div class="sp-desc">2×2 · radar · 4 bays · 2 patrol cars</div>
+      <div id="ch-already-label" style="display:none;padding:10px 16px 8px;font-size:11px;font-weight:700;color:#88ffbb;letter-spacing:0.4px;border-bottom:1px solid rgba(255,255,255,0.07);">✓ City Hall built — only one allowed</div>
+      <div class="sp-item sp-cityhall-type active" data-chtype="cityhall" data-limit="1">
+        <span class="sp-icon">🏛️</span>
+        <div class="sp-info">
+          <div class="sp-name">City Hall</div>
+          <div class="sp-desc">Pillared dome, gold trim (3×3)</div>
+        </div>
+        <span class="bcost">$1,000</span><span class="blimit" id="lim-cityhall">0/1</span>
       </div>
-      <span class="bcost">$2,500</span><span class="blimit" id="lim-bigpolicestation">0/8</span>
     </div>
 
-    <div class="sp-section-label">🏥 Hospitals</div>
-    <div class="sp-item" id="sp-hospital-btn" data-tool="hospital" data-limit="8">
-      <span class="sp-icon">🏥</span>
-      <div class="sp-info">
-        <div class="sp-name">Hospital</div>
-        <div class="sp-desc">1×2 · building + public parking</div>
+    <!-- ── ELECTRICITY sub-view ── -->
+    <div id="svc-electricity" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">⚡ Electricity</span>
       </div>
-      <span class="bcost">$1,200</span><span class="blimit" id="lim-hospital">0/8</span>
+      <div class="svc-empty-note">⚡ Electricity buildings coming soon…</div>
     </div>
+
+    <!-- ── WATER sub-view ── -->
+    <div id="svc-water" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">💧 Water</span>
+      </div>
+      <div class="svc-empty-note">💧 Water buildings coming soon…</div>
+    </div>
+
+    <!-- ── POLICE sub-view ── -->
+    <div id="svc-police" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">🚔 Police Stations</span>
+      </div>
+      <div class="sp-item" id="sp-police-btn" data-tool="policestation" data-limit="8">
+        <span class="sp-icon">🚔</span>
+        <div class="sp-info">
+          <div class="sp-name">Police Station</div>
+          <div class="sp-desc">1×2 · patrol car deploys on road</div>
+        </div>
+        <span class="bcost">$800</span><span class="blimit" id="lim-policestation">0/8</span>
+      </div>
+      <div class="sp-item" id="sp-bigpolice-btn" data-tool="bigpolicestation" data-limit="8">
+        <span class="sp-icon">🏢</span>
+        <div class="sp-info">
+          <div class="sp-name">Big Police Station</div>
+          <div class="sp-desc">2×2 · radar · 4 bays · 2 patrol cars</div>
+        </div>
+        <span class="bcost">$2,500</span><span class="blimit" id="lim-bigpolicestation">0/8</span>
+      </div>
+    </div>
+
+    <!-- ── HOSPITAL sub-view ── -->
+    <div id="svc-hospital" style="display:none; flex-direction:column;">
+      <div class="svc-sub-header">
+        <button class="svc-back-btn">‹ Back</button>
+        <span class="svc-sub-title">🏥 Hospitals</span>
+      </div>
+      <div class="sp-item" id="sp-hospital-btn" data-tool="hospital" data-limit="8">
+        <span class="sp-icon">🏥</span>
+        <div class="sp-info">
+          <div class="sp-name">Hospital</div>
+          <div class="sp-desc">1×2 · building + public parking</div>
+        </div>
+        <span class="bcost">$1,200</span><span class="blimit" id="lim-hospital">0/8</span>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -874,7 +1034,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
+renderer.toneMappingExposure = 1.0;
 
 // ─────────────────────────────────────────────────
 //  CAMERA  — free spherical orbit + pan target
@@ -930,10 +1090,11 @@ window.addEventListener('resize', onResize);
 onResize();
 
 // ─────────────────────────────────────────────────
-//  LIGHTS
+//  LIGHTS  (named for day/night cycle)
 // ─────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x3A4E6E, 0.7));
-// Golden-hour sun low on horizon
+const ambient = new THREE.AmbientLight(0x3A4E6E, 0.7);
+scene.add(ambient);
+
 const sun = new THREE.DirectionalLight(0xFFB347, 1.4);
 sun.position.set(80, 55, 70);
 sun.castShadow = true;
@@ -943,12 +1104,13 @@ sun.shadow.camera.left = -95; sun.shadow.camera.right = 95;
 sun.shadow.camera.top  =  95; sun.shadow.camera.bottom = -95;
 sun.shadow.bias = -0.0006;
 scene.add(sun);
-// Cool twilight fill from opposite side (blue-violet sky reflection)
+
 const fill = new THREE.DirectionalLight(0x6699CC, 0.55);
 fill.position.set(-60, 40, -50);
 scene.add(fill);
-// Warm ground bounce
-scene.add(new THREE.HemisphereLight(0x8AAABB, 0x3A5C28, 0.45));
+
+const hemi = new THREE.HemisphereLight(0x8AAABB, 0x3A5C28, 0.45);
+scene.add(hemi);
 
 // ─────────────────────────────────────────────────
 //  WORLD GROUP  (rotates on Y)
@@ -1308,18 +1470,22 @@ function phong(col, spec = 0x222222, shine = 12) {
   return new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine });
 }
 function glassWarm(intensity = 0.55) {
-  return new THREE.MeshPhongMaterial({
+  const mat = new THREE.MeshPhongMaterial({
     color: 0xFFE0A0, specular: 0xFFFFFF, shininess: 80,
     emissive: new THREE.Color(0xFF8C00), emissiveIntensity: intensity,
     transparent: true, opacity: 0.82
   });
+  registerNightLight(mat, Math.min(1.2, intensity * 2.0), 0xFFAA30);
+  return mat;
 }
 function glassCool(intensity = 0.18) {
-  return new THREE.MeshPhongMaterial({
+  const mat = new THREE.MeshPhongMaterial({
     color: 0xA8CDE8, specular: 0xDDEEFF, shininess: 120,
     emissive: new THREE.Color(0x2255AA), emissiveIntensity: intensity,
     transparent: true, opacity: 0.75
   });
+  registerNightLight(mat, Math.min(0.9, intensity * 2.5), 0x4488CC);
+  return mat;
 }
 // Generates a simple painted-sign texture (used by the amusement park's
 // "Waterfall Wonders" entrance sign). Cheap canvas draw, cached per call.
@@ -1710,6 +1876,7 @@ function buildCityHall(r, c) {
   const amberGls  = new THREE.MeshPhongMaterial({ color:0xFFAA22, specular:0xFFEE88, shininess:140, transparent:true, opacity:0.80 });
   const tealGls   = new THREE.MeshPhongMaterial({ color:0x55BBCC, specular:0xFFFFFF, shininess:160, transparent:true, opacity:0.65 });
   const warmGlow  = new THREE.MeshPhongMaterial({ color:0xFFE070, emissive:new THREE.Color(0xFFB820), emissiveIntensity:1.2, transparent:true, opacity:0.93 });
+  registerNightLight(warmGlow, 2.5, 0xFFB820);
   const whiteMar  = phong(0xF2EDE6, 0xFFFFFF, 60);   // white marble accents
   const creamRoof = phong(0xFDF8F0, 0xFFFCF5, 50);   // cream white roof surfaces
 
@@ -2376,8 +2543,9 @@ function buildBigPark(r, c) {
   [[-2.0,-2.0],[2.0,-2.0],[-2.0,2.0],[2.0,2.0]].forEach(([lx,lz]) => {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,1.8,8), steelMat);
     pole.position.set(lx, 0.98, lz); pole.castShadow = true; g.add(pole);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8),
-      new THREE.MeshPhongMaterial({ color: 0xFFF3C0, emissive: 0xFFD86B, emissiveIntensity: 0.6 }));
+    const lampMat = new THREE.MeshPhongMaterial({ color: 0xFFF3C0, emissive: 0xFFD86B, emissiveIntensity: 0.6 });
+    registerNightLight(lampMat, 2.0, 0xFFD86B);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8), lampMat);
     head.position.set(lx, 1.92, lz); g.add(head);
   });
 
@@ -2750,8 +2918,9 @@ function buildAmusementPark(r, c) {
     } else {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.06,1.8,8), steelMat);
       pole.position.set(lx, 0.98, lz); pole.castShadow = true; g.add(pole);
-      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8),
-        new THREE.MeshPhongMaterial({ color:0xFFF3C0, emissive:new THREE.Color(0xFFD86B), emissiveIntensity:0.75 }));
+      const lampGlMat = new THREE.MeshPhongMaterial({ color:0xFFF3C0, emissive:new THREE.Color(0xFFD86B), emissiveIntensity:0.75 });
+      registerNightLight(lampGlMat, 2.0, 0xFFD86B);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8), lampGlMat);
       lamp.position.set(lx, 1.93, lz); g.add(lamp);
     }
   });
@@ -4839,14 +5008,44 @@ tbRoad.addEventListener('click', function() {
   setTool('road'); setActiveTb(tbRoad);
 });
 
-// ── BUILDS button (houses + parks) ──────────────────
+// ── BUILDS button ────────────────────────────────────
 tbBuilds.addEventListener('click', function() {
   if (buildSubpanel.classList.contains('show') && activeSubPage === spBuilds) {
-    closeSubpanel(); return;
+    closeSubpanel(); buildsShowRoot(); return;
   }
+  buildsShowRoot();
   setActiveTb(tbBuilds);
-  setTool('house');
   openSubpanel(spBuilds);
+});
+
+// ── Builds drill-down (event delegation on the panel) ─
+function buildsShowRoot() {
+  var root = document.getElementById('builds-root');
+  var houseSub = document.getElementById('builds-houses');
+  var parkSub  = document.getElementById('builds-parks');
+  if (root)     { root.style.display     = 'flex'; root.style.flexDirection = 'column'; }
+  if (houseSub) { houseSub.style.display = 'none'; }
+  if (parkSub)  { parkSub.style.display  = 'none'; }
+}
+function buildsShowSub(id) {
+  var root     = document.getElementById('builds-root');
+  var houseSub = document.getElementById('builds-houses');
+  var parkSub  = document.getElementById('builds-parks');
+  if (root)     root.style.display = 'none';
+  if (houseSub) houseSub.style.display = 'none';
+  if (parkSub)  parkSub.style.display  = 'none';
+  var target = document.getElementById('builds-' + id);
+  if (target) { target.style.display = 'flex'; target.style.flexDirection = 'column'; }
+}
+
+// Use event delegation on the subpanel — avoids any bubbling issues
+document.getElementById('build-subpanel').addEventListener('click', function(e) {
+  // Category row click — drill into sub-view
+  var catRow = e.target.closest('[data-builds]');
+  if (catRow) { e.stopPropagation(); buildsShowSub(catRow.dataset.builds); return; }
+
+  // Back button click — return to root
+  if (e.target.closest('.svc-back-btn') && e.target.closest('#sp-builds')) { e.stopPropagation(); buildsShowRoot(); return; }
 });
 
 // ── FACTORY button (placeholder) ────────────────────
@@ -4870,13 +5069,41 @@ tbLand.addEventListener('click', function() {
 });
 
 // ── GOVERNOR button — City Hall lives here ───────────
+// ── GOVERNOR button ─────────────────────────────────
 tbGovernor.addEventListener('click', function() {
   if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
-    closeSubpanel(); setActiveTb(null); return;
+    closeSubpanel(); setActiveTb(null); svcShowRoot(); return;
   }
+  svcShowRoot();
   setActiveTb(tbGovernor);
-  setTool('cityhall');
   openSubpanel(spGovernor);
+});
+
+// ── Services drill-down helpers ──────────────────────
+function svcShowRoot() {
+  var root = document.getElementById('svc-root');
+  if (root) { root.style.display = 'flex'; root.style.flexDirection = 'column'; }
+  ['cityhall','electricity','water','police','hospital'].forEach(function(id) {
+    var el = document.getElementById('svc-' + id);
+    if (el) el.style.display = 'none';
+  });
+}
+function svcShowSub(id) {
+  var root = document.getElementById('svc-root');
+  if (root) root.style.display = 'none';
+  ['cityhall','electricity','water','police','hospital'].forEach(function(k) {
+    var el = document.getElementById('svc-' + k);
+    if (el) el.style.display = 'none';
+  });
+  var target = document.getElementById('svc-' + id);
+  if (target) { target.style.display = 'flex'; target.style.flexDirection = 'column'; }
+}
+
+// Event delegation on the subpanel for services
+document.getElementById('build-subpanel').addEventListener('click', function(e) {
+  var catRow = e.target.closest('[data-svc]');
+  if (catRow) { e.stopPropagation(); svcShowSub(catRow.dataset.svc); return; }
+  if (e.target.closest('.svc-back-btn') && e.target.closest('#sp-governor')) { e.stopPropagation(); svcShowRoot(); return; }
 });
 
 // ── ERASE button ────────────────────────────────────
@@ -4895,6 +5122,7 @@ document.querySelectorAll('.sp-house-type').forEach(function(el) {
     setTool('house');
     setActiveTb(tbBuilds);
     closeSubpanel();
+    buildsShowRoot();
   });
 });
 
@@ -4907,10 +5135,11 @@ document.querySelectorAll('.sp-park-type').forEach(function(el) {
     setTool(selectedParkType);
     setActiveTb(tbBuilds);
     closeSubpanel();
+    buildsShowRoot();
   });
 });
 
-// ── City Hall selection (inside Governor panel) ──────
+// ── City Hall selection ──────────────────────────────
 document.querySelectorAll('.sp-cityhall-type').forEach(function(el) {
   el.addEventListener('click', function() {
     document.querySelectorAll('.sp-cityhall-type').forEach(function(e) { e.classList.remove('active'); });
@@ -4918,23 +5147,22 @@ document.querySelectorAll('.sp-cityhall-type').forEach(function(el) {
     setTool('cityhall');
     setActiveTb(tbGovernor);
     closeSubpanel();
+    svcShowRoot();
   });
 });
 
-// ── Land buy button in sub-panel ────────────────────
+// ── Land buy button ─────────────────────────────────
 document.getElementById('sp-land-buy-btn').addEventListener('click', function() {
   buyLand();
   closeSubpanel();
   setActiveTb(null);
 });
 
-// ── Police Station button ─────────────────────────
+// ── Police Station button ────────────────────────────
 const spPoliceBtn = document.getElementById('sp-police-btn');
 if (spPoliceBtn) {
   spPoliceBtn.addEventListener('click', function() {
-    setTool('policestation');
-    setActiveTb(tbGovernor);
-    closeSubpanel();
+    setTool('policestation'); setActiveTb(tbGovernor); closeSubpanel(); svcShowRoot();
   });
 }
 
@@ -4942,28 +5170,24 @@ if (spPoliceBtn) {
 const spBigPoliceBtn = document.getElementById('sp-bigpolice-btn');
 if (spBigPoliceBtn) {
   spBigPoliceBtn.addEventListener('click', function() {
-    setTool('bigpolicestation');
-    setActiveTb(tbGovernor);
-    closeSubpanel();
+    setTool('bigpolicestation'); setActiveTb(tbGovernor); closeSubpanel(); svcShowRoot();
   });
 }
 
-// ── Hospital button ────────────────────────────────
+// ── Hospital button ──────────────────────────────────
 const spHospitalBtn = document.getElementById('sp-hospital-btn');
 if (spHospitalBtn) {
   spHospitalBtn.addEventListener('click', function() {
-    setTool('hospital');
-    setActiveTb(tbGovernor);
-    closeSubpanel();
+    setTool('hospital'); setActiveTb(tbGovernor); closeSubpanel(); svcShowRoot();
   });
 }
 
-// ── Tap outside sub-panel to close ─────────────────
+// ── Tap outside sub-panel to close ──────────────────
 document.addEventListener('click', function(e) {
   if (!buildSubpanel.classList.contains('show')) return;
   const toolbar = document.getElementById('build-toolbar');
   if (!buildSubpanel.contains(e.target) && !toolbar.contains(e.target)) {
-    closeSubpanel();
+    closeSubpanel(); svcShowRoot(); buildsShowRoot();
   }
 });
 
@@ -4987,6 +5211,162 @@ setTimeout(() => { if (!hintFaded) { hintEl.classList.add('fade'); hintFaded = t
 // ─────────────────────────────────────────────────
 //  ANIMATE
 // ─────────────────────────────────────────────────
+// ─────────────────────────────────────────────────
+//  DAY / NIGHT CYCLE  — physical sun arc + city lights
+//  Day = 8 min · Night = 3 min · Total = 11 min
+//  Transition windows = 45 s (dusk / dawn)
+// ─────────────────────────────────────────────────
+const DAY_MS   = 8 * 60 * 1000;
+const NIGHT_MS = 3 * 60 * 1000;
+const CYCLE_MS = DAY_MS + NIGHT_MS;
+const TRANS_MS = 45 * 1000;
+
+// ── Palette keyframes ───────────────────────────────
+const SKY_COL = {
+  day:   new THREE.Color(0x7EB8D9),
+  dusk:  new THREE.Color(0xD4601A),
+  night: new THREE.Color(0x050C18),
+  dawn:  new THREE.Color(0xE09050),
+};
+const FOG_COL = {
+  day:   new THREE.Color(0x9ACCE0),
+  dusk:  new THREE.Color(0xB04A14),
+  night: new THREE.Color(0x03060C),
+  dawn:  new THREE.Color(0xC07040),
+};
+const AMB_K = {
+  day:   { c: 0xBBD4E8, i: 0.80 },
+  dusk:  { c: 0xD07830, i: 0.65 },
+  night: { c: 0x0C1A30, i: 0.35 },
+  dawn:  { c: 0xD09060, i: 0.75 },
+};
+const SUN_K = {
+  day:   { c: 0xFFF8E8, i: 1.10 },
+  dusk:  { c: 0xFF7020, i: 0.90 },
+  night: { c: 0x3355AA, i: 0.20 },
+  dawn:  { c: 0xFFAA55, i: 0.90 },
+};
+const FILL_K = {
+  day:   { c: 0x88AACC, i: 0.50 },
+  dusk:  { c: 0x883311, i: 0.30 },
+  night: { c: 0x0A1830, i: 0.18 },
+  dawn:  { c: 0xAA7744, i: 0.45 },
+};
+const HEMI_SKY_K = { day: 0xAAC8DC, dusk: 0xBB5522, night: 0x080E1A, dawn: 0xBB8855 };
+const HEMI_GRD_K = { day: 0x4A6633, dusk: 0x3A1C08, night: 0x04080A, dawn: 0x301408 };
+
+// Tone-mapping exposure per phase
+const EXPOSURE_K = { day: 0.88, dusk: 0.90, night: 0.60, dawn: 0.85 };
+
+// ── Helpers ─────────────────────────────────────────
+const _tc = new THREE.Color();
+function lerpColor(a, b, t) { return new THREE.Color().lerpColors(a, b, t); }
+function lerp(a, b, t)      { return a + (b - a) * t; }
+function easeInOut(t)        { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+
+function applyPhase(p, nx, blend) {
+  scene.background.copy(lerpColor(SKY_COL[p], SKY_COL[nx], blend));
+  scene.fog.color.copy(lerpColor(FOG_COL[p], FOG_COL[nx], blend));
+  ambient.color.setHex(AMB_K[p].c).lerp(_tc.setHex(AMB_K[nx].c), blend);
+  ambient.intensity   = lerp(AMB_K[p].i, AMB_K[nx].i, blend);
+  sun.color.setHex(SUN_K[p].c).lerp(_tc.setHex(SUN_K[nx].c), blend);
+  sun.intensity       = lerp(SUN_K[p].i, SUN_K[nx].i, blend);
+  fill.color.setHex(FILL_K[p].c).lerp(_tc.setHex(FILL_K[nx].c), blend);
+  fill.intensity      = lerp(FILL_K[p].i, FILL_K[nx].i, blend);
+  hemi.color.setHex(HEMI_SKY_K[p]).lerp(_tc.setHex(HEMI_SKY_K[nx]), blend);
+  hemi.groundColor.setHex(HEMI_GRD_K[p]).lerp(_tc.setHex(HEMI_GRD_K[nx]), blend);
+  renderer.toneMappingExposure = lerp(EXPOSURE_K[p], EXPOSURE_K[nx], blend);
+}
+
+// ── Sun / Moon arc ──────────────────────────────────
+function updateLightArc(elapsed) {
+  if (elapsed < DAY_MS) {
+    // Sun sweeps east → overhead → west
+    const d = elapsed / DAY_MS;
+    const angle = Math.PI * d;
+    sun.position.set(
+      Math.cos(angle - Math.PI / 2) * 100,
+      Math.max(8, Math.sin(angle) * 90),
+      -40
+    );
+    // Fill stays on opposite side as sky bounce
+    fill.position.set(60, 40, 50);
+  } else {
+    // Moon: lower arc, opposite direction
+    const n = (elapsed - DAY_MS) / NIGHT_MS;
+    const angle = Math.PI * n;
+    sun.position.set(
+      -Math.cos(angle - Math.PI / 2) * 80,
+      Math.max(6, Math.sin(angle) * 60),
+      30
+    );
+    fill.position.set(-50, 25, -40);
+  }
+}
+
+// ── City night lights ────────────────────────────────
+// Collect all emissive materials tagged at build time for night glow
+const nightLightMaterials = [];   // { mat, dayI, nightI, col }
+
+function registerNightLight(material, nightIntensity, nightColorHex) {
+  nightLightMaterials.push({
+    mat: material,
+    dayI:   0,
+    nightI: nightIntensity,
+    col:    nightColorHex,
+  });
+}
+
+// Called by applyNightLights each frame with nightFactor 0 (day) → 1 (night)
+function applyNightLights(nightFactor) {
+  nightLightMaterials.forEach(function(entry) {
+    entry.mat.emissiveIntensity = lerp(entry.dayI, entry.nightI, nightFactor);
+    entry.mat.emissive.setHex(entry.col);
+  });
+}
+
+// ── Tick ─────────────────────────────────────────────
+const cycleStart = Date.now();
+
+function tickDayNight() {
+  const elapsed = (Date.now() - cycleStart) % CYCLE_MS;
+  const inDay   = elapsed < DAY_MS;
+  const phaseMs = inDay ? elapsed : elapsed - DAY_MS;
+
+  let nightFactor = 0;
+
+  if (inDay) {
+    if (phaseMs < TRANS_MS) {
+      const t = easeInOut(phaseMs / TRANS_MS);
+      applyPhase('dawn', 'day', t);
+      nightFactor = lerp(0.3, 0, t);
+    } else if (phaseMs > DAY_MS - TRANS_MS) {
+      const t = easeInOut((phaseMs - (DAY_MS - TRANS_MS)) / TRANS_MS);
+      applyPhase('day', 'dusk', t);
+      nightFactor = lerp(0, 0.55, t);
+    } else {
+      applyPhase('day', 'day', 0);
+      nightFactor = 0;
+    }
+  } else {
+    if (phaseMs < TRANS_MS) {
+      const t = easeInOut(phaseMs / TRANS_MS);
+      applyPhase('dusk', 'night', t);
+      nightFactor = lerp(0.55, 1, t);
+    } else if (phaseMs > NIGHT_MS - TRANS_MS) {
+      const t = easeInOut((phaseMs - (NIGHT_MS - TRANS_MS)) / TRANS_MS);
+      applyPhase('night', 'dawn', t);
+      nightFactor = lerp(1, 0.3, t);
+    } else {
+      applyPhase('night', 'night', 0);
+      nightFactor = 1;
+    }
+  }
+
+  updateLightArc(elapsed);
+  applyNightLights(nightFactor);
+}
+
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
@@ -5038,6 +5418,7 @@ function animate() {
   });
 
   updateCompass(azimuth);
+  tickDayNight();
   tickCars();
   tickPoliceCars();
   // Idle light pulse on parked police cars
