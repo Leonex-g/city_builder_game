@@ -3885,6 +3885,8 @@ function buildBigPoliceStation(r, c) {
   const radarDkM= new THREE.MeshLambertMaterial({ color: 0x555555 });
   const glowB   = new THREE.MeshPhongMaterial({ color:0x0044FF, emissive:new THREE.Color(0x001188), emissiveIntensity:0.7 });
   const glowR   = new THREE.MeshPhongMaterial({ color:0xFF1100, emissive:new THREE.Color(0xAA0000), emissiveIntensity:0.7 });
+  registerNightLight(glowB, 3.0, 0x0044FF);
+  registerNightLight(glowR, 3.0, 0xFF1100);
 
   function box(w,h,d,mat,ox,oy,oz) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
@@ -4075,12 +4077,14 @@ function buildHospital(r, c) {
   const glassM  = new THREE.MeshPhongMaterial({ color:0xAAD4F0, specular:0xFFFFFF, shininess:160, transparent:true, opacity:0.68 });
   const glassWmM= new THREE.MeshPhongMaterial({ color:0xFFE8A0, specular:0xFFFFFF, shininess:100,
     emissive:new THREE.Color(0xFFCC44), emissiveIntensity:0.35, transparent:true, opacity:0.75 });
+  registerNightLight(glassWmM, 2.0, 0xFFCC44);
   const concM   = new THREE.MeshLambertMaterial({ color: 0x999999 });
   const roofM   = new THREE.MeshLambertMaterial({ color: 0x888888 });
   const stepM   = new THREE.MeshLambertMaterial({ color: 0xBBBBBB });
   const doorM   = new THREE.MeshLambertMaterial({ color: 0x224488 });
   const redM    = new THREE.MeshLambertMaterial({ color: 0xDD2222 });
   const redEmM  = new THREE.MeshPhongMaterial({ color:0xFF0000, emissive:new THREE.Color(0xFF0000), emissiveIntensity:0.9 });
+  registerNightLight(redEmM, 3.5, 0xFF0000);
   const tarmacM = new THREE.MeshLambertMaterial({ color: 0x1A1A1A });
   const bayM    = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
   const yellowM = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
@@ -4632,9 +4636,9 @@ function buildWindmill(r, c) {
 // ═════════════════════════════════════════════════════════════════
 //  SOLAR ENERGY COMPLEX  (2×6 cells = 12 x 36 world units)
 //  Layout (along Z-axis, anchor = top-left cell):
-//    Rows 0-3  → 4 rows of tilted solar panel arrays (2 wide × 4 deep)
-//    Row  4    → Energy storage battery complex
-//    Row  5    → Control tower block (glass & steel)
+//    Rows 0-2  → 3 rows of tilted solar panel arrays (2 wide × 3 deep)
+//    Row  3    → Energy storage battery complex
+//    Row  4    → Control tower block (glass & steel)
 // ═════════════════════════════════════════════════════════════════
 function buildSolarEnergy(r, c) {
   const { x: OX, z: OZ } = cellCenter(r, c);
@@ -4642,7 +4646,7 @@ function buildSolarEnergy(r, c) {
   const X0 = OX - CELL / 2;            // left edge
   const Z0 = OZ - CELL / 2;            // top edge (north)
   const W  = CELL * 2;                  // 12 units wide
-  const D  = CELL * 6;                  // 36 units deep
+  const D  = CELL * 5;                  // 30 units deep
 
   const g = new THREE.Group();
   g.userData.type = 'solarenergy';
@@ -4681,6 +4685,16 @@ function buildSolarEnergy(r, c) {
     };
   })();
 
+  // Register all emissive LED/glow mats so they brighten at night
+  registerNightLight(M.glowBlue,  2.5, 0x0044FF);
+  registerNightLight(M.glowGreen, 2.8, 0x00FF66);
+  registerNightLight(M.glowAmb,   2.2, 0xFFCC00);
+  registerNightLight(M.ledRed,    3.0, 0xFF2200);
+  registerNightLight(M.ledGrn,    2.8, 0x00FF44);
+  registerNightLight(M.orange,    2.0, 0xFF8800);
+  registerNightLight(M.hologram,  3.0, 0x00FFFF);
+  registerNightLight(M.holoWire,  3.0, 0x00EEFF);
+
   const add  = m => { m.castShadow=true; m.receiveShadow=true; g.add(m); return m; };
   const addX = m => { g.add(m); return m; };  // no shadow (light meshes, lines)
   const bx   = (w,h,d,mat,ox,oy,oz) => add(new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat)).position.set(ox,oy,oz) || g.children[g.children.length-1];
@@ -4706,23 +4720,23 @@ function buildSolarEnergy(r, c) {
   AB(0.28,0.08,D,     M.concrete, X0,    0.12,Z0+D/2);    // west edge
   AB(0.28,0.08,D,     M.concrete, X0+W,  0.12,Z0+D/2);    // east edge
   // Warning stripe (yellow on perimeter)
-  for(let seg=0;seg<6;seg++){
+  for(let seg=0;seg<5;seg++){
     AB(0.12,0.06,CELL-0.2, seg%2===0?M.batStripe:M.concrete, X0+0.06,0.14,Z0+CELL/2+seg*CELL);
     AB(0.12,0.06,CELL-0.2, seg%2===0?M.batStripe:M.concrete, X0+W-0.06,0.14,Z0+CELL/2+seg*CELL);
   }
   // Expansion joint lines
-  for(let row=1;row<6;row++) AB(W,0.02,0.04,M.darkConc, X0+W/2,0.11,Z0+row*CELL);
+  for(let row=1;row<5;row++) AB(W,0.02,0.04,M.darkConc, X0+W/2,0.11,Z0+row*CELL);
   AB(0.04,0.02,D,M.darkConc, X0+CELL,0.11,Z0+D/2);  // centre line
 
   /* ════════════════════════════════════════════════════════════════
-     2.  SOLAR PANEL ARRAYS  (rows 0-3 = Z0 to Z0+4*CELL)
+     2.  SOLAR PANEL ARRAYS  (rows 0-2 = Z0 to Z0+3*CELL)
          Each row has 2×3 panel modules per half (12 modules per row)
          Panels tilt south at 30 degrees for max exposure
   ════════════════════════════════════════════════════════════════ */
   const PW=2.20, PD=1.40, PT=0.045; // panel width, depth, thickness
   const TILT=Math.PI/6;              // 30° tilt
 
-  for(let row=0;row<4;row++){
+  for(let row=0;row<3;row++){
     const rowZ = Z0 + row*CELL + CELL/2;
     for(let col=0;col<2;col++){
       const colX = X0 + col*CELL + CELL/2;
@@ -4803,9 +4817,9 @@ function buildSolarEnergy(r, c) {
   });
 
   /* ════════════════════════════════════════════════════════════════
-     4.  ENERGY STORAGE BATTERY COMPLEX  (row 4)
+     4.  ENERGY STORAGE BATTERY COMPLEX  (row 3)
   ════════════════════════════════════════════════════════════════ */
-  const BROW_Z = Z0 + 4*CELL;
+  const BROW_Z = Z0 + 3*CELL;
   const BROW_CX= X0 + W/2;
 
   // Battery enclosure foundation slab
@@ -4864,7 +4878,7 @@ function buildSolarEnergy(r, c) {
      5.  CONTROL TOWER BLOCK  (row 5 = southmost row)
          Glass + steel architecture, tall twin towers connected by bridge
   ════════════════════════════════════════════════════════════════ */
-  const CTZ = Z0 + 5*CELL;   // Z-origin of control row
+  const CTZ = Z0 + 4*CELL;   // Z-origin of control row
   const CTH = 11.0;           // main tower height
 
   // Foundation plinth (both towers)
@@ -5008,11 +5022,6 @@ function buildSolarEnergy(r, c) {
   });
 
   // ── SIGNAGE ──────────────────────────────────────────────────
-  makeBuildingSign(g, 'Solar Energy', {
-    x: WTX, y: CTH*0.88+0.38, z: CTZ+CELL/2+WTD/2+0.16,
-    scale: 1.6, color: 0x00FFCC,
-  });
-
   g.position.set(0, 0, 0);
   return g;
 }
@@ -5039,7 +5048,7 @@ const FOOTPRINTS = {
   policestation:    { w: 1, h: 2 },
   bigpolicestation: { w: 2, h: 2 },
   hospital:         { w: 1, h: 2 },
-  solarenergy:      { w: 2, h: 6 },   // 2×6 = 12 cells
+  solarenergy:      { w: 2, h: 5 },   // 2×5 = 10 cells
 };
 function getFootprint(tool) { return FOOTPRINTS[tool] || { w: 1, h: 1 }; }
 
@@ -5993,26 +6002,26 @@ const FOG_COL = {
 const AMB_K = {
   day:   { c: 0xBBD4E8, i: 0.80 },
   dusk:  { c: 0xD07830, i: 0.65 },
-  night: { c: 0x0C1A30, i: 0.35 },
+  night: { c: 0x1A3355, i: 0.70 },
   dawn:  { c: 0xD09060, i: 0.75 },
 };
 const SUN_K = {
   day:   { c: 0xFFF8E8, i: 1.10 },
   dusk:  { c: 0xFF7020, i: 0.90 },
-  night: { c: 0x3355AA, i: 0.20 },
+  night: { c: 0x6688CC, i: 0.55 },   // moonlight
   dawn:  { c: 0xFFAA55, i: 0.90 },
 };
 const FILL_K = {
   day:   { c: 0x88AACC, i: 0.50 },
   dusk:  { c: 0x883311, i: 0.30 },
-  night: { c: 0x0A1830, i: 0.18 },
+  night: { c: 0x223355, i: 0.45 },
   dawn:  { c: 0xAA7744, i: 0.45 },
 };
-const HEMI_SKY_K = { day: 0xAAC8DC, dusk: 0xBB5522, night: 0x080E1A, dawn: 0xBB8855 };
-const HEMI_GRD_K = { day: 0x4A6633, dusk: 0x3A1C08, night: 0x04080A, dawn: 0x301408 };
+const HEMI_SKY_K = { day: 0xAAC8DC, dusk: 0xBB5522, night: 0x1A2D44, dawn: 0xBB8855 };
+const HEMI_GRD_K = { day: 0x4A6633, dusk: 0x3A1C08, night: 0x0E1A14, dawn: 0x301408 };
 
 // Tone-mapping exposure per phase
-const EXPOSURE_K = { day: 0.88, dusk: 0.90, night: 0.60, dawn: 0.85 };
+const EXPOSURE_K = { day: 0.88, dusk: 0.90, night: 0.82, dawn: 0.85 };
 
 // ── Helpers ─────────────────────────────────────────
 const _tc = new THREE.Color();
@@ -6076,8 +6085,13 @@ function registerNightLight(material, nightIntensity, nightColorHex) {
 // Called by applyNightLights each frame with nightFactor 0 (day) → 1 (night)
 function applyNightLights(nightFactor) {
   nightLightMaterials.forEach(function(entry) {
-    entry.mat.emissiveIntensity = lerp(entry.dayI, entry.nightI, nightFactor);
-    entry.mat.emissive.setHex(entry.col);
+    // At night: full nightI; during day: restore to original dayI
+    // Add a subtle slow pulse during full night for living effect
+    const pulse = nightFactor > 0.85
+      ? 1.0 + Math.sin(Date.now() * 0.0008) * 0.08
+      : 1.0;
+    entry.mat.emissiveIntensity = lerp(entry.dayI, entry.nightI * pulse, nightFactor);
+    if (nightFactor > 0.01) entry.mat.emissive.setHex(entry.col);
   });
 }
 
