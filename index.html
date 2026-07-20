@@ -145,22 +145,74 @@
 
     /* ── Zoom controls ────────────────────────────── */
 
-    /* ── BUILD TOOLBAR — 3×3 grid, bottom-left ──── */
-    #build-toolbar {
+    /* ── BUILD WRAP — holds toggle button + collapsible toolbar ─── */
+    #build-wrap {
       position: fixed;
-      bottom: max(20px, env(safe-area-inset-bottom, 20px));
+      bottom: max(16px, env(safe-area-inset-bottom, 16px));
       left: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    /* ── TOGGLE BUTTON — always visible ────────────── */
+    #build-toggle {
+      width: 56px; height: 56px;
+      border-radius: 18px;
+      background: rgba(20,20,20,0.72);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1.5px solid rgba(255,255,255,0.20);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.30);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.18s, border-color 0.18s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      color: rgba(255,255,255,0.88);
+      font-size: 8px; font-weight: 800;
+      letter-spacing: 0.4px; text-transform: uppercase;
+      font-family: inherit;
+    }
+    #build-toggle svg {
+      width: 24px; height: 24px;
+      fill: rgba(255,255,255,0.90);
+      transition: fill 0.18s, transform 0.28s;
+    }
+    #build-toggle:active { transform: scale(0.91); }
+    #build-toggle.open {
+      background: rgba(20,20,20,0.90);
+      border-color: rgba(136,255,187,0.45);
+    }
+    #build-toggle.open svg { fill: #88ffbb; transform: rotate(45deg); }
+
+    /* ── BUILD TOOLBAR — 3×3 grid, collapsible ─────── */
+    #build-toolbar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 6px;
-      background: rgba(20,20,20,0.30);       /* black-grey, 30% opaque */
+      background: rgba(20,20,20,0.30);
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 20px;
       padding: 10px;
-      z-index: 20;
       width: 216px;
       box-shadow: 0 10px 42px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.28);
+      /* collapsed by default */
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px) scale(0.97);
+      transform-origin: bottom left;
+      transition: opacity 0.22s cubic-bezier(.34,1.36,.64,1),
+                  transform 0.22s cubic-bezier(.34,1.36,.64,1);
+    }
+    #build-toolbar.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
     }
 
     /* each icon cell */
@@ -292,7 +344,7 @@
     #build-subpanel {
       position: fixed;
       bottom: max(20px, env(safe-area-inset-bottom, 20px));
-      /* sits immediately to the RIGHT of the 216px toolbar */
+      /* sits to the RIGHT of the 216px toolbar grid when open */
       left: calc(16px + 216px + 10px);
       transform: translateX(-6px);
       background: rgba(12,16,26,0.97);
@@ -731,8 +783,20 @@
 <!-- Zoom controls -->
 
 
-<!-- ── BUILD TOOLBAR — 3×3 grid ──────────────────── -->
-<div id="build-toolbar">
+<!-- ── BUILD WRAP — toggle button + collapsible toolbar ── -->
+<div id="build-wrap">
+
+  <!-- Toggle button (always visible) -->
+  <button id="build-toggle" aria-label="Toggle build menu">
+    <!-- hammer / build icon -->
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13.78 15.3L19.78 21.3L21.19 19.89L15.19 13.89M17.5 11.3C17.92 11.3 18.36 11.23 18.76 11.07L16.93 9.25L17.34 8.85L19.19 10.7C19.37 10.28 19.47 9.82 19.47 9.3C19.47 7.5 18.05 6.07 16.25 6.07C15.72 6.07 15.23 6.19 14.79 6.41L16.61 8.23L14.5 10.34L12.68 8.53C12.47 8.97 12.36 9.46 12.36 9.97C12.36 11.76 13.7 13.2 15.5 13.27L17.5 11.3M5.93 16.07L3.5 20.06L4.91 21.47L8.9 19.04L9.27 18.67L7.6 16.99M14.36 9.3L9.28 4.22L4.93 8.57L10.01 13.66L14.36 9.3z"/>
+    </svg>
+    <span>Build</span>
+  </button>
+
+  <!-- Toolbar grid (hidden until toggle) -->
+  <div id="build-toolbar">
 
   <button class="tb-btn" id="tb-road" aria-label="Road">
     <img class="tb-icon" src="https://cdn-icons-png.flaticon.com/512/2554/2554922.png" alt="Road">
@@ -766,7 +830,9 @@
     <span>Erase</span>
   </button>
 
-</div>
+  </div><!-- /#build-toolbar -->
+
+</div><!-- /#build-wrap -->
 
 <!-- ── BUILD SUB-PANEL — floats above toolbar ────── -->
 <div id="build-subpanel">
@@ -5693,6 +5759,38 @@ const tbLand     = document.getElementById('tb-land');
 const tbGovernor = document.getElementById('tb-governor');
 const tbErase    = document.getElementById('tb-erase');
 const buildSubpanel = document.getElementById('build-subpanel');
+
+// ── Build toggle ──────────────────────────────────────────────
+const buildToggle  = document.getElementById('build-toggle');
+const buildToolbar = document.getElementById('build-toolbar');
+let   buildMenuOpen = false;
+
+function openBuildMenu() {
+  buildMenuOpen = true;
+  buildToolbar.classList.add('open');
+  buildToggle.classList.add('open');
+}
+function hideBuildMenu() {
+  buildMenuOpen = false;
+  buildToolbar.classList.remove('open');
+  buildToggle.classList.remove('open');
+  closeSubpanel();
+}
+
+buildToggle.addEventListener('click', function() {
+  if (buildMenuOpen) { hideBuildMenu(); }
+  else               { openBuildMenu(); }
+});
+
+// Close toolbar when clicking outside the build-wrap and sub-panel
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('build-wrap');
+  if (buildMenuOpen &&
+      !wrap.contains(e.target) &&
+      !buildSubpanel.contains(e.target)) {
+    hideBuildMenu();
+  }
+});
 const spBuilds   = document.getElementById('sp-builds');
 const spFactory  = document.getElementById('sp-factory');
 const spLand     = document.getElementById('sp-land');
@@ -5947,11 +6045,11 @@ if (spHospitalBtn) {
   });
 }
 
-// ── Tap outside sub-panel to close ──────────────────
+// ── Tap outside sub-panel to close (sub-panel only, not toolbar) ─
 document.addEventListener('click', function(e) {
   if (!buildSubpanel.classList.contains('show')) return;
-  const toolbar = document.getElementById('build-toolbar');
-  if (!buildSubpanel.contains(e.target) && !toolbar.contains(e.target)) {
+  const wrap = document.getElementById('build-wrap');
+  if (!buildSubpanel.contains(e.target) && !wrap.contains(e.target)) {
     closeSubpanel(); svcShowRoot(); buildsShowRoot();
   }
 });
