@@ -145,51 +145,58 @@
 
     /* ── Zoom controls ────────────────────────────── */
 
-    /* ── BUILD WRAP — holds toggle button + collapsible toolbar ─── */
-    #build-wrap {
+    /* ── FLOATING BUILD BUTTON ───────────────────── */
+    #build-float {
       position: fixed;
-      bottom: max(16px, env(safe-area-inset-bottom, 16px));
+      bottom: 24px;
       left: 16px;
+      z-index: 30;
+      /* toolbar + subpanel are children, positioned relative to this */
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 10px;
-      z-index: 20;
+      gap: 8px;
+      /* JS will override left/bottom via style.left / style.top */
     }
 
-    /* ── TOGGLE BUTTON — always visible ────────────── */
-    #build-toggle {
-      width: 56px; height: 56px;
+    #build-fab {
+      width: 58px; height: 58px;
       border-radius: 18px;
-      background: rgba(20,20,20,0.72);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border: 1.5px solid rgba(255,255,255,0.20);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.30);
+      border: 1.5px solid rgba(255,255,255,0.22);
+      background: rgba(18,18,18,0.78);
+      backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+      box-shadow: 0 6px 28px rgba(0,0,0,0.60), 0 2px 8px rgba(0,0,0,0.32);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       gap: 3px;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.18s, border-color 0.18s;
-      touch-action: manipulation;
+      cursor: grab;
+      touch-action: none;
       -webkit-tap-highlight-color: transparent;
-      color: rgba(255,255,255,0.88);
-      font-size: 8px; font-weight: 800;
-      letter-spacing: 0.4px; text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      font-size: 8px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
       font-family: inherit;
+      transition: box-shadow 0.15s, border-color 0.18s, background 0.15s;
+      user-select: none;
     }
-    #build-toggle svg {
+    #build-fab svg {
       width: 24px; height: 24px;
       fill: rgba(255,255,255,0.90);
       transition: fill 0.18s, transform 0.28s;
+      pointer-events: none;
     }
-    #build-toggle:active { transform: scale(0.91); }
-    #build-toggle.open {
-      background: rgba(20,20,20,0.90);
-      border-color: rgba(136,255,187,0.45);
+    #build-fab span { pointer-events: none; }
+    #build-fab.dragging {
+      cursor: grabbing;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.40);
+      scale: 1.06;
     }
-    #build-toggle.open svg { fill: #88ffbb; transform: rotate(45deg); }
+    #build-fab.open {
+      border-color: rgba(136,255,187,0.50);
+      background: rgba(18,18,18,0.92);
+    }
+    #build-fab.open svg { fill: #88ffbb; transform: rotate(45deg); }
 
-    /* ── BUILD TOOLBAR — 3×3 grid, collapsible ─────── */
+    /* ── BUILD TOOLBAR — collapsible 3×3 grid ────── */
     #build-toolbar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -201,17 +208,15 @@
       padding: 10px;
       width: 216px;
       box-shadow: 0 10px 42px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.28);
-      /* collapsed by default */
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(8px) scale(0.97);
+      /* hidden by default */
+      opacity: 0; pointer-events: none;
+      transform: translateY(6px) scale(0.97);
       transform-origin: bottom left;
-      transition: opacity 0.22s cubic-bezier(.34,1.36,.64,1),
-                  transform 0.22s cubic-bezier(.34,1.36,.64,1);
+      transition: opacity 0.20s cubic-bezier(.34,1.36,.64,1),
+                  transform 0.20s cubic-bezier(.34,1.36,.64,1);
     }
     #build-toolbar.open {
-      opacity: 1;
-      pointer-events: auto;
+      opacity: 1; pointer-events: auto;
       transform: translateY(0) scale(1);
     }
 
@@ -340,12 +345,11 @@
     /* dividers are not used in grid layout */
     .tb-divider { display: none; }
 
-    /* ── BUILD SUB-PANEL — pops above the toolbar ── */
+    /* ── BUILD SUB-PANEL — position set by JS relative to fab ── */
     #build-subpanel {
       position: fixed;
-      bottom: max(20px, env(safe-area-inset-bottom, 20px));
-      /* sits to the RIGHT of the 216px toolbar grid when open */
-      left: calc(16px + 216px + 10px);
+      bottom: 20px;
+      left: 250px;   /* JS will override this */
       transform: translateX(-6px);
       background: rgba(12,16,26,0.97);
       backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -783,56 +787,55 @@
 <!-- Zoom controls -->
 
 
-<!-- ── BUILD WRAP — toggle button + collapsible toolbar ── -->
-<div id="build-wrap">
+<!-- ── FLOATING BUILD BUTTON + COLLAPSIBLE TOOLBAR ── -->
+<div id="build-float">
 
-  <!-- Toggle button (always visible) -->
-  <button id="build-toggle" aria-label="Toggle build menu">
-    <!-- hammer / build icon -->
+  <!-- The collapsible 3×3 toolbar (shown above the FAB when open) -->
+  <div id="build-toolbar">
+
+    <button class="tb-btn" id="tb-road" aria-label="Road">
+      <img class="tb-icon" src="https://cdn-icons-png.flaticon.com/512/2554/2554922.png" alt="Road">
+      <span>Road</span>
+    </button>
+
+    <button class="tb-btn" id="tb-builds" aria-label="Builds">
+      <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h5v-5h4v5h5v-8h3L12 3z"/></svg>
+      <span>Builds</span>
+    </button>
+
+    <button class="tb-btn" id="tb-factory" aria-label="Production">
+      <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M4 18V9l5 3.5V9l5 3.5V4h4v14H4zm0 2h14v-1H4v1z"/></svg>
+      <span>Production</span>
+    </button>
+
+    <button class="tb-btn" id="tb-land" aria-label="Land">
+      <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M15 3v2h2.59l-4.3 4.29 1.42 1.42L19 6.41V9h2V3h-6zM3 9h2V6.41l4.29 4.3 1.42-1.42L6.41 5H9V3H3v6zm13.29 5.29-1.42 1.42L19 20.59V18h2v6h-6v-2h2.59l-4.3-4.29zM5 15v-2H3v6h6v-2H6.41l4.3-4.29-1.42-1.42L5 15z"/></svg>
+      <span>Land</span>
+    </button>
+
+    <button class="tb-btn" id="tb-governor" aria-label="Services">
+      <svg class="tb-icon-svg" viewBox="0 0 24 24">
+        <path d="M12 2l1 2h2l-1.5 1.5.5 2L12 6.5 10 7.5l.5-2L9 4h2l1-2zM4 21v-2h16v2H4zm2-3V11h2v7H6zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zM3 10V8h18v2H3z"/>
+      </svg>
+      <span>Services</span>
+    </button>
+
+    <button class="tb-btn" id="tb-erase" aria-label="Erase">
+      <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83L8.88 22.05A2 2 0 017.47 22.6H3c-.55 0-1-.45-1-1v-4.46a2 2 0 01.59-1.42L14.17 3.56c.79-.78 2.07-.78 2.07 0zM15 6.77L5 16.77V20h3.23L18.23 10 15 6.77z"/></svg>
+      <span>Erase</span>
+    </button>
+
+  </div>
+
+  <!-- Floating action button (draggable, always visible) -->
+  <button id="build-fab" aria-label="Build menu">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path d="M13.78 15.3L19.78 21.3L21.19 19.89L15.19 13.89M17.5 11.3C17.92 11.3 18.36 11.23 18.76 11.07L16.93 9.25L17.34 8.85L19.19 10.7C19.37 10.28 19.47 9.82 19.47 9.3C19.47 7.5 18.05 6.07 16.25 6.07C15.72 6.07 15.23 6.19 14.79 6.41L16.61 8.23L14.5 10.34L12.68 8.53C12.47 8.97 12.36 9.46 12.36 9.97C12.36 11.76 13.7 13.2 15.5 13.27L17.5 11.3M5.93 16.07L3.5 20.06L4.91 21.47L8.9 19.04L9.27 18.67L7.6 16.99M14.36 9.3L9.28 4.22L4.93 8.57L10.01 13.66L14.36 9.3z"/>
     </svg>
     <span>Build</span>
   </button>
 
-  <!-- Toolbar grid (hidden until toggle) -->
-  <div id="build-toolbar">
-
-  <button class="tb-btn" id="tb-road" aria-label="Road">
-    <img class="tb-icon" src="https://cdn-icons-png.flaticon.com/512/2554/2554922.png" alt="Road">
-    <span>Road</span>
-  </button>
-
-  <button class="tb-btn" id="tb-builds" aria-label="Builds">
-    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h5v-5h4v5h5v-8h3L12 3z"/></svg>
-    <span>Builds</span>
-  </button>
-
-  <button class="tb-btn" id="tb-factory" aria-label="Production">
-    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M4 18V9l5 3.5V9l5 3.5V4h4v14H4zm0 2h14v-1H4v1z"/></svg>
-    <span>Production</span>
-  </button>
-
-  <button class="tb-btn" id="tb-land" aria-label="Land">
-    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M15 3v2h2.59l-4.3 4.29 1.42 1.42L19 6.41V9h2V3h-6zM3 9h2V6.41l4.29 4.3 1.42-1.42L6.41 5H9V3H3v6zm13.29 5.29-1.42 1.42L19 20.59V18h2v6h-6v-2h2.59l-4.3-4.29zM5 15v-2H3v6h6v-2H6.41l4.3-4.29-1.42-1.42L5 15z"/></svg>
-    <span>Land</span>
-  </button>
-
-  <button class="tb-btn" id="tb-governor" aria-label="Services">
-    <svg class="tb-icon-svg" viewBox="0 0 24 24">
-      <path d="M12 2l1 2h2l-1.5 1.5.5 2L12 6.5 10 7.5l.5-2L9 4h2l1-2zM4 21v-2h16v2H4zm2-3V11h2v7H6zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zm3.5 0V11h2v7h-2zM3 10V8h18v2H3z"/>
-    </svg>
-    <span>Services</span>
-  </button>
-
-  <button class="tb-btn" id="tb-erase" aria-label="Erase">
-    <svg class="tb-icon-svg" viewBox="0 0 24 24"><path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83L8.88 22.05A2 2 0 017.47 22.6H3c-.55 0-1-.45-1-1v-4.46a2 2 0 01.59-1.42L14.17 3.56c.79-.78 2.07-.78 2.07 0zM15 6.77L5 16.77V20h3.23L18.23 10 15 6.77z"/></svg>
-    <span>Erase</span>
-  </button>
-
-  </div><!-- /#build-toolbar -->
-
-</div><!-- /#build-wrap -->
+</div>
 
 <!-- ── BUILD SUB-PANEL — floats above toolbar ────── -->
 <div id="build-subpanel">
@@ -5759,38 +5762,6 @@ const tbLand     = document.getElementById('tb-land');
 const tbGovernor = document.getElementById('tb-governor');
 const tbErase    = document.getElementById('tb-erase');
 const buildSubpanel = document.getElementById('build-subpanel');
-
-// ── Build toggle ──────────────────────────────────────────────
-const buildToggle  = document.getElementById('build-toggle');
-const buildToolbar = document.getElementById('build-toolbar');
-let   buildMenuOpen = false;
-
-function openBuildMenu() {
-  buildMenuOpen = true;
-  buildToolbar.classList.add('open');
-  buildToggle.classList.add('open');
-}
-function hideBuildMenu() {
-  buildMenuOpen = false;
-  buildToolbar.classList.remove('open');
-  buildToggle.classList.remove('open');
-  closeSubpanel();
-}
-
-buildToggle.addEventListener('click', function() {
-  if (buildMenuOpen) { hideBuildMenu(); }
-  else               { openBuildMenu(); }
-});
-
-// Close toolbar when clicking outside the build-wrap and sub-panel
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('build-wrap');
-  if (buildMenuOpen &&
-      !wrap.contains(e.target) &&
-      !buildSubpanel.contains(e.target)) {
-    hideBuildMenu();
-  }
-});
 const spBuilds   = document.getElementById('sp-builds');
 const spFactory  = document.getElementById('sp-factory');
 const spLand     = document.getElementById('sp-land');
@@ -6045,14 +6016,165 @@ if (spHospitalBtn) {
   });
 }
 
-// ── Tap outside sub-panel to close (sub-panel only, not toolbar) ─
+// ── Tap outside sub-panel to close ──────────────────
 document.addEventListener('click', function(e) {
   if (!buildSubpanel.classList.contains('show')) return;
-  const wrap = document.getElementById('build-wrap');
-  if (!buildSubpanel.contains(e.target) && !wrap.contains(e.target)) {
+  const floatEl = document.getElementById('build-float');
+  if (!buildSubpanel.contains(e.target) && !floatEl.contains(e.target)) {
     closeSubpanel(); svcShowRoot(); buildsShowRoot();
   }
 });
+
+// ═══════════════════════════════════════════════════════
+//  DRAGGABLE FLOATING BUILD BUTTON
+// ═══════════════════════════════════════════════════════
+(function() {
+  const fab      = document.getElementById('build-fab');
+  const floatEl  = document.getElementById('build-float');
+  const toolbar  = document.getElementById('build-toolbar');
+  const FAB_W    = 58, FAB_H = 58;
+  const TOOLBAR_W= 216, TOOLBAR_H = 170; // approx toolbar height
+  const MARGIN   = 10;  // min gap from screen edge
+  const DRAG_THRESHOLD = 6; // px movement to count as a drag
+
+  let isOpen   = false;
+  let isDragging = false;
+  let startX, startY, startLeft, startTop, movedPx;
+
+  // Initial position (bottom-left)
+  let fabLeft = 16;
+  let fabTop  = window.innerHeight - FAB_H - 24;
+
+  function applyPos(l, t) {
+    // Clamp to screen
+    const maxL = window.innerWidth  - FAB_W  - MARGIN;
+    const maxT = window.innerHeight - FAB_H  - MARGIN;
+    fabLeft = Math.max(MARGIN, Math.min(l, maxL));
+    fabTop  = Math.max(MARGIN, Math.min(t, maxT));
+    floatEl.style.left = fabLeft + 'px';
+    floatEl.style.top  = fabTop  + 'px';
+    floatEl.style.bottom = 'auto';
+    repositionPanel();
+  }
+
+  function repositionPanel() {
+    // Position toolbar ABOVE the FAB; flip below if not enough space
+    const toolH = TOOLBAR_H + 8; // toolbar height + gap
+    const aboveY = fabTop - toolH;
+    if (aboveY >= MARGIN) {
+      // enough room above — show above
+      toolbar.style.position = 'absolute';
+      toolbar.style.top    = (-toolH) + 'px';
+      toolbar.style.bottom = 'auto';
+      toolbar.style.left   = '0';
+    } else {
+      // not enough room above — show below FAB
+      toolbar.style.position = 'absolute';
+      toolbar.style.top    = (FAB_H + 8) + 'px';
+      toolbar.style.bottom = 'auto';
+      toolbar.style.left   = '0';
+    }
+    // Clamp toolbar horizontally so it doesn't go off right edge
+    const toolRight = fabLeft + TOOLBAR_W;
+    if (toolRight > window.innerWidth - MARGIN) {
+      const shift = toolRight - (window.innerWidth - MARGIN);
+      toolbar.style.left = (-shift) + 'px';
+    } else {
+      toolbar.style.left = '0';
+    }
+
+    // Reposition sub-panel to the right of the toolbar's on-screen position
+    const panelLeft = fabLeft + (parseInt(toolbar.style.left)||0) + TOOLBAR_W + 10;
+    const panelBottom = window.innerHeight - fabTop - FAB_H;
+    buildSubpanel.style.left   = Math.max(MARGIN, panelLeft) + 'px';
+    buildSubpanel.style.bottom = Math.max(MARGIN, panelBottom) + 'px';
+  }
+
+  function openMenu() {
+    isOpen = true;
+    toolbar.classList.add('open');
+    fab.classList.add('open');
+    repositionPanel();
+  }
+  function closeMenu() {
+    isOpen = false;
+    toolbar.classList.remove('open');
+    fab.classList.remove('open');
+    closeSubpanel();
+    if (typeof svcShowRoot === 'function')    svcShowRoot();
+    if (typeof buildsShowRoot === 'function') buildsShowRoot();
+  }
+
+  // Initial positioning (no transition on load)
+  floatEl.style.left   = fabLeft + 'px';
+  floatEl.style.top    = fabTop  + 'px';
+  floatEl.style.bottom = 'auto';
+  floatEl.style.position = 'fixed';
+  toolbar.style.position = 'absolute';
+  repositionPanel();
+
+  // ── MOUSE drag ──────────────────────────────────────
+  fab.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    isDragging = false; movedPx = 0;
+    startX = e.clientX; startY = e.clientY;
+    startLeft = fabLeft; startTop = fabTop;
+    fab.classList.add('dragging');
+    e.preventDefault();
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      movedPx = Math.sqrt(dx*dx + dy*dy);
+      if (movedPx > DRAG_THRESHOLD) isDragging = true;
+      if (isDragging) applyPos(startLeft + dx, startTop + dy);
+    }
+    function onUp(ev) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      fab.classList.remove('dragging');
+      if (!isDragging) {
+        // it was a click
+        isOpen ? closeMenu() : openMenu();
+      }
+      isDragging = false;
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // ── TOUCH drag ──────────────────────────────────────
+  fab.addEventListener('touchstart', function(e) {
+    isDragging = false; movedPx = 0;
+    const t0 = e.touches[0];
+    startX = t0.clientX; startY = t0.clientY;
+    startLeft = fabLeft; startTop = fabTop;
+    e.preventDefault();
+  }, { passive: false });
+
+  fab.addEventListener('touchmove', function(e) {
+    const t0 = e.touches[0];
+    const dx = t0.clientX - startX, dy = t0.clientY - startY;
+    movedPx = Math.sqrt(dx*dx + dy*dy);
+    if (movedPx > DRAG_THRESHOLD) {
+      isDragging = true;
+      fab.classList.add('dragging');
+    }
+    if (isDragging) applyPos(startLeft + dx, startTop + dy);
+    e.preventDefault();
+  }, { passive: false });
+
+  fab.addEventListener('touchend', function(e) {
+    fab.classList.remove('dragging');
+    if (!isDragging) {
+      isOpen ? closeMenu() : openMenu();
+    }
+    isDragging = false;
+    e.preventDefault();
+  }, { passive: false });
+
+  // Reposition on window resize
+  window.addEventListener('resize', function() { applyPos(fabLeft, fabTop); });
+})();
 
 // ─────────────────────────────────────────────────
 //  COMPASS
