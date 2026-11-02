@@ -9501,6 +9501,15 @@ function tickDayNight() {
   currentNightFactor = nightFactor;
 }
 
+  const fpsEl = document.createElement('div');
+fpsEl.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:#000a;color:#0f0;font:12px monospace;padding:2px 8px;z-index:99999;pointer-events:none';
+document.body.appendChild(fpsEl);
+let _frames = 0;
+setInterval(() => {
+  fpsEl.textContent = _frames + ' FPS | calls: ' + renderer.info.render.calls;
+  _frames = 0;
+}, 1000);
+
 let t = 0;
 function animate() {
   requestAnimationFrame(animate);
