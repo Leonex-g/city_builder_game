@@ -9514,7 +9514,7 @@ let t = 0;
 function animate() {
   requestAnimationFrame(animate);
   t += 0.004;
-
+_frames++;
   // Smooth orbit angles
   azimuth   += (targetAz   - azimuth)   * 0.12;
   elevation += (targetEl   - elevation) * 0.12;
