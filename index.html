@@ -1576,6 +1576,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
 <script>
 // ─────────────────────────────────────────────────
 //  SCENE
@@ -2358,6 +2359,39 @@ function makeBuildingSign(group, text, {
       new THREE.MeshLambertMaterial({ color: 0xCCAA00 }));
     cap.position.set(posX + px, poleH + 0.09, posZ);
     group.add(cap);
+  });
+}
+
+  // Merges all static meshes in a group into one mesh per material.
+// Anything inside a group listed in `skip` (animated parts) is left alone.
+function mergeStatic(group, skip) {
+  skip = skip || new Set();
+  group.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const buckets = new Map();
+  const toRemove = [];
+
+  group.traverse(function (o) {
+    if (!o.isMesh || Array.isArray(o.material)) return;
+    for (let p = o; p && p !== group; p = p.parent) { if (skip.has(p)) return; }
+    const geo = o.geometry.clone();
+    geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (!o.material.map && geo.attributes.uv) geo.deleteAttribute('uv');
+    if (!buckets.has(o.material)) buckets.set(o.material, []);
+    buckets.get(o.material).push(geo);
+    toRemove.push(o);
+  });
+
+  toRemove.forEach(function (o) { o.parent.remove(o); o.geometry.dispose(); });
+
+  buckets.forEach(function (geos, mat) {
+    const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos);
+    if (!merged) return;
+    const m = new THREE.Mesh(merged, mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+    geos.forEach(function (g) { g.dispose(); });
   });
 }
 
@@ -8478,6 +8512,7 @@ function placeItem(r, c) {
       mesh = buildCityHall(r, c);
     }
     if (mesh) {
+      if (selectedTool === 'cityhall') mergeStatic(mesh);
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
       world.add(mesh);
