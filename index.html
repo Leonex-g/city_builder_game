@@ -2232,7 +2232,11 @@ function buildRoad(r, c) {
 const _phongCache = new Map();
 function phong(col, spec = 0x222222, shine = 12) {
   const key = col + '_' + spec + '_' + shine;
-  if (!_phongCache.has(key)) _phongCache.set(key, new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine }));
+    if (!_phongCache.has(key)) {
+    const m = new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine });
+    m.userData.shared = true;
+    _phongCache.set(key, m);
+  }
   return _phongCache.get(key);
 }
   
@@ -2333,39 +2337,74 @@ function makeBuildingSign(group, text, {
   });
 }
 
-  // Merges all static meshes in a group into one mesh per material.
-// Anything inside a group listed in `skip` (animated parts) is left alone.
-function mergeStatic(group, skip) {
+ function mergeStatic(group, skip) {
   skip = skip || new Set();
   group.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const buckets = new Map();
-  const toRemove = [];
 
   group.traverse(function (o) {
-    if (!o.isMesh || Array.isArray(o.material)) return;
+    if (!o.isMesh || o.isInstancedMesh || Array.isArray(o.material)) return;
     for (let p = o; p && p !== group; p = p.parent) { if (skip.has(p)) return; }
     const geo = o.geometry.clone();
     geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
     if (!o.material.map && geo.attributes.uv) geo.deleteAttribute('uv');
-    if (!buckets.has(o.material)) buckets.set(o.material, []);
-    buckets.get(o.material).push(geo);
-    toRemove.push(o);
+    if (!buckets.has(o.material)) buckets.set(o.material, { geos: [], meshes: [] });
+    const b = buckets.get(o.material);
+    b.geos.push(geo);
+    b.meshes.push(o);
   });
 
-  toRemove.forEach(function (o) { o.parent.remove(o); o.geometry.dispose(); });
+  buckets.forEach(function (b, mat) {
+    let geos = b.geos;
+    const anyIdx = geos.some(function (g) { return g.index; });
+    const allIdx = geos.every(function (g) { return g.index; });
+    if (anyIdx && !allIdx) geos = geos.map(function (g) { return g.index ? g.toNonIndexed() : g; });
 
-  buckets.forEach(function (geos, mat) {
     const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos);
-    if (!merged) return;
+    geos.forEach(function (g) { g.dispose(); });
+    b.geos.forEach(function (g) { g.dispose(); });
+    if (!merged) return;                       // merge failed: keep originals untouched
+
+    b.meshes.forEach(function (o) { o.parent.remove(o); o.geometry.dispose(); });
     const m = new THREE.Mesh(merged, mat);
     m.castShadow = true;
     m.receiveShadow = true;
     group.add(m);
-    geos.forEach(function (g) { g.dispose(); });
   });
 }
 
+function optimizeBuilding(mesh) {
+  const u = mesh.userData;
+  const skip = new Set();
+  const add = function (x) { if (x) skip.add(x); };
+
+  switch (u.type) {
+    case 'windmill':
+      add(u.rotorGroup); add(u.warnLight); break;
+    case 'policestation':
+      add(u.parkedCar); break;
+    case 'bigpolicestation':
+      add(u.radarDish); add(u.beacon); (u.parkedCars || []).forEach(add); break;
+    case 'factory':
+      add(u.beacon); (u.vents || []).forEach(add);
+      (u.smokePuffs || []).forEach(function (p) { add(p.mesh); }); break;
+    case 'eiffel':
+      add(u.beacon); add(u.sweepGroup); (u.sparkles || []).forEach(add); break;
+    case 'burjkhalifa':
+      add(u.beaconMid); add(u.beaconTop); break;
+    case 'amusementpark':
+      add(u.fwSpinGroup); add(u.carSpinGroup);
+      (u.rcCarts || []).forEach(function (c) { add(c.group); });
+      (u.bounceRiders || []).forEach(function (b) { add(b.group); }); break;
+    case 'cityhall': case 'house': case 'park': case 'bigpark':
+    case 'hospital': case 'solarenergy':
+      break;
+    default:
+      return;                                   // roads etc.
+  }
+  mergeStatic(mesh, skip);
+}
 function buildHouse(r, c) {
   const fns = { cottage: buildCottage, modern: buildModern,
                 villa: buildVilla, cabin: buildCabin, apartment: buildApartment };
