@@ -24,8 +24,6 @@
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 14px;
       padding: 2px 10px;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
       box-shadow: 0 2px 10px rgba(0,0,0,0.25);
       pointer-events: none;
     }
@@ -831,13 +829,14 @@
       position: relative; width: 96px; height: 96px; margin: 0 auto 6px;
       display: flex; align-items: center; justify-content: center;
     }
-    #reward-burst::before {
-      #reward-popup-overlay.open #reward-burst::before { animation-play-state: running; }
-      animation-play-state: paused;
+       #reward-burst::before {
       content: ''; position: absolute; inset: 0; border-radius: 50%;
       background: radial-gradient(circle, rgba(255,209,102,0.35), rgba(255,209,102,0) 72%);
       animation: rewardBurstPulse 1.6s ease-out infinite;
+      animation-play-state: paused;
     }
+    #reward-popup-overlay.open #reward-burst::before { animation-play-state: running; }
+    
     @keyframes rewardBurstPulse {
       0%   { transform: scale(0.6); opacity: 0.9; }
       70%  { transform: scale(1.25); opacity: 0; }
@@ -1621,8 +1620,8 @@ function disposeObject3D(obj) {
     if (node.geometry) node.geometry.dispose();
     if (node.material) {
       const mats = Array.isArray(node.material) ? node.material : [node.material];
-      mats.forEach(function(m) {
-        if (!m) return;
+     mats.forEach(function(m) {
+        if (!m || (m.userData && m.userData.shared)) return;   // cached materials stay alive
         TEX_MAP_KEYS.forEach(function(key) {
           if (m[key] && m[key].isTexture) m[key].dispose();
         });
@@ -1870,50 +1869,22 @@ function rebuildBase() {
 }
 rebuildBase();
 
-// Grass cell patches — each a small textured tile so the field reads as
-// real turf, with a handful of tint variants for natural, non-repeating
-// colour variety across the land.
-const GREENS = [0x56B144,0x4EAA3D,0x5FC04E,0x54AE43,0x62C452,0x4AA53A,0x58BA47,0x64C856,0x4CA03C,0x60C04F,0x52AC41,0x5ABC4A];
-const patchMats = GREENS.map(hex => {
-  const bladeHex = new THREE.Color(hex).multiplyScalar(0.65).getHex();
-  const tex = createGrassTexture(hex, bladeHex);
-  tex.repeat.set(2, 2);
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, metalness: 0.02 });
-});
-const patchGeo = new THREE.PlaneGeometry(CELL - 0.04, CELL - 0.04);
-
-// Tracks every grass-patch mesh by cell key so a specific tile can be
-// swapped to the smooth foundation look (and back) when a building is
-// placed or removed there.
-const patchMeshes = {};
-
-for (let r = 0; r < NCELLS; r++) {
-  for (let c = 0; c < NCELLS; c++) {
-    const mesh = new THREE.Mesh(patchGeo, patchMats[(r*7+c*3) % patchMats.length]);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(-LAND/2 + CELL/2 + c*CELL, 0.015, -LAND/2 + CELL/2 + r*CELL);
-    mesh.receiveShadow = true;
-    world.add(mesh);
-    patchMeshes[`${r},${c}`] = mesh;
-  }
-}
 
 // Grid — custom line-based so it stays perfectly rectangular after expansion
 let worldGrid = null;
 const gridLineMat = new THREE.LineBasicMaterial({ color: 0x1E6B0D, transparent: true, opacity: 0.22 });
 function rebuildGrid() {
-  if (worldGrid) { world.remove(worldGrid); worldGrid.traverse(n => { if (n.geometry) n.geometry.dispose(); }); }
-  worldGrid = new THREE.Group();
+  if (worldGrid) { world.remove(worldGrid); worldGrid.geometry.dispose(); }
   const minC = gridMinC(), maxC = gridMaxC();
   const minR = gridMinR(), maxR = gridMaxR();
   const x1 = -LAND/2 + minC*CELL,  x2 = -LAND/2 + (maxC+1)*CELL;
   const z1 = -LAND/2 + minR*CELL,  z2 = -LAND/2 + (maxR+1)*CELL;
-  const L = (ax,ay,az,bx,by,bz) => {
-    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
-    worldGrid.add(new THREE.Line(g, gridLineMat));
-  };
-  for (let r = minR; r <= maxR+1; r++) { const z = -LAND/2 + r*CELL; L(x1,.04,z, x2,.04,z); }
-  for (let c = minC; c <= maxC+1; c++) { const x = -LAND/2 + c*CELL; L(x,.04,z1, x,.04,z2); }
+  const pts = [];
+  for (let r = minR; r <= maxR+1; r++) { const z = -LAND/2 + r*CELL; pts.push(x1,.04,z, x2,.04,z); }
+  for (let c = minC; c <= maxC+1; c++) { const x = -LAND/2 + c*CELL; pts.push(x,.04,z1, x,.04,z2); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  worldGrid = new THREE.LineSegments(geo, gridLineMat);
   world.add(worldGrid);
 }
 rebuildGrid();
@@ -1946,63 +1917,70 @@ function rebuildWalls() {
 }
 rebuildWalls();
 
-// Grass tufts
+// Grass tufts — one InstancedMesh instead of 180 meshes
 const tuftMat = new THREE.MeshLambertMaterial({ color: 0x3E7A2A, side: THREE.DoubleSide });
-// Tracks every tuft mesh by position so tufts sitting under a new building
-// footprint can be tucked away (and restored once the tile is cleared again)
-// instead of poking visibly through the building's base.
-const tuftMeshes = [];
+const tuftData = [];
 function addTuft(x, z) {
-  const h = 0.25 + Math.random()*0.2;
-  const g = new THREE.PlaneGeometry(0.35, h);
   for (let i = 0; i < 3; i++) {
-    const m = new THREE.Mesh(g, tuftMat);
-    m.position.set(x+(Math.random()-.5)*.3, h/2, z+(Math.random()-.5)*.3);
-    m.rotation.y = Math.random()*Math.PI; world.add(m);
-    tuftMeshes.push({ mesh: m, x: m.position.x, z: m.position.z, hiddenBy: new Set() });
+    tuftData.push({
+      x: x + (Math.random()-.5)*.3, z: z + (Math.random()-.5)*.3,
+      h: 0.25 + Math.random()*0.2, ry: Math.random()*Math.PI, hiddenBy: new Set()
+    });
   }
 }
 for (let i = 0; i < 60; i++) {
   const x = (Math.random()-.5)*(LAND-4), z = (Math.random()-.5)*(LAND-4);
   if (Math.abs(x) > 6 || Math.abs(z) > 6) addTuft(x, z);
 }
-
+const tuftMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.35, 1), tuftMat, tuftData.length);
+tuftMesh.frustumCulled = false;     // instances are spread out, so don't cull by origin
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(),
+      _tp = new THREE.Vector3(), _ts = new THREE.Vector3(), _up = new THREE.Vector3(0,1,0);
+function writeTuft(i, visible) {
+  const t = tuftData[i], s = visible ? 1 : 0;
+  _tq.setFromAxisAngle(_up, t.ry);
+  _tp.set(t.x, t.h/2, t.z);
+  _ts.set(s, t.h*s, s);
+  _tm.compose(_tp, _tq, _ts);
+  tuftMesh.setMatrixAt(i, _tm);
+}
+tuftData.forEach((_, i) => writeTuft(i, true));
+tuftMesh.instanceMatrix.needsUpdate = true;
+world.add(tuftMesh);
 // Swap a single cell's grass patch to (or from) the smooth foundation
 // look. Buildings sit on `on === true` cells so the textured grass never
 // pokes out from underneath them; erasing a building calls this with
 // `false` to bring the grass — and any tufts that were growing there —
 // back. Multiple overlapping footprints (multi-cell buildings) are safe:
 // a tuft only reappears once every footprint hiding it has been cleared.
+const foundationMeshes = {};
 function setCellFoundation(key, on) {
-  const patch = patchMeshes[key];
-  if (patch) {
-    if (on && !patch.userData.isFoundation) {
-      patch.userData.origMat = patch.userData.origMat || patch.material;
-      patch.geometry = foundationGeo;
-      patch.material = foundationMat;
-      patch.position.y = 0.018;
-      patch.userData.isFoundation = true;
-    } else if (!on && patch.userData.isFoundation) {
-      patch.geometry = patchGeo;
-      patch.material = patch.userData.origMat || patchMats[0];
-      patch.position.y = 0.015;
-      patch.userData.isFoundation = false;
-    }
-  }
-
   const [r, c] = key.split(',').map(Number);
   const { x: cx, z: cz } = cellCenter(r, c);
+
+  const item = placedItems[key];
+  const wantPad = on && !(item && item.userData.type === 'road');   // roads already cover the cell
+  if (wantPad && !foundationMeshes[key]) {
+    const m = new THREE.Mesh(foundationGeo, foundationMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(cx, 0.018, cz);
+    m.receiveShadow = true;
+    world.add(m);
+    foundationMeshes[key] = m;
+  } else if (!on && foundationMeshes[key]) {
+    world.remove(foundationMeshes[key]);
+    delete foundationMeshes[key];
+  }
+
   const half = CELL * 0.55;
-  tuftMeshes.forEach(t => {
+  let changed = false;
+  tuftData.forEach((t, i) => {
     if (Math.abs(t.x - cx) > half || Math.abs(t.z - cz) > half) return;
-    if (on) {
-      t.hiddenBy.add(key);
-      t.mesh.visible = false;
-    } else {
-      t.hiddenBy.delete(key);
-      if (t.hiddenBy.size === 0) t.mesh.visible = true;
-    }
+    if (on) t.hiddenBy.add(key); else t.hiddenBy.delete(key);
+    writeTuft(i, t.hiddenBy.size === 0);
+    changed = true;
   });
+  if (changed) tuftMesh.instanceMatrix.needsUpdate = true;
 }
 
 // ─────────────────────────────────────────────────
@@ -2011,17 +1989,8 @@ function setCellFoundation(key, on) {
 function getLandCost() { return 5000 + landPurchaseCount * 500; }
 
 // Place one new grass patch at grid position (r, c)
-function addLandPatch(r, c) {
-  const { x, z } = cellCenter(r, c);
-  const idx = ((r * 7 + c * 3) % patchMats.length + patchMats.length) % patchMats.length;
-  const mesh = new THREE.Mesh(patchGeo, patchMats[idx]);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(x, 0.015, z);
-  mesh.receiveShadow = true;
-  world.add(mesh);
-  patchMeshes[`${r},${c}`] = mesh;
-}
-
+function addLandPatch() {}
+  
 function expandLand() {
   const dirs = ['east','north','west','south'];
   const dir  = dirs[landExpandDir % 4];
@@ -2269,14 +2238,17 @@ function phong(col, spec = 0x222222, shine = 12) {
   
 const _gwCache = new Map(), _gcCache = new Map();
 function glassWarm(intensity = 0.55) {
-  if (_gwCache.has(intensity)) return _gwCache.get(intensity);
-  const mat = new THREE.MeshPhongMaterial({
-    color: 0xFFE0A0, specular: 0xFFFFFF, shininess: 80,
+  if (!_phongCache.has(key)) {
+    const m = new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine });
+    m.userData.shared = true;
+    _phongCache.set(key, m);
+  }
     emissive: new THREE.Color(0xFF8C00), emissiveIntensity: intensity,
     transparent: true, opacity: 0.82
   });
   registerNightLight(mat, Math.min(1.2, intensity * 2.0), 0xFFAA30);
   _gwCache.set(intensity, mat);
+  mat.userData.shared = true;
   return mat;
 }
 function glassCool(intensity = 0.18) {
@@ -2288,6 +2260,7 @@ function glassCool(intensity = 0.18) {
   });
   registerNightLight(mat, Math.min(0.9, intensity * 2.5), 0x4488CC);
   _gcCache.set(intensity, mat);
+  mat.userData.shared = true;
   return mat;
 }
 // Generates a simple painted-sign texture (used by the amusement park's
@@ -8512,7 +8485,7 @@ function placeItem(r, c) {
       mesh = buildCityHall(r, c);
     }
     if (mesh) {
-      if (selectedTool === 'cityhall') mergeStatic(mesh);
+       optimizeBuilding(mesh);
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
       world.add(mesh);
@@ -8552,7 +8525,8 @@ function placeItem(r, c) {
   else if (selectedTool === 'house')     mesh = buildHouse(r, c);
   else if (selectedTool === 'park')      mesh = buildPark(r, c);
   else if (selectedTool === 'windmill')  mesh = buildWindmill(r, c);
-  if (mesh) {
+   if (mesh) {
+    optimizeBuilding(mesh);
     mesh.userData.cost = cost;
     world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
     if (animatedByType[mesh.userData.type]) animatedByType[mesh.userData.type].add(mesh);
