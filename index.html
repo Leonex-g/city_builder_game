@@ -2238,11 +2238,9 @@ function phong(col, spec = 0x222222, shine = 12) {
   
 const _gwCache = new Map(), _gcCache = new Map();
 function glassWarm(intensity = 0.55) {
-  if (!_phongCache.has(key)) {
-    const m = new THREE.MeshPhongMaterial({ color: col, specular: spec, shininess: shine });
-    m.userData.shared = true;
-    _phongCache.set(key, m);
-  }
+  if (_gwCache.has(intensity)) return _gwCache.get(intensity);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0xFFE0A0, specular: 0xFFFFFF, shininess: 120,
     emissive: new THREE.Color(0xFF8C00), emissiveIntensity: intensity,
     transparent: true, opacity: 0.82
   });
