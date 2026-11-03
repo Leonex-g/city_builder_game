@@ -2149,6 +2149,15 @@ function rebuildNeighborRoads(r, c) {
 }
 
 // ── Road ────────────────────────────────────────────
+const _roadM = {
+  asphalt: new THREE.MeshLambertMaterial({ color: 0x1A1A1A }),
+  tint:    new THREE.MeshLambertMaterial({ color: 0x222222 }),
+  curb:    new THREE.MeshLambertMaterial({ color: 0xAAAAAA }),
+  ylw:     new THREE.MeshBasicMaterial({ color: 0xFFCC00 }),
+  wht:     new THREE.MeshBasicMaterial({ color: 0xCCCCCC }),
+};
+Object.values(_roadM).forEach(m => { m.userData.shared = true; });
+
 function buildRoad(r, c) {
   const { x, z } = cellCenter(r, c);
   const g = new THREE.Group();
@@ -2157,6 +2166,42 @@ function buildRoad(r, c) {
   const N = hasRoad(r-1, c), S = hasRoad(r+1, c);
   const E = hasRoad(r, c+1), W = hasRoad(r, c-1);
   const anyConn = N || S || E || W;
+  const add = (w,h,d,mat,px,py,pz) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(px,py,pz); g.add(m);
+  };
+
+  add(CELL, 0.14, CELL, _roadM.asphalt, 0, 0, 0);
+  add(CELL/2 - 0.05, 0.005, CELL, _roadM.tint, -CELL/4, 0.072, 0);
+
+  const cOff = CELL/2 - 0.22;
+  if (!E) add(0.38, 0.22, CELL, _roadM.curb,  cOff, 0, 0);
+  if (!W) add(0.38, 0.22, CELL, _roadM.curb, -cOff, 0, 0);
+  if (!S) add(CELL, 0.22, 0.38, _roadM.curb, 0, 0,  cOff);
+  if (!N) add(CELL, 0.22, 0.38, _roadM.curb, 0, 0, -cOff);
+
+  const showH = E || W || !anyConn;
+  const showV = N || S || !anyConn;
+  const LEO = 1.30;
+
+  if (showH) for (let i = -1; i <= 1; i++) {
+    if (i === -1 && !W && anyConn) continue;
+    if (i ===  1 && !E && anyConn) continue;
+    add(1.1, 0.018, 0.13, _roadM.ylw, i*1.9, 0.079, 0);
+    [-LEO, LEO].forEach(zo => add(0.75, 0.016, 0.09, _roadM.wht, i*1.9, 0.079, zo));
+  }
+  if (showV) for (let i = -1; i <= 1; i++) {
+    if (i === -1 && !N && anyConn) continue;
+    if (i ===  1 && !S && anyConn) continue;
+    add(0.13, 0.018, 1.1, _roadM.ylw, 0, 0.079, i*1.9);
+    [-LEO, LEO].forEach(xo => add(0.09, 0.016, 0.75, _roadM.wht, xo, 0.079, i*1.9));
+  }
+
+  mergeStatic(g);
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+  g.position.set(x, 0.07, z);
+  return g;
+}
 
   // Dark asphalt base
   const slab = new THREE.Mesh(
@@ -8463,6 +8508,7 @@ function placeItem(r, c) {
       const wasRoad = item.userData.type === 'road';
       const refund  = Math.floor((item.userData.cost ?? paidMap[key] ?? 0) * 0.5);
       world.remove(item);
+      unregisterNightLights(item);
       disposeObject3D(item);
       if (animatedByType[item.userData.type]) animatedByType[item.userData.type].delete(item);
       cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; setCellFoundation(k, false); });
@@ -9504,6 +9550,20 @@ function registerNightLight(material, nightIntensity, nightColorHex) {
   });
 }
 
+  function unregisterNightLights(obj) {
+  const mats = new Set();
+  obj.traverse(n => {
+    if (!n.material) return;
+    (Array.isArray(n.material) ? n.material : [n.material]).forEach(m => {
+      if (m && !(m.userData && m.userData.shared)) mats.add(m);
+    });
+  });
+  for (let i = nightLightMaterials.length - 1; i >= 0; i--) {
+    if (mats.has(nightLightMaterials[i].mat)) nightLightMaterials.splice(i, 1);
+  }
+}
+let _lastNL = 0;
+
 // Called by applyNightLights each frame with nightFactor 0 (day) → 1 (night)
 function applyNightLights(nightFactor) {
   nightLightMaterials.forEach(function(entry) {
@@ -9557,7 +9617,8 @@ function tickDayNight() {
   }
 
   updateLightArc(elapsed);
-  applyNightLights(nightFactor);
+  const _nowNL = performance.now();
+  if (_nowNL - _lastNL > 120) { _lastNL = _nowNL; applyNightLights(nightFactor); }
   currentNightFactor = nightFactor;
 }
 
