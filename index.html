@@ -998,13 +998,15 @@
     <div id="settings-title"><span>⚙️</span>Settings</div>
     <button id="settings-close" aria-label="Close settings">✕</button>
   </div>
-  <div class="set-label">Graphics quality</div>
-<div id="quality-row">
-  <button class="q-btn" data-q="low">Low</button>
-  <button class="q-btn" data-q="medium">Medium</button>
-  <button class="q-btn" data-q="high">High</button>
-</div>
-<div class="set-note">Low is fastest on weak phones. Resolution also adjusts automatically to keep the game smooth.</div>
+    <div id="settings-body" style="align-items:stretch;">
+    <div class="set-label">Graphics quality</div>
+    <div id="quality-row">
+      <button class="q-btn" data-q="low">Low</button>
+      <button class="q-btn" data-q="medium">Medium</button>
+      <button class="q-btn" data-q="high">High</button>
+    </div>
+    <div class="set-note">Low is fastest on weak phones. Resolution also adjusts automatically to keep the game smooth.</div>
+  </div>
 </div>
 
 <!-- Level overlay -->
@@ -5246,7 +5248,7 @@ function tickPoliceCars() {
       let diff=tAng-v.group.rotation.y;
       while(diff>Math.PI)diff-=Math.PI*2;
       while(diff<-Math.PI)diff+=Math.PI*2;
-      v.group.rotation.y+=diff * Math.min(1, 0.25*dt;
+      v.group.rotation.y += diff * Math.min(1, 0.25*dt);
     }
     const h=v.group.rotation.y;
     v.group.position.set(
