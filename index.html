@@ -15,6 +15,13 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     #c { display: block; width: 100vw; height: 100vh; touch-action: none; }
 
+     .set-label { font-size:12px; font-weight:800; color:rgba(255,255,255,0.7); align-self:flex-start; }
+#quality-row { display:flex; gap:8px; width:100%; }
+.q-btn { flex:1; padding:10px 0; border-radius:12px; border:1px solid rgba(255,255,255,0.18);
+  background:rgba(255,255,255,0.08); color:#fff; font-size:13px; font-weight:800; cursor:pointer; touch-action:manipulation; }
+.q-btn.active { background:rgba(40,120,80,0.5); border-color:#88ffbb; color:#88ffbb; }
+.set-note { font-size:11px; color:rgba(255,255,255,0.35); line-height:1.5; }
+    
     /* ── City Stats: Level / Population / Happiness merged into one card ── */
     #city-stats {
       position: fixed; top: 18px; left: 18px; z-index: 20;
@@ -991,11 +998,13 @@
     <div id="settings-title"><span>⚙️</span>Settings</div>
     <button id="settings-close" aria-label="Close settings">✕</button>
   </div>
-  <div id="settings-body">
-    <div id="settings-empty-icon">🔧</div>
-    <div id="settings-empty-title">No settings yet</div>
-    <div id="settings-empty-desc">Settings and customisation options will appear here in a future update.</div>
-  </div>
+  <div class="set-label">Graphics quality</div>
+<div id="quality-row">
+  <button class="q-btn" data-q="low">Low</button>
+  <button class="q-btn" data-q="medium">Medium</button>
+  <button class="q-btn" data-q="high">High</button>
+</div>
+<div class="set-note">Low is fastest on weak phones. Resolution also adjusts automatically to keep the game smooth.</div>
 </div>
 
 <!-- Level overlay -->
@@ -1594,7 +1603,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.needsUpdate = true;
-setInterval(() => { renderer.shadowMap.needsUpdate = true; }, 500);
+
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -2203,75 +2212,6 @@ function buildRoad(r, c) {
   return g;
 }
 
-  // Dark asphalt base
-  const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(CELL, 0.14, CELL),
-    new THREE.MeshLambertMaterial({ color: 0x1A1A1A })
-  );
-  slab.castShadow = true; slab.receiveShadow = true; g.add(slab);
-
-  // Subtle per-lane tint on left half
-  const ltMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
-  const ltL = new THREE.Mesh(new THREE.BoxGeometry(CELL/2 - 0.05, 0.005, CELL), ltMat);
-  ltL.position.set(-CELL/4, 0.072, 0); g.add(ltL);
-
-  // Curbs only on unconnected sides
-  const curbMat = new THREE.MeshLambertMaterial({ color: 0xAAAAAA });
-  const cOff = CELL/2 - 0.22;
-  if (!E) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, CELL), curbMat); e.position.set( cOff, 0, 0); e.receiveShadow=true; g.add(e); }
-  if (!W) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, CELL), curbMat); e.position.set(-cOff, 0, 0); e.receiveShadow=true; g.add(e); }
-  if (!S) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL,  0.22, 0.38), curbMat); e.position.set(0, 0,  cOff); e.receiveShadow=true; g.add(e); }
-  if (!N) { const e = new THREE.Mesh(new THREE.BoxGeometry(CELL,  0.22, 0.38), curbMat); e.position.set(0, 0, -cOff); e.receiveShadow=true; g.add(e); }
-
-  const ylw = new THREE.MeshBasicMaterial({ color: 0xFFCC00 });
-  const wht = new THREE.MeshBasicMaterial({ color: 0xCCCCCC });
-  const showH = E || W || !anyConn;
-  const showV = N || S || !anyConn;
-  const LEO = 1.30;
-
-  // Yellow centre dashes — divides the two opposing lanes
-  if (showH) {
-    for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !W && anyConn) continue;
-      if (i ===  1 && !E && anyConn) continue;
-      const d = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.018, 0.13), ylw);
-      d.position.set(i * 1.9, 0.079, 0); g.add(d);
-    }
-  }
-  if (showV) {
-    for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !N && anyConn) continue;
-      if (i ===  1 && !S && anyConn) continue;
-      const d = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.018, 1.1), ylw);
-      d.position.set(0, 0.079, i * 1.9); g.add(d);
-    }
-  }
-
-  // White lane-edge dashes
-  if (showH) {
-    for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !W && anyConn) continue;
-      if (i ===  1 && !E && anyConn) continue;
-      [-LEO, LEO].forEach(zo => {
-        const d = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.016, 0.09), wht);
-        d.position.set(i * 1.9, 0.079, zo); g.add(d);
-      });
-    }
-  }
-  if (showV) {
-    for (let i = -1; i <= 1; i++) {
-      if (i === -1 && !N && anyConn) continue;
-      if (i ===  1 && !S && anyConn) continue;
-      [-LEO, LEO].forEach(xo => {
-        const d = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.016, 0.75), wht);
-        d.position.set(xo, 0.079, i * 1.9); g.add(d);
-      });
-    }
-  }
-
-  g.position.set(x, 0.07, z);
-  return g;
-}
 
 // ── House builders ─────────────────────────────────
 const _phongCache = new Map();
@@ -4879,31 +4819,48 @@ function pickNext(v, excludeR, excludeC) {
   return pick[Math.floor(Math.random() * pick.length)];
 }
 
+const _carM = {
+  dark:   new THREE.MeshLambertMaterial({ color: 0x151515 }),
+  chrome: new THREE.MeshLambertMaterial({ color: 0xC8C8C8 }),
+  glass:  new THREE.MeshPhongMaterial({ color:0xAADDFF, specular:0xFFFFFF, shininess:180, transparent:true, opacity:0.52 }),
+  head:   new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 }),
+  tail:   new THREE.MeshPhongMaterial({ color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85 }),
+};
+Object.values(_carM).forEach(m => { m.userData.shared = true; });
+const _carBodyCache = {};
+function carBodyMat(color) {
+  if (!_carBodyCache[color]) {
+    _carBodyCache[color] = new THREE.MeshLambertMaterial({ color });
+    _carBodyCache[color].userData.shared = true;
+  }
+  return _carBodyCache[color];
+}
+
 function buildCar(color) {
-  const g        = new THREE.Group();
-  const bodyMat  = new THREE.MeshLambertMaterial({ color });
-  const darkMat  = new THREE.MeshLambertMaterial({ color: 0x151515 });
-  const chromeMat= new THREE.MeshLambertMaterial({ color: 0xC8C8C8 });
-  const glassMat = new THREE.MeshPhongMaterial({ color:0xAADDFF, specular:0xFFFFFF, shininess:180, transparent:true, opacity:0.52 });
-  const headMat  = new THREE.MeshPhongMaterial({ color:0xFFFFCC, emissive:new THREE.Color(0xFFFF88), emissiveIntensity:0.9 });
-  const tailMat  = new THREE.MeshPhongMaterial({ color:0xFF2200, emissive:new THREE.Color(0xFF2200), emissiveIntensity:0.85 });
-  const chassis  = new THREE.Mesh(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat);
-  chassis.position.y = 0.56; chassis.castShadow=true; g.add(chassis);
-  const cabin    = new THREE.Mesh(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat);
-  cabin.position.set(0,0.84,0.10); cabin.castShadow=true; g.add(cabin);
-  const wf = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat); wf.position.set(0,0.85,0.57); g.add(wf);
-  const wr = new THREE.Mesh(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat); wr.position.set(0,0.85,-0.37); g.add(wr);
-  [-0.41,0.41].forEach(sx => { const sw = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat); sw.position.set(sx,0.85,0.10); g.add(sw); });
+  const g = new THREE.Group();
+  const bodyMat = carBodyMat(color);
+  const { dark: darkMat, chrome: chromeMat, glass: glassMat, head: headMat, tail: tailMat } = _carM;
+  const add = (geo, mat, px, py, pz, rz) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(px,py,pz);
+    if (rz) m.rotation.z = rz; g.add(m);
+  };
+  add(new THREE.BoxGeometry(0.88,0.38,1.70), bodyMat, 0,0.56,0);
+  add(new THREE.BoxGeometry(0.78,0.28,0.90), bodyMat, 0,0.84,0.10);
+  add(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat, 0,0.85,0.57);
+  add(new THREE.BoxGeometry(0.74,0.24,0.05), glassMat, 0,0.85,-0.37);
+  [-0.41,0.41].forEach(sx => add(new THREE.BoxGeometry(0.05,0.22,0.78), glassMat, sx,0.85,0.10));
   [-0.27,0.27].forEach(hx => {
-    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), headMat); hl.position.set(hx,0.57, 0.89); g.add(hl);
-    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat); tl.position.set(hx,0.57,-0.89); g.add(tl);
+    add(new THREE.BoxGeometry(0.22,0.12,0.07), headMat, hx,0.57, 0.89);
+    add(new THREE.BoxGeometry(0.22,0.12,0.07), tailMat, hx,0.57,-0.89);
   });
-  const bf = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat); bf.position.set(0,0.45, 0.90); g.add(bf);
-  const br = new THREE.Mesh(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat); br.position.set(0,0.45,-0.90); g.add(br);
+  add(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat, 0,0.45, 0.90);
+  add(new THREE.BoxGeometry(0.84,0.14,0.09), darkMat, 0,0.45,-0.90);
   [[0.47,0.60],[-0.47,0.60],[0.47,-0.60],[-0.47,-0.60]].forEach(([wx,wz]) => {
-    const ty = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,0.12,14), darkMat); ty.rotation.z=Math.PI/2; ty.position.set(wx,0.18,wz); ty.castShadow=true; g.add(ty);
-    const ri = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,0.14,10), chromeMat); ri.rotation.z=Math.PI/2; ri.position.set(wx,0.18,wz); g.add(ri);
+    add(new THREE.CylinderGeometry(0.18,0.18,0.12,10), darkMat, wx,0.18,wz, Math.PI/2);
+    add(new THREE.CylinderGeometry(0.09,0.09,0.14,8), chromeMat, wx,0.18,wz, Math.PI/2);
   });
+  mergeStatic(g);
+  g.traverse(o => { if (o.isMesh) o.castShadow = false; });
   return g;
 }
 
@@ -9622,13 +9579,50 @@ function tickDayNight() {
   currentNightFactor = nightFactor;
 }
 
-  const fpsEl = document.createElement('div');
+ const fpsEl = document.createElement('div');
 fpsEl.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:#000a;color:#0f0;font:12px monospace;padding:2px 8px;z-index:99999;pointer-events:none';
 document.body.appendChild(fpsEl);
 let _frames = 0;
+
+// ── Quality presets ──
+const QUALITY = {
+  low:    { maxPR: 0.85, shadows: false, shadowEvery: 0 },
+  medium: { maxPR: 1.0,  shadows: true,  shadowEvery: 1000 },
+  high:   { maxPR: 1.25, shadows: true,  shadowEvery: 500 },
+};
+let qualityName = 'medium', curPR = 1, shadowTimer = null, lowStreak = 0, highStreak = 0;
+try { const q = localStorage.getItem('cityQuality'); if (QUALITY[q]) qualityName = q; } catch (e) {}
+
+function setPR(v) {
+  const cap = Math.min(window.devicePixelRatio || 1, QUALITY[qualityName].maxPR);
+  curPR = Math.max(0.6, Math.min(v, cap));
+  renderer.setPixelRatio(curPR);
+}
+function applyQuality(name) {
+  qualityName = name;
+  const q = QUALITY[name];
+  try { localStorage.setItem('cityQuality', name); } catch (e) {}
+  setPR(q.maxPR);
+  sun.castShadow = q.shadows;
+  renderer.shadowMap.needsUpdate = true;
+  if (shadowTimer) { clearInterval(shadowTimer); shadowTimer = null; }
+  if (q.shadowEvery) shadowTimer = setInterval(() => { renderer.shadowMap.needsUpdate = true; }, q.shadowEvery);
+  document.querySelectorAll('.q-btn').forEach(b => b.classList.toggle('active', b.dataset.q === name));
+  lowStreak = highStreak = 0;
+}
+document.querySelectorAll('.q-btn').forEach(b => b.addEventListener('click', () => applyQuality(b.dataset.q)));
+applyQuality(qualityName);
+
+// ── FPS display + automatic resolution scaler ──
 setInterval(() => {
-  fpsEl.textContent = _frames + ' FPS | calls: ' + renderer.info.render.calls;
-  _frames = 0;
+  const fps = _frames; _frames = 0;
+  fpsEl.textContent = fps + ' FPS | calls: ' + renderer.info.render.calls + ' | res: ' + curPR.toFixed(2);
+  if (document.hidden || fps === 0) return;
+  if (fps < 40) { lowStreak++; highStreak = 0; } 
+  else if (fps >= 58) { highStreak++; lowStreak = 0; } 
+  else { lowStreak = highStreak = 0; }
+  if (lowStreak >= 2)  { setPR(curPR - 0.1);  lowStreak = 0; }
+  if (highStreak >= 6) { setPR(curPR + 0.05); highStreak = 0; }
 }, 1000);
 
 let t = 0;
