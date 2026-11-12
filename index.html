@@ -2113,7 +2113,8 @@ const animatedByType = {
   eiffel:        new Set(),
   burjkhalifa:   new Set(),
   factory:       new Set(),
-  amusementpark: new Set()
+  amusementpark: new Set(),
+  police:        new Set()
 };
 let selectedHouseType = 'cottage';
 let selectedParkType  = 'park';
@@ -5205,8 +5206,7 @@ function removePoliceCarsForStation(sr, sc) {
 }
 
 function checkPoliceStationsNearRoads() {
-  Object.values(placedItems).forEach(item => {
-    if (item.userData.type !== 'policestation' && item.userData.type !== 'bigpolicestation') return;
+   animatedByType.police.forEach(item => {
     const sr=item.userData.stationR, sc=item.userData.stationC;
     if (policeCarList.some(p=>p.stationR===sr && p.stationC===sc)) return;
     const launched = spawnPoliceCar(sr, sc);
@@ -8455,6 +8455,10 @@ updateBuildCounters();
 updateCityStatsUI();
 applyLevelLocks();
 
+function animKey(type) {
+  return (type === 'policestation' || type === 'bigpolicestation') ? 'police' : type;
+}
+  
 // ── Place / Erase ──────────────────────────────────
 function placeItem(r, c) {
   if (!selectedTool) return;
@@ -8469,8 +8473,7 @@ function placeItem(r, c) {
       world.remove(item);
       unregisterNightLights(item);
       disposeObject3D(item);
-      if (animatedByType[item.userData.type]) animatedByType[item.userData.type].delete(item);
-      cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; setCellFoundation(k, false); });
+      if (animatedByType[animKey(item.userData.type)]) animatedByType[animKey(item.userData.type)].delete(item);      cells.forEach(k => { delete placedItems[k]; delete paidMap[k]; setCellFoundation(k, false); });
       if (refund > 0) { cash += refund; updateCashUI(+refund); }
       if (wasRoad) { rebuildNeighborRoads(r,c); updateCarSystem(); checkPoliceStationsNearRoads(); }
       if (item.userData.type === 'cityhall') { cityHallPlaced = false; refreshAffordability(); }
@@ -8532,7 +8535,7 @@ function placeItem(r, c) {
       mesh.userData.cost  = cost;
       world.add(mesh);
       cells.forEach(k => { placedItems[k] = mesh; paidMap[k] = 0; setCellFoundation(k, true); });
-      if (animatedByType[mesh.userData.type]) animatedByType[mesh.userData.type].add(mesh);
+      if (animatedByType[animKey(mesh.userData.type)]) animatedByType[animKey(mesh.userData.type)].add(mesh);
       cash -= cost;
       updateCashUI(-cost);
       updateBuildCounters();
@@ -8571,7 +8574,7 @@ function placeItem(r, c) {
     optimizeBuilding(mesh);
     mesh.userData.cost = cost;
     world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
-    if (animatedByType[mesh.userData.type]) animatedByType[mesh.userData.type].add(mesh);
+    if (animatedByType[animKey(mesh.userData.type)]) animatedByType[animKey(mesh.userData.type)].add(mesh);
     setCellFoundation(key, true);
     cash -= cost;
     updateCashUI(-cost);
@@ -9694,7 +9697,7 @@ _frames++;
   // Idle light pulse on parked police cars
   const idlePulse = (Math.sin(t * 1.4) + 1) * 0.5;
   Object.values(placedItems).forEach(item => {
-    if (item.userData.type !== 'policestation' && item.userData.type !== 'bigpolicestation') return;
+     animatedByType.police.forEach(item => {
     // Spin radar dish on big station
     if (item.userData.radarDish) item.userData.radarDish.rotation.z += 0.012*dt;
     // Pulse beacon
