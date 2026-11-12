@@ -9696,7 +9696,7 @@ _frames++;
   tickPoliceCars();
   // Idle light pulse on parked police cars
   const idlePulse = (Math.sin(t * 1.4) + 1) * 0.5;
-  Object.values(placedItems).forEach(item => {
+
      animatedByType.police.forEach(item => {
     // Spin radar dish on big station
     if (item.userData.radarDish) item.userData.radarDish.rotation.z += 0.012*dt;
