@@ -8305,6 +8305,7 @@ adWatchBtn.addEventListener('click', () => {
     if (settled) return;
     settled = true;
     clearTimeout(loadFallbackTimer);
+    adScript.remove();
 
     // Ad script loaded successfully — now run the countdown and grant the reward
     adWatchBtn.textContent = '⏳ Ad running…';
@@ -9587,6 +9588,7 @@ function tickDayNight() {
  const fpsEl = document.createElement('div');
 fpsEl.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:#000a;color:#0f0;font:12px monospace;padding:2px 8px;z-index:99999;pointer-events:none';
 document.body.appendChild(fpsEl);
+fpsEl.style.display = 'none';
 let _frames = 0;
 
 // ── Quality presets ──
