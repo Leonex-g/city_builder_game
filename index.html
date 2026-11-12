@@ -5149,13 +5149,11 @@ const policeCarList = [];
 let   policeFlashT  = 0;
 
 function getStationNeighbours(sr, sc) {
-  // Determine footprint from placed item type
-  const key  = `${sr},${sc}`;
-  const item = placedItems[key];
-  const isBig = item && item.userData.type === 'bigpolicestation';
-  const footCells = isBig
-    ? [[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]]   // 2×2
-    : [[sr,sc],[sr+1,sc]];                          // 1×2
+  // Use the cells the station really occupies (it may be turned)
+ const item = placedItems[`${sr},${sc}`];
+ const footCells = (item && item.userData.cells)
+    ? item.userData.cells.map(k => k.split(',').map(Number))
+    : [[sr,sc]];
   const seen = new Set(footCells.map(([r,c])=>`${r},${c}`));
   const out  = [];
   footCells.forEach(([r,c]) => {
@@ -8456,6 +8454,38 @@ updateBuildCounters();
 updateCityStatsUI();
 applyLevelLocks();
 
+// ── Facing: buildings turn toward the camera when placed ──
+const _CT = [1, 0, -1, 0], _ST = [0, 1, 0, -1];   // cos/sin of 0°,90°,180°,270°
+const FRONT_TURN = { amusementpark: 2 };          // models whose "front" is at the back
+
+function facingK() {
+  return ((Math.round(azimuth / (Math.PI / 2)) % 4) + 4) % 4;
+}
+function toolFacingK(tool) {
+  if (tool === 'road' || tool === 'erase') return 0;
+  return (facingK() + (FRONT_TURN[tool] || 0)) % 4;
+}
+// Cells a w×h footprint covers when anchored at (r,c) and turned k quarter-turns
+function footprintCells(r, c, fp, k) {
+  const out = [];
+  for (let j = 0; j < fp.h; j++) {
+    for (let i = 0; i < fp.w; i++) {
+      out.push([ r + (-i * _ST[k] + j * _CT[k]), c + (i * _CT[k] + j * _ST[k]) ]);
+    }
+  }
+  return out;
+}
+// Turn a freshly built mesh around the centre of the tapped cell
+function applyFacing(mesh, r, c, k) {
+  if (!k) return;
+  const cs = _CT[k], sn = _ST[k];
+  const P  = cellCenter(r, c);
+  const dx = mesh.position.x - P.x, dz = mesh.position.z - P.z;
+  mesh.rotation.y = k * Math.PI / 2;
+  mesh.position.x = P.x + dx * cs + dz * sn;
+  mesh.position.z = P.z - dx * sn + dz * cs;
+}
+
 function animKey(type) {
   return (type === 'policestation' || type === 'bigpolicestation') ? 'police' : type;
 }
@@ -8500,21 +8530,19 @@ function placeItem(r, c) {
 
   const cost = getBuildCost(selectedTool);
   if (cash < cost) { flashBroke(); return; }
-  const fp = getFootprint(selectedTool);
+    const fp = getFootprint(selectedTool);
+  const faceK = toolFacingK(selectedTool);
 
   // Multi-cell buildings
   if (fp.w > 1 || fp.h > 1) {
     const cells = [];
-    for (let dr = 0; dr < fp.h; dr++) {
-      for (let dc = 0; dc < fp.w; dc++) {
-        const rr = r + dr, cc = c + dc;
-        if (rr < gridMinR() || rr > gridMaxR() || cc < gridMinC() || cc > gridMaxC()) {
-          showToast('Needs more open land nearby 🏞️'); return;
-        }
-        const k = `${rr},${cc}`;
-        if (placedItems[k]) { showToast(`Needs a clear ${fp.w}×${fp.h} area`); return; }
-        cells.push(k);
+    for (const [rr, cc] of footprintCells(r, c, fp, faceK)) {
+      if (rr < gridMinR() || rr > gridMaxR() || cc < gridMinC() || cc > gridMaxC()) {
+        showToast('Needs more open land nearby 🏞️'); return;
       }
+      const k = `${rr},${cc}`;
+      if (placedItems[k]) { showToast(`Needs a clear ${fp.w}×${fp.h} area`); return; }
+      cells.push(k);
     }
     let mesh;
     if      (selectedTool === 'bigpark')          mesh = buildBigPark(r, c);
@@ -8530,8 +8558,9 @@ function placeItem(r, c) {
       if (cityHallPlaced) { showToast('City Hall already built! Only one allowed 🏛️'); return; }
       mesh = buildCityHall(r, c);
     }
-    if (mesh) {
-       optimizeBuilding(mesh);
+        if (mesh) {
+      optimizeBuilding(mesh);
+      applyFacing(mesh, r, c, faceK);
       mesh.userData.cells = cells;
       mesh.userData.cost  = cost;
       world.add(mesh);
@@ -8571,8 +8600,9 @@ function placeItem(r, c) {
   else if (selectedTool === 'house')     mesh = buildHouse(r, c);
   else if (selectedTool === 'park')      mesh = buildPark(r, c);
   else if (selectedTool === 'windmill')  mesh = buildWindmill(r, c);
-   if (mesh) {
+    if (mesh) {
     optimizeBuilding(mesh);
+    applyFacing(mesh, r, c, faceK);
     mesh.userData.cost = cost;
     world.add(mesh); placedItems[key] = mesh; paidMap[key] = cost;
     if (animatedByType[animKey(mesh.userData.type)]) animatedByType[animKey(mesh.userData.type)].add(mesh);
@@ -9669,11 +9699,18 @@ _frames++;
   if (selectedTool && lastMouseX > 0) {
     const cell = getGridCell(lastMouseX, lastMouseY);
     if (cell) {
-      const fp = getFootprint(selectedTool);
-      const a = cellCenter(cell.r, cell.c);
-      const x = a.x + (fp.w - 1) * CELL / 2, z = a.z + (fp.h - 1) * CELL / 2;
-      hoverMesh.scale.set(fp.w, 1, fp.h);
-      hoverBorder.scale.set(fp.w, 1, fp.h);
+            const fp = getFootprint(selectedTool);
+      const hc = footprintCells(cell.r, cell.c, fp, toolFacingK(selectedTool));
+      let minR = 1e9, maxR = -1e9, minC = 1e9, maxC = -1e9;
+      hc.forEach(([rr, cc]) => {
+        if (rr < minR) minR = rr; if (rr > maxR) maxR = rr;
+        if (cc < minC) minC = cc; if (cc > maxC) maxC = cc;
+      });
+      const hw = maxC - minC + 1, hh = maxR - minR + 1;
+      const a = cellCenter(minR, minC);
+      const x = a.x + (hw - 1) * CELL / 2, z = a.z + (hh - 1) * CELL / 2;
+      hoverMesh.scale.set(hw, 1, hh);
+      hoverBorder.scale.set(hw, 1, hh);
       hoverMesh.position.set(x, 0.08, z);
       hoverBorder.position.set(x, 0.08, z);
       hoverMesh.visible = true; hoverBorder.visible = true;
