@@ -1529,7 +1529,16 @@
         <button class="svc-back-btn">‹ Back</button>
         <span class="svc-sub-title">💧 Water</span>
       </div>
-      <div class="svc-empty-note">💧 Water buildings coming soon…</div>
+     <div class="sp-item" id="sp-watertank-btn" data-tool="watertank">
+  <span class="sp-icon">🚰</span>
+  <div class="sp-info"><div class="sp-name">Water Tank</div><div class="sp-desc">1×1 · violet tank on green stand</div></div>
+  <span class="bcost">$1,200</span><span class="blimit" id="lim-watertank">0/8</span>
+</div>
+<div class="sp-item" id="sp-waterpump-btn" data-tool="waterpump">
+  <span class="sp-icon">💧</span>
+  <div class="sp-info"><div class="sp-name">Water Pumping Station</div><div class="sp-desc">2×2 · shed, tank &amp; power panel</div></div>
+  <span class="bcost">$3,500</span><span class="blimit" id="lim-waterpump">0/6</span>
+</div>
     </div>
 
     <!-- ── POLICE sub-view ── -->
@@ -2386,8 +2395,7 @@ function optimizeBuilding(mesh) {
       (u.rcCarts || []).forEach(function (c) { add(c.group); });
       (u.bounceRiders || []).forEach(function (b) { add(b.group); }); break;
     case 'cityhall': case 'house': case 'park': case 'bigpark':
-    case 'hospital': case 'solarenergy':
-      break;
+    case 'hospital': case 'solarenergy': case 'watertank': case 'waterpump':      break;
     default:
       return;                                   // roads etc.
   }
@@ -7537,6 +7545,330 @@ function buildSolarEnergy(r, c) {
   return g;
 }
 
+
+  // ═════════════════════════════════════════════════════════════════
+//  WATER TANK (1×1) — violet tank + water on a dark-green stand,
+//  red pipeline running from the tank down into the ground
+// ═════════════════════════════════════════════════════════════════
+function buildWaterTank(r, c) {
+  const { x, z } = cellCenter(r, c);
+  const g = new THREE.Group(); g.userData.type = 'watertank';
+
+  const greenM  = phong(0x1F4D2B, 0x0E2214, 14);   // dark-green stand
+  const greenLt = phong(0x2B6A3B, 0x143020, 14);
+  const concM   = phong(0x9A9A92, 0x222222, 6);
+  const violetM = phong(0x7B2FD0, 0xD9B8FF, 55);
+  const violetDk= phong(0x5A1FA0, 0xB890F0, 40);
+  const redM    = phong(0xD81E1E, 0xFF8888, 60);
+  const redDk   = phong(0x9E1212, 0xFF6666, 40);
+  const darkM   = phong(0x222222, 0x111111, 10);
+  const shellM  = new THREE.MeshPhongMaterial({ color:0x9B4DFF, specular:0xFFFFFF, shininess:110,
+                    transparent:true, opacity:0.42, depthWrite:false });
+  const waterM  = new THREE.MeshPhongMaterial({ color:0x1E90FF, specular:0xAADDFF, shininess:120,
+                    transparent:true, opacity:0.9 });
+  const surfM   = new THREE.MeshPhongMaterial({ color:0x7FD0FF, specular:0xFFFFFF, shininess:150,
+                    transparent:true, opacity:0.95 });
+
+  const box = (w,h,d,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+  };
+  const cyl = (rt,rb,h,seg,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+  const sph = (rad,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(rad,12,8), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+  const ring = (rad,tube,mat,y) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(rad,tube,6,28), mat);
+    m.rotation.x = Math.PI/2; m.position.set(0,y,0); g.add(m); return m;
+  };
+  // cylinder between two 3D points (used for slanted legs / braces)
+  const strut = (a,b,rad,mat) => {
+    const A = new THREE.Vector3(a[0],a[1],a[2]), B = new THREE.Vector3(b[0],b[1],b[2]);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,A.distanceTo(B),6), mat);
+    m.position.copy(A).add(B).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), B.clone().sub(A).normalize());
+    m.castShadow = true; g.add(m); return m;
+  };
+
+  // ── Concrete pad ──
+  box(4.8, 0.28, 4.8, concM, 0, 0.14, 0);
+
+  // ── Stand: 4 legs leaning inward, ring braces, X braces ──
+  const LEG_BOT = 1.9, LEG_TOP = 1.3, Y0 = 0.28, Y1 = 6.4, YM = 3.3;
+  const half = y => LEG_BOT + (LEG_TOP - LEG_BOT) * ((y - Y0) / (Y1 - Y0));
+  const lp = (sx,sz,y) => [sx*half(y), y, sz*half(y)];
+  const corners = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  corners.forEach(([sx,sz]) => {
+    strut(lp(sx,sz,Y0), lp(sx,sz,Y1), 0.14, greenM);
+    box(0.55, 0.3, 0.55, concM, sx*LEG_BOT, 0.15, sz*LEG_BOT);   // footing
+  });
+  const hm = half(YM);
+  box(hm*2, 0.12, 0.12, greenLt, 0, YM,  hm);
+  box(hm*2, 0.12, 0.12, greenLt, 0, YM, -hm);
+  box(0.12, 0.12, hm*2, greenLt,  hm, YM, 0);
+  box(0.12, 0.12, hm*2, greenLt, -hm, YM, 0);
+  const faces = [[[1,1],[1,-1]], [[-1,1],[-1,-1]], [[1,1],[-1,1]], [[1,-1],[-1,-1]]];
+  [[Y0,YM],[YM,Y1]].forEach(([ya,yb]) => faces.forEach(([A,B]) => {
+    strut(lp(A[0],A[1],ya), lp(B[0],B[1],yb), 0.045, greenLt);
+    strut(lp(B[0],B[1],ya), lp(A[0],A[1],yb), 0.045, greenLt);
+  }));
+
+  // ── Ladder on the +X face ──
+  [-0.3, 0.3].forEach(lz => strut([half(Y0)+0.1, Y0, lz], [half(Y1)+0.1, Y1, lz], 0.04, darkM));
+  for (let i = 0; i < 16; i++) {
+    const y = Y0 + 0.3 + i*0.38;
+    box(0.06, 0.06, 0.6, darkM, half(y)+0.1, y, 0);
+  }
+
+  // ── Deck + railing ──
+  box(3.9, 0.2, 3.9, greenM, 0, 6.5, 0);
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz]) => box(0.08, 0.9, 0.08, greenM, sx*1.85, 7.05, sz*1.85));
+  [7.0, 7.45].forEach(y => {
+    box(3.78, 0.07, 0.07, greenM, 0, y,  1.85);
+    box(3.78, 0.07, 0.07, greenM, 0, y, -1.85);
+    box(0.07, 0.07, 3.78, greenM,  1.85, y, 0);
+    box(0.07, 0.07, 3.78, greenM, -1.85, y, 0);
+  });
+
+  // ── Tank: funnel bottom, see-through shell, water inside, roof ──
+  cyl(1.7, 0.5, 0.9, 20, violetM, 0, 7.05, 0);                  // funnel bottom
+  cyl(1.7, 1.7, 3.0, 24, shellM,  0, 9.0,  0);                  // see-through violet shell
+  cyl(1.6, 1.6, 2.2, 24, waterM,  0, 8.6,  0);                  // water
+  cyl(1.6, 1.6, 0.03, 24, surfM,  0, 9.71, 0);                  // water surface
+  [8.0, 9.0, 10.0].forEach(y => ring(1.72, 0.06, violetDk, y)); // steel bands
+  cyl(1.85, 1.85, 0.12, 24, violetDk, 0, 10.56, 0);             // roof rim
+  cyl(1.85, 0.0, 1.0, 24, violetM, 0, 11.06, 0);                // cone roof
+  cyl(0.25, 0.3, 0.3, 10, violetDk, 0, 11.65, 0);               // vent cap
+  sph(0.2, violetDk, 0, 11.85, 0);
+
+  // ── Red pipeline: tank → down through the stand → along ground → into the earth ──
+  cyl(0.22, 0.22, 6.1, 12, redM, 0, 3.55, 0);                   // main vertical pipe
+  [0.9, 3.3, 5.8].forEach(y => cyl(0.34, 0.34, 0.14, 12, redDk, 0, y, 0));   // flanges
+  box(0.5, 0.4, 0.5, redDk, 0, 1.6, 0);                         // valve body
+  cyl(0.04, 0.04, 0.5, 6, darkM, 0, 2.0, 0);                    // valve stem
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 6, 14), redM);
+  wheel.rotation.x = Math.PI/2; wheel.position.set(0, 2.3, 0); g.add(wheel);
+  sph(0.3, redM, 0, 0.5, 0);                                    // elbow
+  const run = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.6, 12), redM);
+  run.rotation.x = Math.PI/2; run.position.set(0, 0.5, 1.3); run.castShadow = true; g.add(run);
+  sph(0.3, redM, 0, 0.5, 2.6);                                  // second elbow
+  cyl(0.22, 0.22, 1.1, 12, redM, 0, 0.0, 2.6);                  // goes down into the ground
+  cyl(0.45, 0.5, 0.16, 14, concM, 0, 0.09, 2.6);                // concrete collar
+
+  makeBuildingSign(g, 'Water Tank', {
+    posX: 0, posY: 1.9, posZ: 2.85, width: 3.2, height: 0.62, poleH: 1.9,
+    bg: '#3B1578', fg: '#FFFFFF', accent: '#FFD700',
+  });
+
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  WATER PUMPING STATION (2×2)
+//    left column  (1×2): pump shed with roll-up shutter gate
+//    front right  (1×1): violet water tank with water inside
+//    back right   (1×1): electric management panel
+// ═════════════════════════════════════════════════════════════════
+function buildWaterPumpStation(r, c) {
+  const fp = getFootprint('waterpump');
+  const a  = cellCenter(r, c);
+  const cx = a.x + (fp.w - 1) * CELL / 2;
+  const cz = a.z + (fp.h - 1) * CELL / 2;
+  const g  = new THREE.Group(); g.userData.type = 'waterpump';
+
+  // ── Materials ──
+  const slabM   = phong(0xB9B8AE, 0x222222, 6);
+  const concDk  = phong(0x8A8A84, 0x222222, 6);
+  const wallM   = phong(0xD5DCE0, 0x333333, 14);
+  const bandM   = phong(0x1F6FB5, 0x88BBEE, 30);
+  const roofM   = phong(0x3B4A5A, 0x99AABB, 35);
+  const darkM   = phong(0x22262B, 0x111111, 10);
+  const shutA   = phong(0x8A98A4, 0xCCDDEE, 40);
+  const shutB   = phong(0x707E8A, 0xCCDDEE, 40);
+  const yellowM = phong(0xE8C51A, 0xFFEE88, 60);
+  const doorM   = phong(0x16365E, 0x4477BB, 40);
+  const violetM = phong(0x7B2FD0, 0xD9B8FF, 55);
+  const violetDk= phong(0x5A1FA0, 0xB890F0, 40);
+  const redM    = phong(0xD81E1E, 0xFF8888, 60);
+  const redDk   = phong(0x9E1212, 0xFF6666, 40);
+  const ironM   = phong(0x2E2E2E, 0x777777, 30);
+  const cabM    = phong(0x4F5D63, 0x99AAB2, 30);
+  const cabDoor = phong(0x65767E, 0xAABBC4, 35);
+  const chromeM = phong(0xCCCCCC, 0xFFFFFF, 90);
+  const condM   = phong(0x8A8E92, 0xCCCCCC, 25);
+  const shellM  = new THREE.MeshPhongMaterial({ color:0x9B4DFF, specular:0xFFFFFF, shininess:110,
+                    transparent:true, opacity:0.42, depthWrite:false });
+  const waterM  = new THREE.MeshPhongMaterial({ color:0x1E90FF, specular:0xAADDFF, shininess:120,
+                    transparent:true, opacity:0.9 });
+  const surfM   = new THREE.MeshPhongMaterial({ color:0x7FD0FF, specular:0xFFFFFF, shininess:150,
+                    transparent:true, opacity:0.95 });
+  const lampM   = new THREE.MeshPhongMaterial({ color:0xFFF3C0, emissive:new THREE.Color(0xFFD86B), emissiveIntensity:0.3 });
+  registerNightLight(lampM, 2.2, 0xFFD86B);
+  const screenM = new THREE.MeshPhongMaterial({ color:0x22DDFF, emissive:new THREE.Color(0x0099CC), emissiveIntensity:0.5 });
+  registerNightLight(screenM, 2.0, 0x22DDFF);
+  const ledG = new THREE.MeshPhongMaterial({ color:0x00FF55, emissive:new THREE.Color(0x00CC44), emissiveIntensity:0.8 });
+  const ledA = new THREE.MeshPhongMaterial({ color:0xFFB000, emissive:new THREE.Color(0xFF9000), emissiveIntensity:0.8 });
+  const ledR = new THREE.MeshPhongMaterial({ color:0xFF2200, emissive:new THREE.Color(0xDD1100), emissiveIntensity:0.8 });
+  registerNightLight(ledG, 2.8, 0x00FF55);
+  registerNightLight(ledA, 2.6, 0xFFB000);
+  registerNightLight(ledR, 2.8, 0xFF2200);
+
+  // ── Helpers (coords are local to the 12×12 site centre) ──
+  const box = (w,h,d,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+  };
+  const cyl = (rt,rb,h,seg,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+  const cylX = (rad,len,mat,x2,y,z2) => {            // pipe lying along X
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,len,10), mat);
+    m.rotation.z = Math.PI/2; m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+  const cylZ = (rad,len,mat,x2,y,z2) => {            // pipe lying along Z
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,len,10), mat);
+    m.rotation.x = Math.PI/2; m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+  const sph = (rad,mat,x2,y,z2) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(rad,12,8), mat);
+    m.position.set(x2,y,z2); m.castShadow = true; g.add(m); return m;
+  };
+
+  // ── Whole-site concrete slab ──
+  box(11.8, 0.16, 11.8, slabM, 0, 0.08, 0);
+
+  // ════════════════ 1) PUMP SHED  (left 1×2) ════════════════
+  const SX = -3, Y0 = 0.16, WH = 4.6, SW = 5.4, SD = 11.2, FZ = SD/2;   // FZ = front wall z (5.6)
+  box(SW, WH, SD, wallM, SX, Y0 + WH/2, 0);                              // walls
+  box(SW+0.06, 1.0, SD+0.06, bandM, SX, Y0 + 0.5, 0);                    // blue lower band
+  box(SW+0.1, 0.16, SD+0.1, darkM, SX, Y0 + WH - 0.08, 0);               // top trim
+  for (let i = 0; i < 10; i++) {                                         // wall ribs
+    const rz = -5 + i*1.1;
+    box(0.06, WH-1.2, 0.08, shutA, SX - SW/2 - 0.03, Y0 + 1.1 + (WH-1.2)/2, rz);
+    box(0.06, WH-1.2, 0.08, shutA, SX + SW/2 + 0.03, Y0 + 1.1 + (WH-1.2)/2, rz);
+  }
+
+  // Pitched roof (triangular prism running front-to-back)
+  const wallTop = Y0 + WH, RW = SW + 0.9, RISE = 1.5;
+  const rs = new THREE.Shape();
+  rs.moveTo(-RW/2, 0); rs.lineTo(RW/2, 0); rs.lineTo(0, RISE); rs.lineTo(-RW/2, 0);
+  const roof = new THREE.Mesh(new THREE.ExtrudeGeometry(rs, { depth: 12.0, bevelEnabled: false }), roofM);
+  roof.position.set(SX, wallTop, -6.0); roof.castShadow = true; roof.receiveShadow = true; g.add(roof);
+  box(0.5, 0.16, 12.1, darkM, SX, wallTop + RISE, 0);                    // ridge cap
+  [-2.5, 2.5].forEach(vz => {                                            // roof vents
+    cyl(0.3, 0.3, 0.5, 10, shutA, SX, wallTop + RISE + 0.3, vz);
+    cyl(0.0, 0.42, 0.3, 10, darkM, SX, wallTop + RISE + 0.7, vz);
+  });
+
+  // Shutter gate (front face, closed)
+  const GW = 3.8, GH = 3.6;
+  [-1, 1].forEach(s => {
+    box(0.3, GH + 0.4, 0.3, darkM, SX + s*(GW/2 + 0.15), Y0 + (GH+0.4)/2, FZ + 0.1);   // frame posts
+    box(0.1, GH, 0.14, ironM, SX + s*(GW/2 - 0.02), Y0 + GH/2, FZ + 0.14);             // guide rails
+  });
+  box(GW + 0.8, 0.45, 0.35, darkM, SX, Y0 + GH + 0.22, FZ + 0.12);                      // lintel
+  for (let i = 0; i < 12; i++) box(GW, 0.27, 0.1, i%2 ? shutA : shutB, SX, Y0 + 0.16 + i*0.3, FZ + 0.07);
+  box(GW, 0.14, 0.14, yellowM, SX, Y0 + 0.07, FZ + 0.14);                               // bottom bar
+  box(0.5, 0.1, 0.14, darkM, SX, Y0 + 1.1, FZ + 0.17);                                  // lift handle
+  cylX(0.38, GW + 0.4, shutB, SX, Y0 + GH + 0.65, FZ + 0.2);                            // roll drum
+  [-2.3, 2.3].forEach(lx => {                                                           // gate lamps
+    box(0.1, 0.1, 0.4, darkM, SX + lx, Y0 + 3.2, FZ + 0.2);
+    sph(0.17, lampM, SX + lx, Y0 + 3.1, FZ + 0.42);
+  });
+
+  // Windows (both long sides) + side door facing the tank
+  [-3.5, -0.5, 2.5].forEach(wz => {
+    box(0.12, 0.95, 1.55, darkM, SX - SW/2 - 0.02, Y0 + 3.2, wz);
+    box(0.1, 0.8, 1.4, glassWarm(0.45), SX - SW/2 - 0.04, Y0 + 3.2, wz);
+  });
+  [-3.5, -0.5].forEach(wz => {
+    box(0.12, 0.95, 1.55, darkM, SX + SW/2 + 0.02, Y0 + 3.2, wz);
+    box(0.1, 0.8, 1.4, glassWarm(0.45), SX + SW/2 + 0.04, Y0 + 3.2, wz);
+  });
+  box(0.14, 2.4, 1.1, doorM, SX + SW/2 + 0.03, Y0 + 1.2, 4.3);
+  box(0.5, 0.12, 1.3, concDk, SX + SW/2 + 0.3, Y0 + 0.06, 4.3);                         // door step
+
+  // ════════════════ 2) WATER TANK  (front right 1×1, centre 3,3) ════════════════
+  const TX = 3, TZ = 3, TR = 2.1, TB = 0.46;
+  cyl(2.3, 2.4, 0.3, 24, concDk, TX, 0.31, TZ);                         // base ring
+  cyl(TR, TR, 4.2, 28, shellM, TX, TB + 2.1, TZ);                        // see-through violet shell
+  cyl(TR, TR, 0.1, 28, violetM, TX, TB + 0.05, TZ);                      // solid floor
+  cyl(2.0, 2.0, 2.94, 28, waterM, TX, TB + 0.1 + 1.47, TZ);              // water inside
+  cyl(2.0, 2.0, 0.03, 28, surfM, TX, TB + 3.04, TZ);                     // water surface
+  [1.2, 2.6, 4.0].forEach(y => {                                         // steel bands
+    const b = new THREE.Mesh(new THREE.TorusGeometry(TR + 0.03, 0.07, 6, 28), violetDk);
+    b.rotation.x = Math.PI/2; b.position.set(TX, y, TZ); g.add(b);
+  });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(2.15, 18, 8, 0, Math.PI*2, 0, Math.PI/2), violetM);
+  dome.scale.y = 0.45; dome.position.set(TX, TB + 4.2, TZ); dome.castShadow = true; g.add(dome);
+  cyl(0.25, 0.3, 0.3, 10, violetDk, TX, TB + 4.2 + 1.1, TZ);             // roof vent
+  // Tank ladder (+X side)
+  [-0.3, 0.3].forEach(lz => box(0.07, 4.4, 0.07, ironM, TX + TR + 0.12, TB + 2.2, TZ + lz));
+  for (let i = 0; i < 13; i++) box(0.06, 0.05, 0.6, ironM, TX + TR + 0.12, TB + 0.35 + i*0.3, TZ);
+
+  // Red pipe: tank → into the shed
+  cylX(0.2, 1.25, redM, 0.325, 0.9, TZ);
+  cylX(0.3, 0.1, redDk, 0.95, 0.9, TZ);                                  // flange at tank
+  cylX(0.3, 0.1, redDk, -0.2, 0.9, TZ);                                  // flange at shed wall
+  box(0.45, 0.35, 0.45, redDk, 0.4, 0.9, TZ);                            // valve body
+  cyl(0.04, 0.04, 0.4, 6, ironM, 0.4, 1.25, TZ);
+  const vw = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.04, 6, 14), redM);
+  vw.rotation.x = Math.PI/2; vw.position.set(0.4, 1.5, TZ); g.add(vw);
+  // Red pipe: tank → front → down into the ground
+  cylZ(0.2, 0.6, redM, TX, 0.7, 5.4);
+  sph(0.28, redM, TX, 0.7, 5.6);
+  cyl(0.2, 0.2, 1.1, 12, redM, TX, 0.15, 5.6);
+  cyl(0.45, 0.5, 0.16, 14, concDk, TX, 0.24, 5.6);                       // collar
+
+  // ════════════════ 3) ELECTRIC MANAGEMENT PANEL (back right, centre 3,-3) ════════════════
+  const PY = 0.26;                                                       // pad top
+  box(5.0, 0.1, 4.2, concDk, 3, 0.21, -3.4);                             // pad
+  box(3.4, 0.2, 1.2, darkM, 3, PY + 0.1, -3.9);                          // plinth
+  const cabY = PY + 0.2 + 1.4;                                           // cabinet centre
+  box(3.2, 2.8, 1.0, cabM, 3, cabY, -3.9);                               // main cabinet (front face z=-3.4)
+  box(3.5, 0.14, 1.3, darkM, 3, PY + 0.2 + 2.87, -3.85);                 // rain hood
+  [2.2, 3.8].forEach(dx => box(1.45, 2.5, 0.06, cabDoor, dx, cabY, -3.37)); // two doors
+  box(0.04, 2.5, 0.07, darkM, 3, cabY, -3.34);                           // door seam
+  [2.85, 3.15].forEach(hx => box(0.08, 0.4, 0.08, chromeM, hx, cabY, -3.3)); // handles
+  box(1.1, 0.65, 0.03, darkM, 2.2, PY + 2.2, -3.33);                     // screen frame
+  box(1.0, 0.55, 0.04, screenM, 2.2, PY + 2.2, -3.31);                   // glowing screen
+  [[3.45, ledG], [3.75, ledA], [4.05, ledR]].forEach(([lx, lm]) => sph(0.09, lm, lx, PY + 2.4, -3.3));
+  [3.45, 3.95].forEach(mx => {                                           // two round meters
+    const mt = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.05, 14), chromeM);
+    mt.rotation.x = Math.PI/2; mt.position.set(mx, PY + 1.85, -3.31); g.add(mt);
+    box(0.02, 0.2, 0.02, darkM, mx, PY + 1.88, -3.28);
+  });
+  box(0.55, 0.5, 0.03, yellowM, 3.8, PY + 1.1, -3.33);                   // warning plate
+  box(0.1, 0.3, 0.035, darkM, 3.8, PY + 1.1, -3.31);
+  for (let i = 0; i < 5; i++) box(1.1, 0.05, 0.04, darkM, 2.2, PY + 0.6 + i*0.12, -3.33); // vents
+  // Small meter box next to the cabinet
+  box(0.85, 1.4, 0.5, cabM, 5.3, PY + 0.7, -3.75);
+  box(0.5, 0.4, 0.03, glassWarm(0.4), 5.3, PY + 1.0, -3.49);
+  // Conduit from the panel up and over into the shed wall
+  cyl(0.1, 0.1, 0.9, 8, condM, 1.8, 3.85, -3.85);
+  sph(0.13, condM, 1.8, 4.3, -3.85);
+  cylX(0.1, 2.1, condM, 0.75, 4.3, -3.85);
+  // Yellow bollards + pole lamp
+  [[0.7, -1.5], [5.3, -1.5]].forEach(([bx, bz]) => box(0.2, 0.7, 0.2, yellowM, bx, PY + 0.35, bz));
+  cyl(0.07, 0.09, 4.2, 8, ironM, 5.4, 2.3, -5.3);
+  box(0.9, 0.1, 0.1, ironM, 5.0, 4.4, -5.3);
+  sph(0.2, lampM, 4.6, 4.3, -5.3);
+
+  makeBuildingSign(g, 'Water Pump', {
+    posX: 3, posY: 2.2, posZ: 5.8, width: 4.0, height: 0.68, poleH: 2.2,
+    bg: '#0A3A66', fg: '#FFFFFF', accent: '#FFD700',
+  });
+
+  g.position.set(cx, 0, cz);
+  return g;
+}
+
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
@@ -7547,6 +7879,7 @@ const COSTS = {
   road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
   cityhall: 1000, policestation: 800, bigpolicestation: 2500, hospital: 1200,
   windmill: 500, solarenergy: 6000, factory: 8000,
+  watertank: 1200, waterpump: 3500,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
   eiffel: 25000,
   burjkhalifa: 60000,
@@ -7557,6 +7890,7 @@ const COSTS = {
 const FOOTPRINTS = {
   bigpark:       { w: 2, h: 2 },
   amusementpark: { w: 3, h: 3 },
+  waterpump: { w: 2, h: 2 },
   cityhall:      { w: 2, h: 2 },
   policestation:    { w: 1, h: 2 },
   bigpolicestation: { w: 2, h: 2 },
@@ -7575,6 +7909,7 @@ const BUILD_LIMITS = {
   park: 15, bigpark: 5, amusementpark: 2,
   cityhall: 1, policestation: 8, bigpolicestation: 8, hospital: 8,
   windmill: 8, solarenergy: 8, factory: 6,
+  watertank: 8, waterpump: 6,
   eiffel: 1,
   burjkhalifa: 1,
   road: Infinity,
@@ -7632,6 +7967,8 @@ const BUILD_META = {
   hospital:         { icon: '🏥',  name: 'Hospital' },
   apartment:        { icon: '🏬',  name: 'Apartment' },
   solarenergy:      { icon: '☀️',  name: 'Solar Energy' },
+  watertank: { icon: '🚰', name: 'Water Tank' },
+  waterpump: { icon: '💧', name: 'Water Pumping Station' },
   bigpolicestation: { icon: '🏢',  name: 'Big Police Station' },
   amusementpark:    { icon: '🎢',  name: 'Amusement Park' },
   factory:          { icon: '🏭',  name: 'Production Plant' },
@@ -7649,9 +7986,11 @@ const LEVEL_UNLOCKS = {
   villa: 5,
   bigpark: 6,
   cityhall: 7,
+  watertank: 9,
   hospital: 8,
   apartment: 10,
   solarenergy: 12,
+  waterpump: 13,
   bigpolicestation: 15,
   amusementpark: 18,
   factory: 22,
@@ -7681,6 +8020,7 @@ function isUnlocked(type) {
 // build limit (BUILD_LIMITS.road is Infinity), so they earn XP forever.
 const XP_REWARDS = {
   road: 10, park: 4, cottage: 6, cabin: 5, modern: 10, villa: 18, apartment: 22,
+  watertank: 25, waterpump: 65,
   bigpark: 35, amusementpark: 90, cityhall: 60, policestation: 30, bigpolicestation: 70,
   hospital: 55, windmill: 20, solarenergy: 80, factory: 120, eiffel: 220, burjkhalifa: 400,
 };
@@ -7912,7 +8252,8 @@ function initLevelLockOverlays() {
   const idMap = {
     'sp-police-btn': 'policestation', 'sp-bigpolice-btn': 'bigpolicestation', 'sp-hospital-btn': 'hospital',
     'sp-windmill-btn': 'windmill', 'sp-solarenergy-btn': 'solarenergy', 'sp-factory-btn': 'factory',
-    'sp-eiffel-btn': 'eiffel', 'sp-burjkhalifa-btn': 'burjkhalifa',
+    'sp-eiffel-btn': 'eiffel', 'sp-burjkhalifa-btn': 'burjkhalifa',     'sp-watertank-btn': 'watertank',
+    'sp-waterpump-btn': 'waterpump',
   };
   Object.keys(idMap).forEach(id => {
     const el = document.getElementById(id);
@@ -7957,7 +8298,7 @@ const LANDMARK_HAPPINESS = {
 // comfortably look after. Bigger / upgraded builds cover more people.
 const SERVICE_CAPACITY = {
   park: 15, bigpark: 40, amusementpark: 100,
-  hospital: 60,
+  hospital: 60,   watertank: 40, waterpump: 120,
   policestation: 50, bigpolicestation: 120,
   windmill: 30, solarenergy: 50,
   cityhall: 80,
@@ -7972,6 +8313,7 @@ const SERVICE_CAPACITY = {
 const SERVICE_CATEGORIES = {
   parks:  { types: ['park', 'bigpark', 'amusementpark'],            maxPoints: 20 },
   health: { types: ['hospital'],                                    maxPoints: 15 },
+  water:  { types: ['watertank', 'waterpump'], maxPoints: 8 },
   safety: { types: ['policestation', 'bigpolicestation'],           maxPoints: 12 },
   energy: { types: ['windmill', 'solarenergy'],                     maxPoints: 6  },
   civic:  { types: ['cityhall'],                                    maxPoints: 6  },
@@ -8147,7 +8489,7 @@ function updateBuildCounters() {
     el.className = 'blimit ' + (cnt >= lim ? 'limit-full' : cnt > 0 ? 'limit-ok' : '');
   });
   // Electricity buildings
-  ['windmill','solarenergy'].forEach(et => {
+  ['windmill','solarenergy','watertank','waterpump'].forEach(et => {
     const el = document.getElementById('lim-' + et); if (!el) return;
     const lim = BUILD_LIMITS[et] ?? Infinity;
     const cnt = countPlaced(et);
@@ -8441,6 +8783,12 @@ function refreshAffordability() {
   if (countPlaced('burjkhalifa') >= (BUILD_LIMITS.burjkhalifa ?? Infinity)) {
     if (spBurjBtnEl) spBurjBtnEl.classList.add('cant-afford');
   }
+    const spWTankBtnEl = document.getElementById('sp-watertank-btn');
+  if (spWTankBtnEl) spWTankBtnEl.classList.toggle('cant-afford',
+    cash < (COSTS.watertank ?? 0) || countPlaced('watertank') >= (BUILD_LIMITS.watertank ?? Infinity));
+  const spWPumpBtnEl = document.getElementById('sp-waterpump-btn');
+  if (spWPumpBtnEl) spWPumpBtnEl.classList.toggle('cant-afford',
+    cash < (COSTS.waterpump ?? 0) || countPlaced('waterpump') >= (BUILD_LIMITS.waterpump ?? Infinity));
   updateBuildCounters();
   updateCityStatsUI();
   applyLevelLocks();
@@ -8554,6 +8902,7 @@ function placeItem(r, c) {
     else if (selectedTool === 'factory')          mesh = buildFactory(r, c);
     else if (selectedTool === 'eiffel')           mesh = buildEiffelTower(r, c);
     else if (selectedTool === 'burjkhalifa')      mesh = buildBurjKhalifa(r, c);
+    else if (selectedTool === 'waterpump')        mesh = buildWaterPumpStation(r, c);
     else if (selectedTool === 'cityhall') {
       if (cityHallPlaced) { showToast('City Hall already built! Only one allowed 🏛️'); return; }
       mesh = buildCityHall(r, c);
@@ -8582,6 +8931,7 @@ function placeItem(r, c) {
       if (selectedTool === 'factory')  { showToast('🏭 Production Plant online!'); }
       if (selectedTool === 'eiffel')   { showToast('🗼 Fiffet Tower now open to visitors!'); }
       if (selectedTool === 'burjkhalifa') { showToast('🏙️ Bhurf Khalifaa now lighting up the skyline!'); }
+      if (selectedTool === 'waterpump') { showToast('💧 Water Pumping Station online!'); }
     }
     return;
   }
@@ -8600,6 +8950,7 @@ function placeItem(r, c) {
   else if (selectedTool === 'house')     mesh = buildHouse(r, c);
   else if (selectedTool === 'park')      mesh = buildPark(r, c);
   else if (selectedTool === 'windmill')  mesh = buildWindmill(r, c);
+  else if (selectedTool === 'watertank') mesh = buildWaterTank(r, c);
     if (mesh) {
     optimizeBuilding(mesh);
     applyFacing(mesh, r, c, faceK);
@@ -8967,6 +9318,8 @@ function setTool(tool) {
       factory:            { icon: '🏭', name: 'Production Plant' },
       eiffel:             { icon: '🗼', name: 'Fiffet Tower' },
       burjkhalifa:        { icon: '🏙️', name: 'Bhurf Khalifaa' },
+      watertank:          { icon: '🚰', name: 'Water Tank' },
+      waterpump:          { icon: '💧', name: 'Water Pumping Station' },
     };
     const f = fb[tool] || { icon: '?', name: tool };
     icon = f.icon; name = f.name;
@@ -9221,6 +9574,16 @@ if (spBurjBtn) {
     setTool('burjkhalifa'); setActiveTb(tbFactory); closeSubpanel(); factoryShowRoot();
   });
 }
+  
+// ── Water button ─────────────────────────────
+const spWaterTankBtn = document.getElementById('sp-watertank-btn');
+if (spWaterTankBtn) spWaterTankBtn.addEventListener('click', function() {
+  setTool('watertank'); setActiveTb(tbGovernor); closeSubpanel(); svcShowRoot();
+});
+const spWaterPumpBtn = document.getElementById('sp-waterpump-btn');
+if (spWaterPumpBtn) spWaterPumpBtn.addEventListener('click', function() {
+  setTool('waterpump'); setActiveTb(tbGovernor); closeSubpanel(); svcShowRoot();
+});
 
 // ── Tap outside sub-panel to close ──────────────────
 document.addEventListener('click', function(e) {
