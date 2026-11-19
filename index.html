@@ -924,6 +924,51 @@
       #cash-popup { width: min(70vw, 420px); }
       #settings-popup { width: min(60vw, 420px); }
     }
+
+    /* ── Guide tour ── */
+#guide-box{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);width:min(92vw,360px);
+  display:flex;gap:10px;align-items:center;padding:10px 14px;z-index:25;pointer-events:none;
+  background:rgba(12,16,26,.95);border:1.5px solid #FFD166;border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.6);transition:opacity .3s}
+#guide-box.hidden{opacity:0}
+#guide-avatar{font-size:34px;line-height:1}
+#guide-name{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#FFD166}
+#guide-text{font-size:13px;font-weight:600;color:#fff;line-height:1.35;margin-top:2px}
+.guide-target{outline:2px solid #FFD166;animation:guidePulse 1s ease-in-out infinite}
+@keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,209,102,.9)}50%{box-shadow:0 0 0 10px rgba(255,209,102,0)}}
+/* lock everything except City Hall during the tour */
+body.tutorial-on #tb-road, body.tutorial-on #tb-builds, body.tutorial-on #tb-factory,
+body.tutorial-on #tb-land, body.tutorial-on #tb-erase,
+body.tutorial-on #svc-root [data-svc]:not([data-svc="cityhall"]){opacity:.3;pointer-events:none}
+
+/* ── City Hall panel ── */
+#ch-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:58;opacity:0;pointer-events:none;transition:opacity .22s}
+#ch-overlay.open{opacity:1;pointer-events:auto}
+#ch-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.88);width:min(92vw,380px);
+  background:rgba(12,16,26,.99);border:1.5px solid rgba(255,255,255,.14);border-radius:24px;overflow:hidden;
+  box-shadow:0 32px 80px rgba(0,0,0,.75);z-index:59;opacity:0;pointer-events:none;max-height:88vh;overflow-y:auto;
+  transition:opacity .22s,transform .28s cubic-bezier(.34,1.56,.64,1)}
+#ch-popup.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+#ch-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:15px;font-weight:800;color:#fff}
+#ch-close{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer}
+#ch-body{padding:16px 18px 22px;display:flex;flex-direction:column;gap:14px}
+.ch-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;text-align:center}
+.ch-label{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.45)}
+#ch-pending{font-size:30px;font-weight:900;color:#66ffaa;margin:4px 0 10px}
+#ch-track{height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+#ch-fill{height:100%;width:0;background:linear-gradient(90deg,#FFD166,#66ffaa);transition:width .4s}
+#ch-note{font-size:11px;color:rgba(255,255,255,.45);margin:6px 0 12px}
+#ch-claim{width:100%;padding:13px;border:none;border-radius:14px;font-size:15px;font-weight:900;color:#1a1206;cursor:pointer;
+  background:linear-gradient(135deg,#FFD166,#FF9F1C)}
+#ch-claim:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:not-allowed}
+.ch-row{display:flex;justify-content:space-between;font-size:13px;color:rgba(255,255,255,.8);padding:4px 2px}
+.ch-row b{color:#fff}
+.ch-soon{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ch-soon div{opacity:.4;text-align:center;font-size:10px;font-weight:700;color:#fff;padding:10px 4px;
+  background:rgba(255,255,255,.05);border-radius:12px}
+
+    
   </style>
 </head>
 <body>
@@ -1592,6 +1637,31 @@
 <div id="tool-badge">
   <span class="ti" id="badge-icon"></span>
   <span class="tn" id="badge-name"></span>
+</div>
+
+  <!-- Guide -->
+<div id="guide-box"><div id="guide-avatar">🧑‍💼</div>
+  <div><div id="guide-name">Guide Sam</div><div id="guide-text"></div></div></div>
+
+<!-- City Hall panel -->
+<div id="ch-overlay"></div>
+<div id="ch-popup" role="dialog" aria-label="City Hall">
+  <div id="ch-head"><span>🏛️ City Hall</span><button id="ch-close">✕</button></div>
+  <div id="ch-body">
+    <div class="ch-card">
+      <div class="ch-label">Ready to claim</div>
+      <div id="ch-pending">$0</div>
+      <div id="ch-track"><div id="ch-fill"></div></div>
+      <div id="ch-note"></div>
+      <button id="ch-claim">Claim Earnings</button>
+    </div>
+    <div>
+      <div class="ch-row"><span>👥 Population</span><b id="ch-pop">0</b></div>
+      <div class="ch-row"><span>💵 Income</span><b id="ch-rate">$0 / min</b></div>
+    </div>
+    <div class="ch-label">More features</div>
+    <div class="ch-soon"><div>📜<br>Policies</div><div>💰<br>Taxes</div><div>📊<br>Budget</div></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -10299,6 +10369,141 @@ animate();
     });
   }
 })();
+
+
+   // ═════════════════════════════════════════════
+//  GUIDE TOUR + CITY HALL EARNINGS PANEL
+// ═════════════════════════════════════════════
+let tutorialActive = true;
+let cityHallPending = 0;
+const CH_STORAGE_MINUTES = 30;      // how long earnings keep stacking up
+const CH_BASE_INCOME = 5;           // $ per second with no residents
+const CH_INCOME_PER_PERSON = 0.5;   // extra $ per second per resident
+
+document.body.classList.add('tutorial-on');
+const guideBox  = document.getElementById('guide-box');
+const guideText = document.getElementById('guide-text');
+
+const GUIDE_STEPS = {
+  0: { text: 'Welcome, Mayor! Every city starts with a City Hall. Tap the Build button.', target: '#build-fab' },
+  1: { text: 'Nice! Now tap "Services".',                                              target: '#tb-governor' },
+  2: { text: 'Choose "City Hall".',                                                    target: '[data-svc="cityhall"]' },
+  3: { text: 'Tap the City Hall card to select it.',                                   target: '.sp-cityhall-type' },
+  4: { text: 'Now tap an empty patch of land to place it (needs a clear 2×2 area).',   target: null },
+  5: { text: 'Your City Hall is built! 🎉 Tap on the building to open it.',            target: null },
+};
+
+// Works out which step the player is on by looking at the game's state
+function computeGuideStep() {
+  if (cityHallPlaced) return 5;
+  if (selectedTool === 'cityhall') return 4;
+  if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
+    return document.getElementById('svc-cityhall').style.display === 'flex' ? 3 : 2;
+  }
+  if (document.getElementById('build-toolbar').classList.contains('open')) return 1;
+  return 0;
+}
+
+let lastGuideStep = -1;
+function clearGuideHighlight() {
+  document.querySelectorAll('.guide-target').forEach(e => e.classList.remove('guide-target'));
+}
+setInterval(function () {
+  if (!tutorialActive) return;
+  const s = computeGuideStep();
+  if (s === lastGuideStep) return;
+  lastGuideStep = s;
+  clearGuideHighlight();
+  guideText.textContent = GUIDE_STEPS[s].text;
+  const sel = GUIDE_STEPS[s].target;
+  const el = sel && document.querySelector(sel);
+  if (el) el.classList.add('guide-target');
+}, 200);
+
+function finishTutorial() {
+  tutorialActive = false;
+  document.body.classList.remove('tutorial-on');
+  clearGuideHighlight();
+  guideBox.classList.add('hidden');
+  showToast('✅ Tour complete! Claim your earnings 💰');
+}
+
+// ── Earnings ──
+function cityHallIncomePerSec() {
+  return CH_BASE_INCOME + computeCityStats().population * CH_INCOME_PER_PERSON;
+}
+function cityHallCap() { return cityHallIncomePerSec() * 60 * CH_STORAGE_MINUTES; }
+
+const chOverlay = document.getElementById('ch-overlay');
+const chPopup   = document.getElementById('ch-popup');
+
+function renderCityHallPanel() {
+  const rate = cityHallIncomePerSec(), cap = cityHallCap();
+  const amt = Math.floor(cityHallPending);
+  document.getElementById('ch-pending').textContent = '$' + amt.toLocaleString();
+  document.getElementById('ch-pop').textContent = computeCityStats().population.toLocaleString();
+  document.getElementById('ch-rate').textContent = '$' + Math.round(rate * 60).toLocaleString() + ' / min';
+  document.getElementById('ch-fill').style.width = Math.min(100, cityHallPending / cap * 100) + '%';
+  document.getElementById('ch-note').textContent = cityHallPending >= cap
+    ? 'Storage full — claim now!' : 'Holds up to $' + Math.floor(cap).toLocaleString();
+  document.getElementById('ch-claim').disabled = amt < 1;
+}
+function openCityHallPanel() {
+  renderCityHallPanel();
+  chOverlay.classList.add('open'); chPopup.classList.add('open');
+  if (tutorialActive) finishTutorial();
+}
+function closeCityHallPanel() { chOverlay.classList.remove('open'); chPopup.classList.remove('open'); }
+
+document.getElementById('ch-close').addEventListener('click', closeCityHallPanel);
+chOverlay.addEventListener('click', closeCityHallPanel);
+document.getElementById('ch-claim').addEventListener('click', function () {
+  const amt = Math.floor(cityHallPending);
+  if (amt < 1) return;
+  cityHallPending -= amt;
+  cash += amt;
+  updateCashUI(+amt);
+  showToast('💰 Collected $' + amt.toLocaleString() + '!');
+  renderCityHallPanel();
+});
+
+// Earnings tick once per second
+setInterval(function () {
+  if (!cityHallPlaced) { cityHallPending = 0; return; }
+  cityHallPending = Math.min(cityHallCap(), cityHallPending + cityHallIncomePerSec());
+  if (chPopup.classList.contains('open')) renderCityHallPanel();
+}, 1000);
+
+// ── Tap the City Hall to open it ──
+function findCityHallMesh() {
+  for (const k in placedItems) if (placedItems[k].userData.type === 'cityhall') return placedItems[k];
+  return null;
+}
+function tryOpenCityHallAt(x, y) {
+  if (selectedTool || !cityHallPlaced) return;
+  if (buildSubpanel.classList.contains('show')) return;
+  const mesh = findCityHallMesh(); if (!mesh) return;
+  // 1) Did the tap hit the building itself? (tall buildings need this)
+  const rect = canvas.getBoundingClientRect();
+  raycaster.setFromCamera(new THREE.Vector2(
+    ((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1), camera);
+  if (raycaster.intersectObject(mesh, true).length) { openCityHallPanel(); return; }
+  // 2) Or did it hit the ground under it?
+  const cell = getGridCell(x, y);
+  if (cell && placedItems[cell.r + ',' + cell.c] === mesh) openCityHallPanel();
+}
+let chMulti = false;
+canvas.addEventListener('touchstart', e => { if (e.touches.length > 1) chMulti = true; }, { passive: true });
+canvas.addEventListener('mouseup', e => { if (tapMoved < TAP_THRESHOLD) tryOpenCityHallAt(e.clientX, e.clientY); });
+canvas.addEventListener('touchend', e => {
+  if (e.touches.length === 0) {
+    if (!chMulti && tapMoved < TAP_THRESHOLD && e.changedTouches.length)
+      tryOpenCityHallAt(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    chMulti = false;
+  }
+});
+
+  
 </script>
 </body>
 </html>
