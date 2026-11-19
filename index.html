@@ -10382,84 +10382,144 @@ animate();
 //  GUIDE TOUR + CITY HALL EARNINGS PANEL
 // ═════════════════════════════════════════════
 let tutorialActive = true;
-let cityHallPending = 0;
-let cityHallBonusGiven = false;     // welcome bonus only once, ever
-const CH_FIRST_BONUS = 1000;
-const CH_STORAGE_MINUTES = 30;      // how long earnings keep stacking up
-const CH_BASE_INCOME = 5;           // $ per second with no residents
-const CH_INCOME_PER_PERSON = 0.5;   // extra $ per second per resident
+let tutPhase = 1;                    // 1 = City Hall, 2 = roads, 3 = cottage
+const TUT_ROADS_NEEDED = 4;
 
-document.body.classList.add('tutorial-on');
+let cityHallPending    = 0;
+let cityHallBonusGiven = false;      // welcome bonus only once, ever
+let welcomeClaimed     = false;      // player has claimed the $1,000
+const CH_FIRST_BONUS     = 1000;
+const CH_STORAGE_MINUTES = 30;       // how long earnings keep stacking up
+
+// ── EARN RATES: dollars per MINUTE, per building ──
+// Houses use their style name (cottage, modern...). Add more here later.
+const EARN_PER_MIN = { road: 0.5, cottage: 1 };
+
 const guideBox  = document.getElementById('guide-box');
 const guideText = document.getElementById('guide-text');
-
-const GUIDE_STEPS = {
-  0: { text: 'Welcome, Mayor! Every city starts with a City Hall. Tap the Build button.', target: '#build-fab' },
-  1: { text: 'Nice! Now tap "Services".',                                              target: '#tb-governor' },
-  2: { text: 'Choose "City Hall".',                                                    target: '[data-svc="cityhall"]' },
-  3: { text: 'Tap the City Hall card to select it.',                                   target: '.sp-cityhall-type' },
-  4: { text: 'Now tap an empty patch of land to place it (needs a clear 2×2 area).',   target: null },
-  5: { text: 'City Hall built! 🎉 Tap the building to claim your $1,000 welcome bonus.', target: null },};
-
-// Works out which step the player is on by looking at the game's state
-function computeGuideStep() {
-  if (cityHallPlaced) return 5;
-  if (selectedTool === 'cityhall') return 4;
-  if (buildSubpanel.classList.contains('show') && activeSubPage === spGovernor) {
-    return document.getElementById('svc-cityhall').style.display === 'flex' ? 3 : 2;
-  }
-  if (document.getElementById('build-toolbar').classList.contains('open')) return 1;
-  return 0;
-}
-
-let lastGuideStep = -1;
-function clearGuideHighlight() {
-  document.querySelectorAll('.guide-target').forEach(e => e.classList.remove('guide-target'));
-}
-setInterval(function () {
-  if (!tutorialActive) return;
-  const s = computeGuideStep();
-  if (s === lastGuideStep) return;
-  lastGuideStep = s;
-  clearGuideHighlight();
-  guideText.textContent = GUIDE_STEPS[s].text;
-  const sel = GUIDE_STEPS[s].target;
-  const el = sel && document.querySelector(sel);
-  if (el) el.classList.add('guide-target');
-}, 200);
-
-function finishTutorial() {
-  tutorialActive = false;
-  document.body.classList.remove('tutorial-on');
-  clearGuideHighlight();
-  guideBox.classList.add('hidden');
-  showToast('✅ Tour complete! Claim your earnings 💰');
-}
-
-// ── Earnings ──
-function cityHallIncomePerSec() {
-  return CH_BASE_INCOME + computeCityStats().population * CH_INCOME_PER_PERSON;
-}
-function cityHallCap() { return cityHallIncomePerSec() * 60 * CH_STORAGE_MINUTES; }
-
 const chOverlay = document.getElementById('ch-overlay');
 const chPopup   = document.getElementById('ch-popup');
 
+function setTutPhase(n) {
+  tutPhase = n;
+  document.body.classList.remove('tut-p1', 'tut-p2', 'tut-p3');
+  document.body.classList.add('tut-p' + n);
+}
+setTutPhase(1);
+
+function countRoads() {
+  let n = 0;
+  for (const k in placedItems) if (placedItems[k].userData.type === 'road') n++;
+  return n;
+}
+
+// Returns { text, target } for whatever the player should do right now
+function getGuideStep() {
+  const toolbarOpen = document.getElementById('build-toolbar').classList.contains('open');
+  const panelOpen   = buildSubpanel.classList.contains('show');
+
+  if (tutPhase === 1) {
+    if (cityHallPlaced) {
+      if (chPopup.classList.contains('open'))
+        return { text: 'Tap "Claim Earnings" to collect your $1,000!', target: '#ch-claim' };
+      return { text: 'City Hall built! 🎉 Tap the building to claim your $1,000 welcome bonus.', target: null };
+    }
+    if (selectedTool === 'cityhall')
+      return { text: 'Now tap an empty patch of land to place it (needs a clear 2×2 area).', target: null };
+    if (panelOpen && activeSubPage === spGovernor) {
+      return document.getElementById('svc-cityhall').style.display === 'flex'
+        ? { text: 'Tap the City Hall card to select it.', target: '.sp-cityhall-type' }
+        : { text: 'Choose "City Hall".', target: '[data-svc="cityhall"]' };
+    }
+    if (toolbarOpen) return { text: 'Nice! Now tap "Services".', target: '#tb-governor' };
+    return { text: 'Welcome, Mayor! Every city starts with a City Hall. Tap the Build button.', target: '#build-fab' };
+  }
+
+  if (tutPhase === 2) {
+    if (selectedTool === 'road')
+      return { text: 'Tap empty land to build roads: ' + countRoads() + '/' + TUT_ROADS_NEEDED, target: null };
+    if (toolbarOpen) return { text: 'Tap "Road".', target: '#tb-road' };
+    return { text: 'Great! Roads connect your city. Tap the Build button.', target: '#build-fab' };
+  }
+
+  // phase 3 — first house
+  if (selectedTool === 'house')
+    return { text: 'Tap empty land (next to your roads) to place your cottage. 🏡', target: null };
+  if (panelOpen && activeSubPage === spBuilds) {
+    return document.getElementById('builds-houses').style.display === 'flex'
+      ? { text: 'Tap "Cottage".', target: '.sp-house-type[data-htype="cottage"]' }
+      : { text: 'Tap "Houses".', target: '[data-builds="houses"]' };
+  }
+  if (toolbarOpen) return { text: 'Roads done! Now tap "Builds".', target: '#tb-builds' };
+  return { text: 'Roads done! Time for a home. Tap the Build button.', target: '#build-fab' };
+}
+
+function clearGuideHighlight() {
+  document.querySelectorAll('.guide-target').forEach(e => e.classList.remove('guide-target'));
+}
+
+function finishTutorial() {
+  tutorialActive = false;
+  document.body.classList.remove('tut-p1', 'tut-p2', 'tut-p3');
+  clearGuideHighlight();
+  guideBox.classList.add('hidden');
+  showToast('✅ Tour complete! Your roads and cottage now earn money 💰');
+}
+
+let lastGuideKey = '';
+setInterval(function () {
+  if (!tutorialActive) return;
+
+  // Move between phases
+  if (tutPhase === 1 && welcomeClaimed) { setTutPhase(2); showToast('Now let\'s grow your city! 🛣️'); }
+  if (tutPhase === 2 && countRoads() >= TUT_ROADS_NEEDED) { setTutPhase(3); clearTool(); showToast('Roads done! Now a home 🏡'); }
+  if (tutPhase === 3 && countHouseType('cottage') >= 1) { finishTutorial(); return; }
+
+  const step = getGuideStep();
+  const key = step.text + '|' + step.target;
+  if (key === lastGuideKey) return;
+  lastGuideKey = key;
+  clearGuideHighlight();
+  guideText.textContent = step.text;
+  const el = step.target && document.querySelector(step.target);
+  if (el) el.classList.add('guide-target');
+}, 200);
+
+// ── Earnings ──
+// Adds up every building's rate. Nothing earns until at least one house exists.
+function cityHallIncomePerMin() {
+  const seen = new Set();
+  let total = 0, hasHouse = false;
+  for (const k in placedItems) {
+    const m = placedItems[k];
+    if (seen.has(m)) continue;
+    seen.add(m);
+    const isHouse = m.userData.type === 'house';
+    if (isHouse) hasHouse = true;
+    const id = isHouse ? m.userData.houseType : m.userData.type;
+    total += EARN_PER_MIN[id] || 0;
+  }
+  return hasHouse ? total : 0;
+}
+function cityHallIncomePerSec() { return cityHallIncomePerMin() / 60; }
+function cityHallCap() { return cityHallIncomePerMin() * CH_STORAGE_MINUTES; }
+
 function renderCityHallPanel() {
-  const rate = cityHallIncomePerSec(), cap = cityHallCap();
+  const perMin = cityHallIncomePerMin(), cap = cityHallCap();
   const amt = Math.floor(cityHallPending);
   document.getElementById('ch-pending').textContent = '$' + amt.toLocaleString();
   document.getElementById('ch-pop').textContent = computeCityStats().population.toLocaleString();
-  document.getElementById('ch-rate').textContent = '$' + Math.round(rate * 60).toLocaleString() + ' / min';
-  document.getElementById('ch-fill').style.width = Math.min(100, cityHallPending / cap * 100) + '%';
-  document.getElementById('ch-note').textContent = cityHallPending >= cap
-    ? 'Storage full — claim now!' : 'Holds up to $' + Math.floor(cap).toLocaleString();
+  document.getElementById('ch-rate').textContent = '$' + (Math.round(perMin * 10) / 10).toLocaleString() + ' / min';
+  document.getElementById('ch-fill').style.width = (cap > 0 ? Math.min(100, cityHallPending / cap * 100) : 0) + '%';
+  document.getElementById('ch-note').textContent =
+    perMin <= 0 ? 'Build roads and a house to start earning'
+    : cityHallPending >= cap ? 'Storage full — claim now!'
+    : 'Holds up to $' + Math.floor(cap).toLocaleString();
   document.getElementById('ch-claim').disabled = amt < 1;
 }
 function openCityHallPanel() {
   renderCityHallPanel();
   chOverlay.classList.add('open'); chPopup.classList.add('open');
-  if (tutorialActive) finishTutorial();
 }
 function closeCityHallPanel() { chOverlay.classList.remove('open'); chPopup.classList.remove('open'); }
 
@@ -10472,6 +10532,7 @@ document.getElementById('ch-claim').addEventListener('click', function () {
   cash += amt;
   updateCashUI(+amt);
   showToast('💰 Collected $' + amt.toLocaleString() + '!');
+  if (cityHallBonusGiven && !welcomeClaimed) welcomeClaimed = true;   // starts tour part 2
   renderCityHallPanel();
 });
 
@@ -10483,7 +10544,8 @@ setInterval(function () {
     cityHallPending += CH_FIRST_BONUS;
     showToast('🎁 Welcome bonus: $1,000 ready to claim!');
   }
-  cityHallPending = Math.min(cityHallCap(), cityHallPending + cityHallIncomePerSec());
+  const inc = cityHallIncomePerSec(), cap = cityHallCap();
+  if (inc > 0 && cityHallPending < cap) cityHallPending = Math.min(cap, cityHallPending + inc);
   if (chPopup.classList.contains('open')) renderCityHallPanel();
 }, 1000);
 
@@ -10496,12 +10558,10 @@ function tryOpenCityHallAt(x, y) {
   if (selectedTool || !cityHallPlaced) return;
   if (buildSubpanel.classList.contains('show')) return;
   const mesh = findCityHallMesh(); if (!mesh) return;
-  // 1) Did the tap hit the building itself? (tall buildings need this)
   const rect = canvas.getBoundingClientRect();
   raycaster.setFromCamera(new THREE.Vector2(
     ((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1), camera);
   if (raycaster.intersectObject(mesh, true).length) { openCityHallPanel(); return; }
-  // 2) Or did it hit the ground under it?
   const cell = getGridCell(x, y);
   if (cell && placedItems[cell.r + ',' + cell.c] === mesh) openCityHallPanel();
 }
