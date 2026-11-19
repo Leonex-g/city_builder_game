@@ -10393,7 +10393,23 @@ const CH_STORAGE_MINUTES = 30;       // how long earnings keep stacking up
 
 // ── EARN RATES: dollars per MINUTE, per building ──
 // Houses use their style name (cottage, modern...). Add more here later.
-const EARN_PER_MIN = { road: 0.5, cottage: 1 };
+const EARN_PER_MIN = {
+  // Roads & houses
+  road: 0.5,
+  cottage: 1,
+  cabin: 10, modern: 10, villa: 10, apartment: 10,
+  // Parks
+  park: 10, bigpark: 30, amusementpark: 70,
+  // Services
+  cityhall: 0,
+  windmill: 20, solarenergy: 40,
+  watertank: 30, waterpump: 50,
+  policestation: 30, bigpolicestation: 50,
+  hospital: 50,
+  // Landmarks
+  eiffel: 500, burjkhalifa: 500,
+  // factory: not set yet (earns $0)
+};
 
 const guideBox  = document.getElementById('guide-box');
 const guideText = document.getElementById('guide-text');
