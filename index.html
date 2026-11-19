@@ -937,9 +937,16 @@
 .guide-target{outline:2px solid #FFD166;animation:guidePulse 1s ease-in-out infinite}
 @keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,209,102,.9)}50%{box-shadow:0 0 0 10px rgba(255,209,102,0)}}
 /* lock everything except City Hall during the tour */
-body.tutorial-on #tb-road, body.tutorial-on #tb-builds, body.tutorial-on #tb-factory,
-body.tutorial-on #tb-land, body.tutorial-on #tb-erase,
-body.tutorial-on #svc-root [data-svc]:not([data-svc="cityhall"]){opacity:.3;pointer-events:none}
+/* lock buttons by tour phase: p1 = City Hall, p2 = roads, p3 = cottage */
+body.tut-p1 #tb-road, body.tut-p1 #tb-builds, body.tut-p1 #tb-factory,
+body.tut-p1 #tb-land, body.tut-p1 #tb-erase,
+body.tut-p1 #svc-root [data-svc]:not([data-svc="cityhall"]),
+body.tut-p2 #tb-builds, body.tut-p2 #tb-factory, body.tut-p2 #tb-land,
+body.tut-p2 #tb-erase, body.tut-p2 #tb-governor,
+body.tut-p3 #tb-road, body.tut-p3 #tb-factory, body.tut-p3 #tb-land,
+body.tut-p3 #tb-erase, body.tut-p3 #tb-governor,
+body.tut-p3 #builds-root [data-builds="parks"],
+body.tut-p3 .sp-house-type:not([data-htype="cottage"]){opacity:.3;pointer-events:none}
 
 /* ── City Hall panel ── */
 #ch-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:58;opacity:0;pointer-events:none;transition:opacity .22s}
