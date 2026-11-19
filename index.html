@@ -1540,7 +1540,7 @@ body.tutorial-on #svc-root [data-svc]:not([data-svc="cityhall"]){opacity:.3;poin
           <div class="sp-name">City Hall</div>
           <div class="sp-desc">Pillared dome, gold trim (3×3)</div>
         </div>
-        <span class="bcost">$1,000</span><span class="blimit" id="lim-cityhall">0/1</span>
+        <span class="bcost free">FREE</span><span class="blimit" id="lim-cityhall">0/1</span>
       </div>
     </div>
 
@@ -7942,12 +7942,12 @@ function buildWaterPumpStation(r, c) {
 // ─────────────────────────────────────────────────
 //  CASH SYSTEM
 // ─────────────────────────────────────────────────
-let cash     = 900000000;
+let cash     = 0;
 let diamonds = 50;
 
 const COSTS = {
   road: 50, park: 75, bigpark: 7000, amusementpark: 15000,
-  cityhall: 1000, policestation: 800, bigpolicestation: 2500, hospital: 1200,
+  cityhall: 0, policestation: 800, bigpolicestation: 2500, hospital: 1200,
   windmill: 500, solarenergy: 6000, factory: 8000,
   watertank: 1200, waterpump: 3500,
   cottage: 150, modern: 220, villa: 380, cabin: 130, apartment: 260,
@@ -10376,6 +10376,8 @@ animate();
 // ═════════════════════════════════════════════
 let tutorialActive = true;
 let cityHallPending = 0;
+let cityHallBonusGiven = false;     // welcome bonus only once, ever
+const CH_FIRST_BONUS = 1000;
 const CH_STORAGE_MINUTES = 30;      // how long earnings keep stacking up
 const CH_BASE_INCOME = 5;           // $ per second with no residents
 const CH_INCOME_PER_PERSON = 0.5;   // extra $ per second per resident
@@ -10390,8 +10392,7 @@ const GUIDE_STEPS = {
   2: { text: 'Choose "City Hall".',                                                    target: '[data-svc="cityhall"]' },
   3: { text: 'Tap the City Hall card to select it.',                                   target: '.sp-cityhall-type' },
   4: { text: 'Now tap an empty patch of land to place it (needs a clear 2×2 area).',   target: null },
-  5: { text: 'Your City Hall is built! 🎉 Tap on the building to open it.',            target: null },
-};
+  5: { text: 'City Hall built! 🎉 Tap the building to claim your $1,000 welcome bonus.', target: null },};
 
 // Works out which step the player is on by looking at the game's state
 function computeGuideStep() {
@@ -10470,6 +10471,11 @@ document.getElementById('ch-claim').addEventListener('click', function () {
 // Earnings tick once per second
 setInterval(function () {
   if (!cityHallPlaced) { cityHallPending = 0; return; }
+  if (!cityHallBonusGiven) {
+    cityHallBonusGiven = true;
+    cityHallPending += CH_FIRST_BONUS;
+    showToast('🎁 Welcome bonus: $1,000 ready to claim!');
+  }
   cityHallPending = Math.min(cityHallCap(), cityHallPending + cityHallIncomePerSec());
   if (chPopup.classList.contains('open')) renderCityHallPanel();
 }, 1000);
