@@ -10594,6 +10594,7 @@ canvas.addEventListener('touchend', e => {
 
 
 
+
 /* City Builder — Performance & Graphics Settings add-on */
 (function () {
   'use strict';
@@ -10609,7 +10610,6 @@ canvas.addEventListener('touchend', e => {
     high:   { shadowSize: 2048, shadowType: 'PCFSoftShadowMap', shadowEvery: 400,  aniso: 8, shadowsDefault: true,
               desc: 'Best looking. Full-resolution + anti-aliased image, soft sharp shadows.' }
   };
-  const PR_MIN = 0.6;
 
   function resCap(name) {
     const dpr = window.devicePixelRatio || 1;
@@ -10624,15 +10624,15 @@ canvas.addEventListener('touchend', e => {
 
   let opt = load();
   if (!opt) {
-    opt = { quality: 'medium', fps: 'medium', shadows: null, autoRes: true, showFps: false };
+    opt = { quality: 'medium', fps: 'medium', shadows: null };
     try { const old = localStorage.getItem('cityQuality'); if (Q[old]) opt.quality = old; } catch (e) {}
   }
   if (!Q[opt.quality])  opt.quality = 'medium';
   if (!(opt.fps in FPS)) opt.fps = 'medium';
   if (opt.shadows === null || opt.shadows === undefined) opt.shadows = Q[opt.quality].shadowsDefault;
 
-  /* FPS limiter + frame counter */
-  let lastRun = 0, frames = 0;
+  /* FPS limiter */
+  let lastRun = 0;
   const nativeRAF = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = function (cb) {
     return nativeRAF(function tick(ts) {
@@ -10642,15 +10642,14 @@ canvas.addEventListener('touchend', e => {
         if (ts - lastRun < iv - 2) { nativeRAF(tick); return; }
         lastRun = (ts - lastRun > iv * 2) ? ts : lastRun + iv;
       } else lastRun = ts;
-      frames++;
       cb(ts);
     });
   };
 
-  /* Resolution */
+  /* Resolution (the game's own auto-scaler is switched off) */
   window.setPR = function () {};
   function setRes(v) {
-    curPR = Math.max(PR_MIN, Math.min(v, resCap(opt.quality)));
+    curPR = v;
     renderer.setPixelRatio(curPR);
   }
 
@@ -10697,7 +10696,6 @@ canvas.addEventListener('touchend', e => {
     setRes(resCap(opt.quality));
     applyShadows();
     applyTextures();
-    fpsEl.style.display = opt.showFps ? 'block' : 'none';
     lowStreak = highStreak = 0;
     refreshUI();
   }
@@ -10709,17 +10707,6 @@ canvas.addEventListener('touchend', e => {
     save();
     applyAll();
   };
-
-  /* Auto resolution */
-  let good = 0;
-  setInterval(function () {
-    const f = frames; frames = 0;
-    if (document.hidden || f === 0 || !opt.autoRes) return;
-    const target = FPS[opt.fps] || 60;
-    if (f < target * 0.75)       { setRes(curPR - 0.1);  good = 0; }
-    else if (f >= target * 0.93) { if (++good >= 6) { setRes(curPR + 0.05); good = 0; } }
-    else good = 0;
-  }, 1000);
 
   /* Settings UI */
   const style = document.createElement('style');
@@ -10764,18 +10751,9 @@ canvas.addEventListener('touchend', e => {
     function (v) { opt.shadows = v; applyShadows(); },
     'Shadows are the heaviest effect — turn Off for a big speed boost. (Off by default on Low quality.)');
 
-  addGroup('autoRes', 'Auto resolution',
-    [[true, 'On'], [false, 'Off']],
-    function (v) { opt.autoRes = v; if (!v) setRes(resCap(opt.quality)); },
-    'On: lowers sharpness automatically if your device can\'t reach the FPS target.');
-
-  addGroup('showFps', 'Show FPS counter',
-    [[true, 'On'], [false, 'Off']],
-    function (v) { opt.showFps = v; fpsEl.style.display = v ? 'block' : 'none'; });
-
   const reset = document.createElement('button'); reset.className = 'o-reset'; reset.textContent = 'Reset to defaults (Medium)';
   reset.addEventListener('click', function () {
-    opt = { quality: 'medium', fps: 'medium', shadows: true, autoRes: true, showFps: false };
+    opt = { quality: 'medium', fps: 'medium', shadows: true };
     save(); applyAll();
   });
   body.appendChild(reset);
