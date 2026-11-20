@@ -10592,6 +10592,207 @@ canvas.addEventListener('touchend', e => {
   }
 });
 
+
+
+/* City Builder — Performance & Graphics Settings add-on */
+(function () {
+  'use strict';
+
+  const FPS = { low: 30, medium: 60, high: 0 };
+  const FPS_LABEL = { low: 'Low · 30', medium: 'Medium · 60', high: 'High · Max' };
+
+  const Q = {
+    low:    { shadowSize: 512,  shadowType: 'BasicShadowMap',  shadowEvery: 0,    aniso: 1, shadowsDefault: false,
+              desc: 'Fastest. Lower resolution, no shadows by default.' },
+    medium: { shadowSize: 1024, shadowType: 'PCFShadowMap',     shadowEvery: 1000, aniso: 4, shadowsDefault: true,
+              desc: 'Balanced. Sharper image and smooth shadows.' },
+    high:   { shadowSize: 2048, shadowType: 'PCFSoftShadowMap', shadowEvery: 400,  aniso: 8, shadowsDefault: true,
+              desc: 'Best looking. Full-resolution + anti-aliased image, soft sharp shadows.' }
+  };
+  const PR_MIN = 0.6;
+
+  function resCap(name) {
+    const dpr = window.devicePixelRatio || 1;
+    if (name === 'low')  return Math.min(dpr, 0.85);
+    if (name === 'high') return Math.min(2, Math.max(dpr, 1.5));
+    return Math.max(1, Math.min(dpr, 1.25));
+  }
+
+  const KEY = 'cityOpt_v2';
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(opt)); } catch (e) {} }
+
+  let opt = load();
+  if (!opt) {
+    opt = { quality: 'medium', fps: 'medium', shadows: null, autoRes: true, showFps: false };
+    try { const old = localStorage.getItem('cityQuality'); if (Q[old]) opt.quality = old; } catch (e) {}
+  }
+  if (!Q[opt.quality])  opt.quality = 'medium';
+  if (!(opt.fps in FPS)) opt.fps = 'medium';
+  if (opt.shadows === null || opt.shadows === undefined) opt.shadows = Q[opt.quality].shadowsDefault;
+
+  /* FPS limiter + frame counter */
+  let lastRun = 0, frames = 0;
+  const nativeRAF = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = function (cb) {
+    return nativeRAF(function tick(ts) {
+      const target = FPS[opt.fps];
+      if (target > 0) {
+        const iv = 1000 / target;
+        if (ts - lastRun < iv - 2) { nativeRAF(tick); return; }
+        lastRun = (ts - lastRun > iv * 2) ? ts : lastRun + iv;
+      } else lastRun = ts;
+      frames++;
+      cb(ts);
+    });
+  };
+
+  /* Resolution */
+  window.setPR = function () {};
+  function setRes(v) {
+    curPR = Math.max(PR_MIN, Math.min(v, resCap(opt.quality)));
+    renderer.setPixelRatio(curPR);
+  }
+
+  /* Shadows */
+  let myShadowTimer = null;
+  function refreshMaterials() {
+    scene.traverse(function (n) {
+      if (!n.material) return;
+      (Array.isArray(n.material) ? n.material : [n.material]).forEach(function (m) { if (m) m.needsUpdate = true; });
+    });
+  }
+  function applyShadows() {
+    const q = Q[opt.quality];
+    const type = THREE[q.shadowType];
+    let rebuild = false;
+    if (sun.shadow.mapSize.x !== q.shadowSize) {
+      sun.shadow.mapSize.set(q.shadowSize, q.shadowSize);
+      if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    }
+    if (renderer.shadowMap.type !== type) { renderer.shadowMap.type = type; rebuild = true; }
+    if (sun.castShadow !== !!opt.shadows) { sun.castShadow = !!opt.shadows; rebuild = true; }
+    if (rebuild) refreshMaterials();
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.needsUpdate = true;
+    if (shadowTimer) { clearInterval(shadowTimer); }
+    if (myShadowTimer) { clearInterval(myShadowTimer); myShadowTimer = null; }
+    if (opt.shadows && q.shadowEvery) {
+      myShadowTimer = setInterval(function () { renderer.shadowMap.needsUpdate = true; }, q.shadowEvery);
+    }
+    shadowTimer = myShadowTimer;
+  }
+
+  /* Texture sharpness */
+  function applyTextures() {
+    const a = Math.min(Q[opt.quality].aniso, renderer.capabilities.getMaxAnisotropy());
+    [baseGrassTex, foundationTex].forEach(function (t) {
+      if (t && t.anisotropy !== a) { t.anisotropy = a; t.needsUpdate = true; }
+    });
+  }
+
+  function applyAll() {
+    qualityName = (opt.quality === 'low') ? 'lowx' : opt.quality;
+    if (!QUALITY[qualityName]) QUALITY[qualityName] = { maxPR: 1, shadows: false, shadowEvery: 0 };
+    setRes(resCap(opt.quality));
+    applyShadows();
+    applyTextures();
+    fpsEl.style.display = opt.showFps ? 'block' : 'none';
+    lowStreak = highStreak = 0;
+    refreshUI();
+  }
+
+  window.applyQuality = function (name) {
+    if (!Q[name]) return;
+    opt.quality = name;
+    opt.shadows = Q[name].shadowsDefault;
+    save();
+    applyAll();
+  };
+
+  /* Auto resolution */
+  let good = 0;
+  setInterval(function () {
+    const f = frames; frames = 0;
+    if (document.hidden || f === 0 || !opt.autoRes) return;
+    const target = FPS[opt.fps] || 60;
+    if (f < target * 0.75)       { setRes(curPR - 0.1);  good = 0; }
+    else if (f >= target * 0.93) { if (++good >= 6) { setRes(curPR + 0.05); good = 0; } }
+    else good = 0;
+  }, 1000);
+
+  /* Settings UI */
+  const style = document.createElement('style');
+  style.textContent =
+    '.o-row{display:flex;gap:8px;width:100%}' +
+    '.o-btn{flex:1;padding:10px 4px;border-radius:12px;border:1px solid rgba(255,255,255,.18);' +
+      'background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}' +
+    '.o-btn.active{background:rgba(40,120,80,.5);border-color:#88ffbb;color:#88ffbb}' +
+    '.o-sep{width:100%;height:1px;background:rgba(255,255,255,.08);margin:4px 0}' +
+    '.o-reset{width:100%;padding:9px;border-radius:12px;border:1px solid rgba(255,255,255,.18);' +
+      'background:transparent;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;cursor:pointer}';
+  document.head.appendChild(style);
+
+  const body = document.getElementById('settings-body');
+  const oldNote = body.querySelector('.set-note');
+  const groups = {};
+
+  function addGroup(id, label, items, onPick, note) {
+    const l = document.createElement('div'); l.className = 'set-label'; l.textContent = label; body.appendChild(l);
+    const r = document.createElement('div'); r.className = 'o-row'; body.appendChild(r);
+    groups[id] = items.map(function (it) {
+      const b = document.createElement('button'); b.className = 'o-btn'; b.textContent = it[1];
+      b.addEventListener('click', function () { onPick(it[0]); save(); refreshUI(); });
+      r.appendChild(b);
+      return { btn: b, val: it[0] };
+    });
+    if (note) { const n = document.createElement('div'); n.className = 'set-note'; n.id = 'note-' + id; n.textContent = note; body.appendChild(n); }
+  }
+
+  if (oldNote) oldNote.remove();
+  const qNote = document.createElement('div'); qNote.className = 'set-note'; qNote.id = 'note-quality';
+  body.appendChild(qNote);
+  const sep0 = document.createElement('div'); sep0.className = 'o-sep'; body.appendChild(sep0);
+
+  addGroup('fps', 'Frame rate (FPS)',
+    [['low', FPS_LABEL.low], ['medium', FPS_LABEL.medium], ['high', FPS_LABEL.high]],
+    function (v) { opt.fps = v; },
+    'Low saves battery & heat on weak phones. High runs as fast as your screen allows.');
+
+  addGroup('shadows', 'Shadows',
+    [[true, 'On'], [false, 'Off']],
+    function (v) { opt.shadows = v; applyShadows(); },
+    'Shadows are the heaviest effect — turn Off for a big speed boost. (Off by default on Low quality.)');
+
+  addGroup('autoRes', 'Auto resolution',
+    [[true, 'On'], [false, 'Off']],
+    function (v) { opt.autoRes = v; if (!v) setRes(resCap(opt.quality)); },
+    'On: lowers sharpness automatically if your device can\'t reach the FPS target.');
+
+  addGroup('showFps', 'Show FPS counter',
+    [[true, 'On'], [false, 'Off']],
+    function (v) { opt.showFps = v; fpsEl.style.display = v ? 'block' : 'none'; });
+
+  const reset = document.createElement('button'); reset.className = 'o-reset'; reset.textContent = 'Reset to defaults (Medium)';
+  reset.addEventListener('click', function () {
+    opt = { quality: 'medium', fps: 'medium', shadows: true, autoRes: true, showFps: false };
+    save(); applyAll();
+  });
+  body.appendChild(reset);
+
+  function refreshUI() {
+    document.querySelectorAll('.q-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.q === opt.quality); });
+    const qn = document.getElementById('note-quality');
+    if (qn) qn.textContent = Q[opt.quality].desc;
+    Object.keys(groups).forEach(function (id) {
+      groups[id].forEach(function (g) { g.btn.classList.toggle('active', opt[id] === g.val); });
+    });
+  }
+
+  applyAll();
+})();
+
+
   
 </script>
 </body>
